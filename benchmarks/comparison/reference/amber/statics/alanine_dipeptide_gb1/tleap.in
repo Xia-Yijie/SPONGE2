@@ -1,0 +1,11 @@
+source leaprc.protein.ff14SB
+set default PBradii mbondi
+
+mol = sequence { ACE ALA NME }
+
+# SPONGE requires a large box entry when pbc=0 + amber_rst7.
+# 950 A keeps no-pbc checks satisfied and preserves a plain run0 single-point.
+set mol box {950.0 950.0 950.0}
+
+saveAmberParm mol system.parm7 system.rst7
+quit

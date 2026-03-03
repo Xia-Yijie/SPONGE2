@@ -1,0 +1,13 @@
+amber alanine dipeptide gb=1 run0
+mode = nve
+pbc = 0
+step_limit = 0
+dt = 0
+cutoff = 999.0
+amber_parm7 = system.parm7
+amber_rst7 = system.rst7
+gb_in_file = gb_gb.txt
+frc = frc.dat
+print_pressure = 1
+print_zeroth_frame = 1
+write_mdout_interval = 1

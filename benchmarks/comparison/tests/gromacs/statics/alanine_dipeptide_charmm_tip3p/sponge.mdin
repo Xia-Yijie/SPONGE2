@@ -1,0 +1,10 @@
+gromacs charmm27 tip3p flexible run0
+mode = nve
+step_limit = 0
+dt = 0
+cutoff = 12.0
+default_in_file_prefix = sys_flexible
+frc = frc.dat
+print_pressure = 1
+print_zeroth_frame = 1
+write_mdout_interval = 1

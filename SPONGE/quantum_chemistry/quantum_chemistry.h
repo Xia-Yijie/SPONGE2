@@ -1,0 +1,92 @@
+﻿#ifndef QUANTUM_CHEMISTRY_H
+#define QUANTUM_CHEMISTRY_H
+
+#include "../common.h"
+#include "../control.h"
+#include "structure/cart2sph.h"
+#include "structure/dft.h"
+#include "structure/integral_tasks.h"
+#include "structure/method.h"
+#include "structure/molecule.h"
+#include "structure/scf_workspace.h"
+
+struct QUANTUM_CHEMISTRY
+{
+   public:
+    char module_name[CHAR_LENGTH_MAX];
+    int is_initialized = 0;
+    int last_modify_date = 20260216;
+    int atom_numbers = 0;
+
+    float scf_energy = 0.0f;
+
+    // 本地原子映射
+    std::vector<int> atom_local;
+    int* d_atom_local = NULL;
+
+    // 计算方法
+    QC_METHOD method = QC_METHOD::HF;
+    // DFT信息
+    QC_DFT dft;
+    // 分子信息
+    QC_MOLECULE mol;
+    // 积分任务
+    QC_INTEGRAL_TASKS task_ctx;
+    // SCF计算内容
+    QC_SCF_WORKSPACE scf_ws;
+
+    BLAS_HANDLE blas_handle;
+    SOLVER_HANDLE solver_handle;
+
+    // device pointers for 2e integrals
+    float* d_hr_pool = NULL;  // Keep float to save memory
+
+    // Cartesian->spherical transform buffers/workspaces
+    QC_CARTESIAN_TO_SPHERICAL cart2sph;
+
+    // 外部入口（main.cpp）
+    void Initial(CONTROLLER* controller, const int atom_numbers,
+                 const VECTOR* crd, const char* module_name = NULL);
+    void Solve_SCF(const VECTOR* crd, const VECTOR box_length,
+                   bool need_energy = true);
+
+    // 外部查询与输出
+    void Step_Print(CONTROLLER* controller);
+
+   private:
+    // 初始化内部流程
+    bool Parsing_Arguments(CONTROLLER* controller, const int atom_numbers,
+                           const char*& qc_type_file,
+                           std::string& basis_set_name);
+    void Initial_Molecule(CONTROLLER* controller, const char* qc_type_file,
+                          const std::string& basis_set_name);
+    void Initial_Integral_Tasks(CONTROLLER* controller);
+    void Memory_Allocate(CONTROLLER* controller);
+    void Build_SCF_Workspace();
+
+    // 积分与基组变换内部流程
+    void Build_Cart2Sph_Matrix();
+    void Cart2Sph_OneE_Integrals();
+    void Cart2Sph_ERI();
+
+    void Update_DFT_Grid();
+
+    // 坐标更新
+    void Update_Coordinates_From_MD(const VECTOR* crd, const VECTOR box_length);
+
+    // 积分
+    void Compute_OneE_Integrals();
+    void Compute_Nuclear_Repulsion(const VECTOR box_length);
+    void Prepare_Integrals();
+
+    // SCF 循环内部流程
+    void Build_Fock();
+    void Accumulate_SCF_Energy(int iter);
+    void Apply_DIIS(int iter);
+    void Diagonalize_And_Build_Density();
+    bool Mix_And_Check_Convergence(int iter);
+    void Build_Overlap_X();
+    void Reset_SCF_State();
+};
+
+#endif

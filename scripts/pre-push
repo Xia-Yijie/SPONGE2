@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+ZERO_SHA = "0" * 40
+
+
+def collect_files_from_push_input(stdin_text):
+    files_to_check = []
+    for line in stdin_text.splitlines():
+        parts = line.strip().split()
+        if len(parts) != 4:
+            continue
+
+        _, local_sha, _, remote_sha = parts
+
+        # Skip deletes
+        if local_sha == ZERO_SHA:
+            continue
+
+        if remote_sha == ZERO_SHA:
+            range_spec = local_sha
+        else:
+            range_spec = f"{remote_sha}..{local_sha}"
+
+        result = subprocess.run(
+            ["git", "diff", "--name-only", range_spec, "--diff-filter=ACMR"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            continue
+
+        files_to_check.extend(
+            [
+                line.strip()
+                for line in result.stdout.splitlines()
+                if line.strip()
+            ]
+        )
+
+    return sorted(set(files_to_check))
+
+
+def main():
+    script_dir = Path(__file__).resolve().parent
+    files_to_check = collect_files_from_push_input(sys.stdin.read())
+
+    env = os.environ.copy()
+    env["GITHOOK_FILES"] = "\n".join(files_to_check)
+
+    result = subprocess.run(
+        [str(script_dir / "pre-commit")], check=False, env=env
+    )
+    return result.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())

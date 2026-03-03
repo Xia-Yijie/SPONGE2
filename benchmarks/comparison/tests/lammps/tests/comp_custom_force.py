@@ -1,0 +1,497 @@
+import shutil
+import subprocess
+from pathlib import Path
+
+import numpy as np
+import pytest
+from utils import (
+    EV_TO_KCAL_MOL,
+    load_lammps_reference_entry,
+    load_lammps_reference_forces,
+    load_lammps_reference_stress,
+    extract_sponge_forces,
+    extract_sponge_potential,
+    extract_sponge_pressure,
+    extract_sponge_stress,
+    print_validation_table,
+    write_lammps_data,
+    write_sponge_coords,
+    write_sponge_mass,
+)
+
+
+def _run_sponge(sponge_dir: Path):
+    subprocess.run(
+        ["SPONGE", "-mdin", "mdin.spg.toml"],
+        cwd=sponge_dir,
+        check=True,
+        capture_output=True,
+    )
+
+
+def _validate_lammps_vs_sponge(
+    reference_case_name: str,
+    iteration: int,
+    statics_path: Path,
+    title_case_name: str,
+    sponge_dir: Path,
+    num_atoms: int,
+    energy_tol: float,
+    pressure_tol: float,
+    stress_tol: float,
+    force_max_tol: float,
+    force_rms_tol: float,
+):
+    ref_entry = load_lammps_reference_entry(
+        statics_path, reference_case_name, iteration
+    )
+    assert int(ref_entry["natom"]) == num_atoms
+
+    lammps_energy = float(ref_entry["energy"])
+    sponge_energy = extract_sponge_potential(sponge_dir)
+    e_diff = abs(lammps_energy - sponge_energy)
+
+    lammps_pressure = float(ref_entry["pressure"])
+    sponge_pressure = extract_sponge_pressure(sponge_dir)
+    p_diff = abs(lammps_pressure - sponge_pressure)
+
+    lammps_stress = load_lammps_reference_stress(
+        statics_path, reference_case_name, iteration
+    )
+    sponge_stress = extract_sponge_stress(sponge_dir)
+    stress_diff = {
+        key: abs(lammps_stress[key] - sponge_stress[key])
+        for key in ["Pxx", "Pyy", "Pzz", "Pxy", "Pxz", "Pyz"]
+    }
+    max_stress_diff = max(stress_diff.values())
+
+    lammps_forces = load_lammps_reference_forces(
+        statics_path, reference_case_name, iteration
+    )
+    sponge_forces = extract_sponge_forces(sponge_dir, num_atoms)
+    diff = np.abs(lammps_forces - sponge_forces)
+    max_force_diff = float(np.max(diff))
+    rms_force_diff = float(
+        np.sqrt(np.mean((lammps_forces - sponge_forces) ** 2))
+    )
+
+    lammps_mag = np.linalg.norm(lammps_forces, axis=1)
+    sponge_mag = np.linalg.norm(sponge_forces, axis=1)
+    denom = lammps_mag * sponge_mag
+    valid = denom > 1e-8
+    cos_sim = 1.0
+    if np.any(valid):
+        cos_sim = float(
+            np.mean(
+                np.sum(lammps_forces[valid] * sponge_forces[valid], axis=1)
+                / denom[valid]
+            )
+        )
+
+    headers = ["Item", "LAMMPS", "SPONGE", "Diff", "Status"]
+    rows = [
+        [
+            "Energy(kcal/mol)",
+            f"{lammps_energy:.6e}",
+            f"{sponge_energy:.6e}",
+            f"{e_diff:.4e}",
+            "PASS" if e_diff < energy_tol else "FAIL",
+        ],
+        [
+            "Pressure(bar)",
+            f"{lammps_pressure:.6e}",
+            f"{sponge_pressure:.6e}",
+            f"{p_diff:.4e}",
+            "PASS" if p_diff < pressure_tol else "FAIL",
+        ],
+    ]
+    for key in ["Pxx", "Pyy", "Pzz", "Pxy", "Pxz", "Pyz"]:
+        rows.append(
+            [
+                key,
+                f"{lammps_stress[key]:.6e}",
+                f"{sponge_stress[key]:.6e}",
+                f"{stress_diff[key]:.4e}",
+                "PASS" if stress_diff[key] < stress_tol else "FAIL",
+            ]
+        )
+    rows.extend(
+        [
+            [
+                "Max Force Diff",
+                "N/A",
+                "N/A",
+                f"{max_force_diff:.4e}",
+                "PASS" if max_force_diff < force_max_tol else "FAIL",
+            ],
+            [
+                "RMS Force Diff",
+                "N/A",
+                "N/A",
+                f"{rms_force_diff:.4e}",
+                "PASS" if rms_force_diff < force_rms_tol else "FAIL",
+            ],
+            [
+                "Force CosSim",
+                "N/A",
+                "N/A",
+                f"{cos_sim:.6f}",
+                "PASS" if cos_sim > 0.9999 else "FAIL",
+            ],
+        ]
+    )
+    print_validation_table(
+        headers, rows, title=f"Custom Force: {title_case_name}"
+    )
+
+    assert e_diff < energy_tol
+    assert p_diff < pressure_tol
+    assert max_stress_diff < stress_tol
+    assert max_force_diff < force_max_tol
+    assert rms_force_diff < force_rms_tol
+    assert cos_sim > 0.9999
+
+
+def _write_lammps_bond_data(path: Path, coords, box, bonds):
+    num_atoms = coords.shape[0]
+    num_bonds = len(bonds)
+    atom_lines = [
+        f"{atom_id} 1 1 {coords[atom_id - 1, 0]:.12f} {coords[atom_id - 1, 1]:.12f} {coords[atom_id - 1, 2]:.12f}"
+        for atom_id in range(1, num_atoms + 1)
+    ]
+    bond_lines = [
+        f"{bond_id} 1 {atom_i} {atom_j}"
+        for bond_id, (atom_i, atom_j) in enumerate(bonds, start=1)
+    ]
+    path.write_text(
+        "\n".join(
+            [
+                "Generated by SPONGE custom_force test",
+                "",
+                f"{num_atoms} atoms",
+                f"{num_bonds} bonds",
+                "1 atom types",
+                "1 bond types",
+                "",
+                f"0.0 {box[0]:.12f} xlo xhi",
+                f"0.0 {box[1]:.12f} ylo yhi",
+                f"0.0 {box[2]:.12f} zlo zhi",
+                "",
+                "Masses",
+                "",
+                "1 12.0",
+                "",
+                "Atoms",
+                "",
+                *atom_lines,
+                "",
+                "Bonds",
+                "",
+                *bond_lines,
+                "",
+            ]
+        )
+    )
+
+
+def _apply_random_perturbation(
+    base_coords: np.ndarray, box: np.ndarray, perturbation: float, seed: int
+):
+    coords = np.array(base_coords, dtype=float, copy=True)
+    if perturbation <= 0:
+        return coords
+    rng = np.random.RandomState(seed)
+    noise = (rng.random_sample(coords.shape) - 0.5) * 2.0 * perturbation
+    coords += noise
+    coords %= box
+    return coords
+
+
+@pytest.mark.parametrize("iteration", range(3))
+def test_custom_pairwise_morse_vs_lammps(iteration, outputs_path, statics_path):
+    curr_perturbation = 0.05 * iteration
+    print(f"\n\nIteration: {iteration}, Perturbation: {curr_perturbation:.2e}")
+
+    case_dir = outputs_path / "custom_force" / "pairwise_morse" / str(iteration)
+    lammps_dir = case_dir / "lammps"
+    sponge_dir = case_dir / "sponge"
+
+    if case_dir.exists():
+        shutil.rmtree(case_dir)
+    lammps_dir.mkdir(parents=True, exist_ok=True)
+    (sponge_dir / "system").mkdir(parents=True, exist_ok=True)
+
+    base_coords = np.array(
+        [
+            [2.00, 2.00, 2.00],
+            [3.92, 2.05, 1.96],
+            [6.75, 1.93, 2.08],
+            [9.80, 2.02, 2.12],
+            [2.10, 5.86, 2.04],
+            [3.78, 5.74, 1.92],
+            [6.88, 5.92, 2.10],
+            [9.62, 5.83, 1.97],
+            [1.95, 9.54, 2.06],
+            [3.89, 9.67, 1.94],
+            [6.81, 9.48, 2.15],
+            [9.76, 9.61, 2.03],
+        ],
+        dtype=float,
+    )
+    box = np.array([20.0, 20.0, 20.0], dtype=float)
+    coords = _apply_random_perturbation(
+        base_coords=base_coords,
+        box=box,
+        perturbation=curr_perturbation,
+        seed=1919 + iteration * 114514,
+    )
+    num_atoms = coords.shape[0]
+
+    write_lammps_data(
+        lammps_dir / "data.lammps",
+        coords,
+        box,
+        masses=[12.0],
+        atom_types=[1] * num_atoms,
+    )
+    write_sponge_coords(
+        sponge_dir / "system" / "test_coordinate.txt", coords, box
+    )
+    write_sponge_mass(
+        sponge_dir / "system" / "test_mass.txt", [12.0] * num_atoms
+    )
+
+    d0_eV = 1.20
+    alpha = 1.60
+    r0 = 2.10
+    d0_kcal = d0_eV * EV_TO_KCAL_MOL
+
+    (lammps_dir / "in.lammps").write_text(
+        "\n".join(
+            [
+                "units metal",
+                "atom_style atomic",
+                "boundary p p p",
+                "read_data data.lammps",
+                "pair_style morse 8.0",
+                f"pair_coeff 1 1 {d0_eV:.12f} {alpha:.12f} {r0:.12f}",
+                "neighbor 2.0 bin",
+                "neigh_modify delay 0 every 1 check no",
+                "thermo 1",
+                "thermo_style custom step pe press pxx pyy pzz pxy pxz pyz",
+                "dump 1 all custom 1 forces.dump id fx fy fz",
+                "dump_modify 1 sort id",
+                "run 0",
+                "",
+            ]
+        )
+    )
+
+    (sponge_dir / "mdin.spg.toml").write_text(
+        "\n".join(
+            [
+                "custom pairwise morse run0",
+                "mode = nve",
+                "dt = 0",
+                "step_limit = 0",
+                "cutoff = 8.0",
+                "skin = 2.0",
+                "default_in_file_prefix = system/test",
+                "print_pressure = 1",
+                "print_zeroth_frame = 1",
+                "write_trajectory_interval = 1",
+                "write_mdout_interval = 1",
+                "frc = frc.dat",
+                "pairwise_force_in_file = pairwise_force.txt",
+                "morse_force_in_file = morse-force_in_file.txt",
+                "",
+            ]
+        )
+    )
+    (sponge_dir / "pairwise_force.txt").write_text(
+        "\n".join(
+            [
+                "[[[ morse_force ]]]",
+                "[[ parameters ]]",
+                "float D0_ij, float alpha_ij, float r0_ij",
+                "[[ potential ]]",
+                "E = D0_ij * (expf(-2.0f * alpha_ij * (r_ij - r0_ij)) - 2.0f * expf(-alpha_ij * (r_ij - r0_ij)));",
+                "[[ with_ele ]]",
+                "false",
+                "[[ end ]]",
+                "",
+            ]
+        )
+    )
+    (sponge_dir / "morse-force_in_file.txt").write_text(
+        "\n".join(
+            [
+                f"{num_atoms} 1",
+                f"{d0_kcal:.12f}",
+                f"{alpha:.12f}",
+                f"{r0:.12f}",
+            ]
+            + ["0"] * num_atoms
+            + [""]
+        )
+    )
+
+    _run_sponge(sponge_dir)
+
+    _validate_lammps_vs_sponge(
+        reference_case_name="custom_pairwise_morse",
+        iteration=iteration,
+        statics_path=statics_path,
+        title_case_name=f"pairwise_morse[{iteration}]",
+        sponge_dir=sponge_dir,
+        num_atoms=num_atoms,
+        energy_tol=0.01,
+        pressure_tol=1.0,
+        stress_tol=1.0,
+        force_max_tol=0.5,
+        force_rms_tol=0.25,
+    )
+
+
+@pytest.mark.parametrize("iteration", range(3))
+def test_custom_listed_class2_vs_lammps(iteration, outputs_path, statics_path):
+    curr_perturbation = 0.04 * iteration
+    print(f"\n\nIteration: {iteration}, Perturbation: {curr_perturbation:.2e}")
+
+    case_dir = outputs_path / "custom_force" / "listed_class2" / str(iteration)
+    lammps_dir = case_dir / "lammps"
+    sponge_dir = case_dir / "sponge"
+
+    if case_dir.exists():
+        shutil.rmtree(case_dir)
+    lammps_dir.mkdir(parents=True, exist_ok=True)
+    (sponge_dir / "system").mkdir(parents=True, exist_ok=True)
+
+    base_coords = np.array(
+        [
+            [1.00, 1.00, 1.00],
+            [2.95, 1.07, 0.96],
+            [5.20, 1.15, 1.08],
+            [7.05, 0.94, 1.02],
+            [1.40, 4.20, 1.10],
+            [3.35, 4.05, 0.95],
+            [5.50, 4.10, 0.92],
+            [7.22, 4.28, 1.06],
+        ],
+        dtype=float,
+    )
+    box = np.array([20.0, 20.0, 20.0], dtype=float)
+    coords = _apply_random_perturbation(
+        base_coords=base_coords,
+        box=box,
+        perturbation=curr_perturbation,
+        seed=2333 + iteration * 7789,
+    )
+    num_atoms = coords.shape[0]
+    bonds_1based = [(1, 2), (3, 4), (5, 6), (7, 8)]
+    bonds_0based = [(0, 1), (2, 3), (4, 5), (6, 7)]
+
+    _write_lammps_bond_data(
+        lammps_dir / "data.lammps", coords, box, bonds_1based
+    )
+    write_sponge_coords(
+        sponge_dir / "system" / "test_coordinate.txt", coords, box
+    )
+    write_sponge_mass(
+        sponge_dir / "system" / "test_mass.txt", [12.0] * num_atoms
+    )
+
+    # LAMMPS class2 bond: E = K2*(r-r0)^2 + K3*(r-r0)^3 + K4*(r-r0)^4
+    k2_eV = 12.0
+    k3_eV = -25.0
+    k4_eV = 40.0
+    r0 = 1.80
+    k2_kcal = k2_eV * EV_TO_KCAL_MOL
+    k3_kcal = k3_eV * EV_TO_KCAL_MOL
+    k4_kcal = k4_eV * EV_TO_KCAL_MOL
+
+    (lammps_dir / "in.lammps").write_text(
+        "\n".join(
+            [
+                "units metal",
+                "atom_style bond",
+                "boundary p p p",
+                "read_data data.lammps",
+                "pair_style zero 8.0",
+                "pair_coeff * *",
+                "bond_style class2",
+                f"bond_coeff 1 {r0:.12f} {k2_eV:.12f} {k3_eV:.12f} {k4_eV:.12f}",
+                "neighbor 2.0 bin",
+                "neigh_modify delay 0 every 1 check no",
+                "thermo 1",
+                "thermo_style custom step pe press pxx pyy pzz pxy pxz pyz",
+                "dump 1 all custom 1 forces.dump id fx fy fz",
+                "dump_modify 1 sort id",
+                "run 0",
+                "",
+            ]
+        )
+    )
+
+    (sponge_dir / "mdin.spg.toml").write_text(
+        "\n".join(
+            [
+                "custom listed class2 run0",
+                "mode = nve",
+                "dt = 0",
+                "step_limit = 0",
+                "cutoff = 8.0",
+                "skin = 2.0",
+                "default_in_file_prefix = system/test",
+                "print_pressure = 1",
+                "print_zeroth_frame = 1",
+                "write_trajectory_interval = 1",
+                "write_mdout_interval = 1",
+                "frc = frc.dat",
+                "listed_forces_in_file = listed_force.txt",
+                "class2_bond_in_file = class2-bond_in_file.txt",
+                "",
+            ]
+        )
+    )
+    (sponge_dir / "listed_force.txt").write_text(
+        "\n".join(
+            [
+                "[[[ class2_bond ]]]",
+                "[[ parameters ]]",
+                "int atom_i, int atom_j, float r0_ij, float k2_ij, float k3_ij, float k4_ij",
+                "[[ potential ]]",
+                "E = k2_ij * (r_ij - r0_ij) * (r_ij - r0_ij) + k3_ij * (r_ij - r0_ij) * (r_ij - r0_ij) * (r_ij - r0_ij) + k4_ij * (r_ij - r0_ij) * (r_ij - r0_ij) * (r_ij - r0_ij) * (r_ij - r0_ij);",
+                "[[ connected_atoms ]]",
+                "ij",
+                "[[ end ]]",
+                "",
+            ]
+        )
+    )
+    (sponge_dir / "class2-bond_in_file.txt").write_text(
+        "\n".join(
+            [str(len(bonds_0based))]
+            + [
+                f"{atom_i} {atom_j} {r0:.12f} {k2_kcal:.12f} {k3_kcal:.12f} {k4_kcal:.12f}"
+                for atom_i, atom_j in bonds_0based
+            ]
+            + [""]
+        )
+    )
+
+    _run_sponge(sponge_dir)
+
+    _validate_lammps_vs_sponge(
+        reference_case_name="custom_listed_class2",
+        iteration=iteration,
+        statics_path=statics_path,
+        title_case_name=f"listed_class2[{iteration}]",
+        sponge_dir=sponge_dir,
+        num_atoms=num_atoms,
+        energy_tol=0.01,
+        pressure_tol=1.0,
+        stress_tol=1.0,
+        force_max_tol=0.5,
+        force_rms_tol=0.25,
+    )

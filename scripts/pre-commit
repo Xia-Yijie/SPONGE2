@@ -1,0 +1,415 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+import sys
+from pathlib import Path
+from shutil import which
+
+BOM = b"\xef\xbb\xbf"
+CPP_SUFFIXES = (".cpp", ".h", ".hpp")
+PY_SUFFIXES = (".py", ".pyi", ".ipynb")
+CMAKE_SUFFIXES = (".cmake",)
+PY_HOOK_FILES = {"scripts/pre-commit", "scripts/pre-push"}
+EXCLUDED_CPP_FILES = set()
+
+
+def env_flag(name, default):
+    return os.getenv(name, default).strip() == "1"
+
+
+def run_capture(cmd):
+    result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    if result.returncode != 0:
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def tracked_files():
+    return run_capture(["git", "ls-files"])
+
+
+def staged_files():
+    return run_capture(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"]
+    )
+
+
+def explicit_files(raw_files):
+    return [line.strip() for line in raw_files.splitlines() if line.strip()]
+
+
+def unique_keep_order(paths):
+    seen = set()
+    result = []
+    for path in paths:
+        if path in seen:
+            continue
+        seen.add(path)
+        result.append(path)
+    return result
+
+
+def _shorten_path(path, max_len=60):
+    if len(path) <= max_len:
+        return path
+    return "..." + path[-(max_len - 3) :]
+
+
+def show_progress(stage, index, total, file):
+    if total <= 0:
+        return
+
+    width = 24
+    filled = int(width * index / total)
+    bar = "#" * filled + "-" * (width - filled)
+    percent = int(100 * index / total)
+    msg = (
+        f"{stage:<10} [{index:>3}/{total}] "
+        f"[{bar}] {percent:>3}% {_shorten_path(file)}"
+    )
+
+    if sys.stdout.isatty():
+        end = "\n" if index == total else ""
+        print(f"\r\033[K{msg}", end=end, flush=True)
+    else:
+        print(msg)
+
+
+def split_files(files):
+    cpp_files = []
+    py_files = []
+    cmake_files = []
+
+    for file in files:
+        path = Path(file)
+        name = path.name
+
+        if file.endswith(CPP_SUFFIXES) and file not in EXCLUDED_CPP_FILES:
+            cpp_files.append(file)
+        if file.endswith(PY_SUFFIXES) or file in PY_HOOK_FILES:
+            py_files.append(file)
+        if name == "CMakeLists.txt" or file.endswith(CMAKE_SUFFIXES):
+            cmake_files.append(file)
+
+    return (
+        unique_keep_order(cpp_files),
+        unique_keep_order(py_files),
+        unique_keep_order(cmake_files),
+    )
+
+
+def existing_files(files):
+    present = []
+    missing = []
+    for file in files:
+        if Path(file).is_file():
+            present.append(file)
+        else:
+            missing.append(file)
+    return present, missing
+
+
+def require_tool(name, install_hint):
+    if which(name):
+        return True
+    print(f"❌ 未找到 {name}，请先安装并加入 PATH。")
+    if install_hint:
+        print(f"   例如：{install_hint}")
+    return False
+
+
+def file_has_bom(path):
+    try:
+        with path.open("rb") as f:
+            return f.read(3) == BOM
+    except OSError:
+        return False
+
+
+def add_bom(path):
+    content = path.read_bytes()
+    if not content.startswith(BOM):
+        path.write_bytes(BOM + content)
+
+
+def clang_format_ok(path):
+    result = subprocess.run(
+        ["clang-format", "-n", "-Werror", str(path)],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def clang_format_fix(path):
+    result = subprocess.run(["clang-format", "-i", str(path)], check=False)
+    return result.returncode == 0
+
+
+def ruff_format_ok(path):
+    result = subprocess.run(
+        ["ruff", "format", "--check", str(path)],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def ruff_format_fix(path):
+    result = subprocess.run(
+        ["ruff", "format", str(path)],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def cmake_format_ok(path):
+    result = subprocess.run(
+        ["cmake-format", "--check", str(path)],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def cmake_format_fix(path):
+    result = subprocess.run(
+        ["cmake-format", "-i", str(path)],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def git_add(paths):
+    if not paths:
+        return True
+    result = subprocess.run(["git", "add", *paths], check=False)
+    return result.returncode == 0
+
+
+def print_format_hint():
+    print()
+    print("📝 修复方法：")
+    print("  1. 在支持 pixi dev feature 的环境中执行 `pixi run format`")
+    print(
+        "     （例如 `pixi run -e dev-cpu format` 或 `pixi run -e dev-cuda format`）"
+    )
+    print("  2. 然后重新 git add 文件")
+    print()
+
+
+def print_clang_format_hint():
+    print_format_hint()
+
+
+def print_cmake_format_hint():
+    print_format_hint()
+
+
+def print_ruff_format_hint():
+    print_format_hint()
+
+
+def format_or_check_python(py_files, do_modify):
+    if not py_files:
+        print("✅ 没有需要处理的 Python 文件")
+        return True
+    if not require_tool("ruff", "pixi run -e dev-cpu install"):
+        return False
+
+    if do_modify:
+        print("🔍 检查并修改 Python 代码...")
+        fixed_count = 0
+        for file in py_files:
+            path = Path(file)
+            if ruff_format_ok(path):
+                continue
+            print(f"修复: {file}")
+            if ruff_format_fix(path):
+                fixed_count += 1
+                print("  ✅ 已使用 ruff format 格式化")
+            else:
+                print(f"  ❌ ruff format 执行失败: {file}")
+                return False
+        if fixed_count == 0:
+            print("✅ Python 文件无需修复")
+        return True
+
+    print("🔍 检查 Python 代码...")
+    unformatted_files = []
+    for i, file in enumerate(py_files, start=1):
+        show_progress("Python", i, len(py_files), file)
+        if not ruff_format_ok(Path(file)):
+            unformatted_files.append(file)
+
+    if unformatted_files:
+        print("❌ 以下文件未通过 ruff format 检查：")
+        for file in unformatted_files:
+            print(f"  {file}")
+        print_ruff_format_hint()
+        return False
+
+    print("✅ 所有 Python 文件都通过 ruff format 检查")
+    return True
+
+
+def format_or_check_cmake(cmake_files, do_modify):
+    if not cmake_files:
+        print("✅ 没有需要处理的 CMake 文件")
+        return True
+    if not require_tool("cmake-format", "pixi run -e dev-cpu install"):
+        return False
+
+    if do_modify:
+        print("🔍 检查并修改 CMake 脚本...")
+        fixed_count = 0
+        for file in cmake_files:
+            path = Path(file)
+            if cmake_format_ok(path):
+                continue
+            print(f"修复: {file}")
+            if cmake_format_fix(path):
+                fixed_count += 1
+                print("  ✅ 已使用 cmake-format 格式化")
+            else:
+                print(f"  ❌ cmake-format 执行失败: {file}")
+                return False
+        if fixed_count == 0:
+            print("✅ CMake 文件无需修复")
+        return True
+
+    print("🔍 检查 CMake 脚本...")
+    unformatted_files = []
+    for i, file in enumerate(cmake_files, start=1):
+        show_progress("CMake", i, len(cmake_files), file)
+        if not cmake_format_ok(Path(file)):
+            unformatted_files.append(file)
+
+    if unformatted_files:
+        print("❌ 以下文件未通过 cmake-format 检查：")
+        for file in unformatted_files:
+            print(f"  {file}")
+        print_cmake_format_hint()
+        return False
+
+    print("✅ 所有 CMake 文件都通过 cmake-format 检查")
+    return True
+
+
+def format_or_check_cpp(cpp_files, do_modify):
+    if do_modify:
+        print("🔍 检查并修改C++源码...")
+    else:
+        print("🔍 检查C++源码...")
+
+    if not cpp_files:
+        print("✅ 没有需要处理的 C++ 源代码文件")
+        return True
+
+    if not require_tool("clang-format", "pixi run -e dev-cpu install"):
+        return False
+
+    if do_modify:
+        fixed_count = 0
+        for file in cpp_files:
+            path = Path(file)
+            missing_bom = not file_has_bom(path)
+            need_clang_format = not clang_format_ok(path)
+
+            if not missing_bom and not need_clang_format:
+                continue
+
+            fixed_count += 1
+            print(f"修复: {file}")
+            if missing_bom:
+                add_bom(path)
+                print("  ✅ 已添加 BOM")
+            if need_clang_format:
+                if clang_format_fix(path):
+                    print("  ✅ 已使用 clang-format 格式化")
+                else:
+                    print(f"  ❌ clang-format 执行失败: {file}")
+                    return False
+        if fixed_count == 0:
+            print("✅ C++ 文件无需修复")
+        return True
+
+    no_bom_files = []
+    for i, file in enumerate(cpp_files, start=1):
+        show_progress("C++ BOM", i, len(cpp_files), file)
+        path = Path(file)
+        if not file_has_bom(path):
+            no_bom_files.append(file)
+
+    if no_bom_files:
+        print("❌ 以下文件编码缺少 BOM：")
+        for file in no_bom_files:
+            print(f"  {file}")
+        print_format_hint()
+        return False
+
+    print("✅ 所有源代码文件编码都为 UTF-8 BOM")
+
+    unformatted_files = []
+    for i, file in enumerate(cpp_files, start=1):
+        show_progress("C++ Fmt", i, len(cpp_files), file)
+        path = Path(file)
+        if not clang_format_ok(path):
+            unformatted_files.append(file)
+
+    if unformatted_files:
+        print("❌ 以下文件未通过 clang-format 检查：")
+        for file in unformatted_files:
+            print(f"  {file}")
+        print_clang_format_hint()
+        return False
+
+    print("✅ 所有源代码文件都通过 clang-format 检查")
+    return True
+
+
+def main():
+    do_modify = env_flag("GITHOOK_MODIFY", "0")
+    do_auto_add = env_flag("GITHOOK_AUTO_ADD", "1")
+    do_all = env_flag("GITHOOK_ALL", "0")
+    raw_files = os.getenv("GITHOOK_FILES")
+
+    if do_all:
+        files_to_check = tracked_files()
+    elif raw_files:
+        files_to_check = explicit_files(raw_files)
+    else:
+        files_to_check = staged_files()
+
+    files_to_check = unique_keep_order(files_to_check)
+    cpp_files, py_files, cmake_files = split_files(files_to_check)
+    cpp_files, missing_cpp = existing_files(cpp_files)
+    py_files, missing_py = existing_files(py_files)
+    cmake_files, missing_cmake = existing_files(cmake_files)
+
+    missing_files = unique_keep_order(missing_cpp + missing_py + missing_cmake)
+    for file in missing_files:
+        print(f"⚠️ 已跳过不存在的文件: {file}")
+
+    ok = True
+    ok = format_or_check_cpp(cpp_files, do_modify) and ok
+    ok = format_or_check_python(py_files, do_modify) and ok
+    ok = format_or_check_cmake(cmake_files, do_modify) and ok
+
+    if do_modify and do_auto_add:
+        files_to_add = unique_keep_order(cpp_files + py_files + cmake_files)
+        if files_to_add and not git_add(files_to_add):
+            print("❌ git add 失败。")
+            return 1
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

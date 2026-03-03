@@ -1,0 +1,14 @@
+mode = "nve"
+dt = 0
+step_limit = 0
+print_zeroth_frame = 1
+write_mdout_interval = 1
+write_trajectory_interval = 1
+default_in_file_prefix = "system/test"
+cutoff = 3.8712
+skin = 0.4
+frc = "frc.dat"
+print_pressure = 1
+
+[TERSOFF]
+in_file = "BN.tersoff"

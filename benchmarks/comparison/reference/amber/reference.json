@@ -1,0 +1,62 @@
+{
+  "format_version": 1,
+  "energy_unit": "kcal/mol",
+  "force_unit": "kcal/mol/Angstrom",
+  "sander_banner": "Amber 24 SANDER                              2024",
+  "entries": [
+    {
+      "case_name": "alanine_dipeptide_gb1",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 20260217,
+      "energy_epot": -27.3064,
+      "natom": 22,
+      "forces_file": "forces/alanine_dipeptide_gb1/iter0.npy"
+    },
+    {
+      "case_name": "alanine_dipeptide_gb1",
+      "iteration": 1,
+      "perturbation": 0.05,
+      "seed": 20261217,
+      "energy_epot": -6.3787,
+      "natom": 22,
+      "forces_file": "forces/alanine_dipeptide_gb1/iter1.npy"
+    },
+    {
+      "case_name": "alanine_dipeptide_gb1",
+      "iteration": 2,
+      "perturbation": 0.1,
+      "seed": 20262217,
+      "energy_epot": 54.0986,
+      "natom": 22,
+      "forces_file": "forces/alanine_dipeptide_gb1/iter2.npy"
+    },
+    {
+      "case_name": "alanine_dipeptide_tip4pew",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 20260217,
+      "energy_epot": -5067.9895,
+      "natom": 2398,
+      "forces_file": "forces/alanine_dipeptide_tip4pew/iter0.npy"
+    },
+    {
+      "case_name": "alanine_dipeptide_tip4pew",
+      "iteration": 1,
+      "perturbation": 0.02,
+      "seed": 20262217,
+      "energy_epot": -5065.4615,
+      "natom": 2398,
+      "forces_file": "forces/alanine_dipeptide_tip4pew/iter1.npy"
+    },
+    {
+      "case_name": "alanine_dipeptide_tip4pew",
+      "iteration": 2,
+      "perturbation": 0.05,
+      "seed": 20264217,
+      "energy_epot": -5011.7344,
+      "natom": 2398,
+      "forces_file": "forces/alanine_dipeptide_tip4pew/iter2.npy"
+    }
+  ]
+}

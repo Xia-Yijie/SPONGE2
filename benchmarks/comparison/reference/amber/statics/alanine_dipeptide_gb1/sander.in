@@ -1,0 +1,10 @@
+Run0 alanine dipeptide gb=1
+&cntrl
+  imin=0, irest=0, ntx=1,
+  nstlim=0, dt=0.001,
+  ntb=0, igb=1, cut=999.0,
+  ntc=1, ntf=1,
+  ntwf=1,
+  ioutfm=0,
+  ntpr=1, ntwx=0, ntwr=0,
+/

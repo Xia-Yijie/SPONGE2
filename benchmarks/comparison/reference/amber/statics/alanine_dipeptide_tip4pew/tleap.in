@@ -1,0 +1,8 @@
+source leaprc.protein.ff14SB
+source leaprc.water.tip4pew
+
+mol = sequence { ACE ALA NME }
+solvateBox mol TIP4PEWBOX 8.0 iso
+
+saveAmberParm mol system.parm7 system.rst7
+quit

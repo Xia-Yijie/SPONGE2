@@ -1,0 +1,42 @@
+﻿#pragma once
+
+static __global__ void QC_Mix_Density_Kernel(const int nao2, const int iter,
+                                             const float mix,
+                                             const float* P_new_row,
+                                             float* P_row)
+{
+    SIMPLE_DEVICE_FOR(idx, nao2)
+    {
+        if (iter == 0)
+            P_row[idx] = P_new_row[idx];
+        else
+            P_row[idx] = (1.0f - mix) * P_row[idx] + mix * P_new_row[idx];
+    }
+}
+
+bool QUANTUM_CHEMISTRY::Mix_And_Check_Convergence(int iter)
+{
+    const int mix_threads = 256;
+
+    Launch_Device_Kernel(QC_Mix_Density_Kernel,
+                         (mol.nao2 + mix_threads - 1) / mix_threads,
+                         mix_threads, 0, 0, (int)mol.nao2, iter,
+                         scf_ws.density_mixing, scf_ws.d_P_new, scf_ws.d_P);
+
+    if (scf_ws.unrestricted)
+    {
+        Launch_Device_Kernel(
+            QC_Mix_Density_Kernel, (mol.nao2 + mix_threads - 1) / mix_threads,
+            mix_threads, 0, 0, mol.nao2, iter, scf_ws.density_mixing,
+            scf_ws.d_P_b_new, scf_ws.d_P_b);
+        Launch_Device_Kernel(QC_Add_Matrix_Kernel,
+                             (mol.nao2 + mix_threads - 1) / mix_threads,
+                             mix_threads, 0, 0, (int)mol.nao2, scf_ws.d_P,
+                             scf_ws.d_P_b, scf_ws.d_Ptot);
+    }
+
+    int h_converged = 0;
+    deviceMemcpy(&h_converged, scf_ws.d_converged, sizeof(int),
+                 deviceMemcpyDeviceToHost);
+    return h_converged != 0;
+}

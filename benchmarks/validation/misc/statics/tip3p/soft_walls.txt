@@ -1,0 +1,4 @@
+[[[ z_min_soft_wall ]]]
+[[ potential ]]
+E = -z;
+[[ end ]]

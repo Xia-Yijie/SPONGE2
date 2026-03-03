@@ -1,0 +1,627 @@
+{
+  "format_version": 1,
+  "energy_unit": "kcal/mol",
+  "force_unit": "kcal/mol/Angstrom",
+  "pressure_unit": "lammps-native",
+  "lammps_version": "Large-scale Atomic/Molecular Massively Parallel Simulator - 29 Aug 2024",
+  "entries": [
+    {
+      "case_name": "cu_eam",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 42,
+      "natom": 10976,
+      "energy": -896018.5149619201,
+      "pressure": -0.027860374,
+      "stress": {
+        "Pxx": -0.027860374,
+        "Pyy": -0.027860374,
+        "Pzz": -0.027860374,
+        "Pxy": -5.5702166e-11,
+        "Pxz": -7.6723816e-12,
+        "Pyz": -3.3109883e-12
+      },
+      "forces_file": "forces/cu_eam/iter0.npy"
+    },
+    {
+      "case_name": "cu_eam",
+      "iteration": 1,
+      "perturbation": 0.1,
+      "seed": 142,
+      "natom": 10976,
+      "energy": -893770.8725300039,
+      "pressure": 3991.5902,
+      "stress": {
+        "Pxx": 4004.7309,
+        "Pyy": 3984.4636,
+        "Pzz": 3985.5761,
+        "Pxy": 24.503635,
+        "Pxz": 35.189993,
+        "Pyz": 2.7228319
+      },
+      "forces_file": "forces/cu_eam/iter1.npy"
+    },
+    {
+      "case_name": "cu_eam",
+      "iteration": 2,
+      "perturbation": 0.2,
+      "seed": 242,
+      "natom": 10976,
+      "energy": -887022.041733968,
+      "pressure": 15655.539,
+      "stress": {
+        "Pxx": 15738.777,
+        "Pyy": 15526.147,
+        "Pzz": 15701.692,
+        "Pxy": 59.912793,
+        "Pxz": 64.547256,
+        "Pyz": 65.768197
+      },
+      "forces_file": "forces/cu_eam/iter2.npy"
+    },
+    {
+      "case_name": "cuni_eam_alloy",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 42,
+      "natom": 864,
+      "energy": -78888.66805714721,
+      "pressure": -39389.514,
+      "stress": {
+        "Pxx": -39225.921,
+        "Pyy": -39254.482,
+        "Pzz": -39688.141,
+        "Pxy": 227.52265,
+        "Pxz": 41.976743,
+        "Pyz": -75.403842
+      },
+      "forces_file": "forces/cuni_eam_alloy/iter0.npy"
+    },
+    {
+      "case_name": "cuni_eam_alloy",
+      "iteration": 1,
+      "perturbation": 0.1,
+      "seed": 142,
+      "natom": 864,
+      "energy": -78663.7700627772,
+      "pressure": -35173.336,
+      "stress": {
+        "Pxx": -35015.283,
+        "Pyy": -35852.619,
+        "Pzz": -34652.107,
+        "Pxy": 651.22924,
+        "Pxz": -506.02726,
+        "Pyz": 635.25745
+      },
+      "forces_file": "forces/cuni_eam_alloy/iter1.npy"
+    },
+    {
+      "case_name": "cuni_eam_alloy",
+      "iteration": 2,
+      "perturbation": 0.2,
+      "seed": 242,
+      "natom": 864,
+      "energy": -78105.0083726276,
+      "pressure": -21313.061,
+      "stress": {
+        "Pxx": -20756.089,
+        "Pyy": -21684.337,
+        "Pzz": -21498.757,
+        "Pxy": -150.93528,
+        "Pxz": 1047.4254,
+        "Pyz": 58.129942
+      },
+      "forces_file": "forces/cuni_eam_alloy/iter2.npy"
+    },
+    {
+      "case_name": "custom_listed_class2",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 2333,
+      "natom": 8,
+      "energy": 12.56521340701256,
+      "pressure": -595.25242,
+      "stress": {
+        "Pxx": -1777.289,
+        "Pyy": -5.9604951,
+        "Pzz": -2.5078006,
+        "Pxy": 163.68822,
+        "Pxz": 165.53546,
+        "Pyz": -1.3620201
+      },
+      "forces_file": "forces/custom_listed_class2/iter0.npy"
+    },
+    {
+      "case_name": "custom_listed_class2",
+      "iteration": 1,
+      "perturbation": 0.04,
+      "seed": 10122,
+      "natom": 8,
+      "energy": 16.3017342927348,
+      "pressure": -825.25302,
+      "stress": {
+        "Pxx": -2463.2711,
+        "Pyy": -5.9493654,
+        "Pzz": -6.538605,
+        "Pxy": 121.59086,
+        "Pxz": 141.57082,
+        "Pyz": -4.7939518
+      },
+      "forces_file": "forces/custom_listed_class2/iter1.npy"
+    },
+    {
+      "case_name": "custom_listed_class2",
+      "iteration": 2,
+      "perturbation": 0.08,
+      "seed": 17911,
+      "natom": 8,
+      "energy": 31.4874625892288,
+      "pressure": -603.37978,
+      "stress": {
+        "Pxx": -1802.3057,
+        "Pyy": -12.905031,
+        "Pzz": 5.0714103,
+        "Pxy": 205.95989,
+        "Pxz": 353.98733,
+        "Pyz": 10.813918
+      },
+      "forces_file": "forces/custom_listed_class2/iter2.npy"
+    },
+    {
+      "case_name": "custom_pairwise_morse",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 1919,
+      "natom": 12,
+      "energy": -176.0561618776996,
+      "pressure": -537.30351,
+      "stress": {
+        "Pxx": 461.92552,
+        "Pyy": -2080.5805,
+        "Pzz": 6.7445117,
+        "Pxy": -93.226214,
+        "Pxz": -249.62934,
+        "Pyz": 7.9825182
+      },
+      "forces_file": "forces/custom_pairwise_morse/iter0.npy"
+    },
+    {
+      "case_name": "custom_pairwise_morse",
+      "iteration": 1,
+      "perturbation": 0.05,
+      "seed": 116433,
+      "natom": 12,
+      "energy": -176.6391994067288,
+      "pressure": -593.30474,
+      "stress": {
+        "Pxx": 260.61743,
+        "Pyy": -2045.6092,
+        "Pzz": 5.0775498,
+        "Pxy": -105.45931,
+        "Pxz": -251.68397,
+        "Pyz": 6.6606509
+      },
+      "forces_file": "forces/custom_pairwise_morse/iter1.npy"
+    },
+    {
+      "case_name": "custom_pairwise_morse",
+      "iteration": 2,
+      "perturbation": 0.1,
+      "seed": 230947,
+      "natom": 12,
+      "energy": -179.07386749503442,
+      "pressure": -503.76488,
+      "stress": {
+        "Pxx": 639.32241,
+        "Pyy": -2165.7357,
+        "Pzz": 15.118623,
+        "Pxy": -65.592104,
+        "Pxz": -117.62159,
+        "Pyz": 13.974728
+      },
+      "forces_file": "forces/custom_pairwise_morse/iter2.npy"
+    },
+    {
+      "case_name": "edip",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 1919,
+      "natom": 10648,
+      "energy": -537511.7871969161,
+      "pressure": -1574771.0,
+      "stress": {
+        "Pxx": -1574771.0,
+        "Pyy": -1574771.0,
+        "Pzz": -1574771.0,
+        "Pxy": 1.1881131e-09,
+        "Pxz": -9.6245712e-10,
+        "Pyz": -2.578697e-10
+      },
+      "forces_file": "forces/edip/iter0.npy"
+    },
+    {
+      "case_name": "edip",
+      "iteration": 1,
+      "perturbation": 0.1,
+      "seed": 116433,
+      "natom": 10648,
+      "energy": -558369.7300152441,
+      "pressure": -1205198.5,
+      "stress": {
+        "Pxx": -1205054.9,
+        "Pyy": -1204900.1,
+        "Pzz": -1205640.4,
+        "Pxy": -3433.7184,
+        "Pxz": 5597.274,
+        "Pyz": 3131.1784
+      },
+      "forces_file": "forces/edip/iter1.npy"
+    },
+    {
+      "case_name": "edip",
+      "iteration": 2,
+      "perturbation": 0.2,
+      "seed": 230947,
+      "natom": 10648,
+      "energy": -626636.700439372,
+      "pressure": -819078.78,
+      "stress": {
+        "Pxx": -819886.85,
+        "Pyy": -817133.93,
+        "Pzz": -820215.55,
+        "Pxy": -764.19079,
+        "Pxz": 2326.3355,
+        "Pyz": -2652.1179
+      },
+      "forces_file": "forces/edip/iter2.npy"
+    },
+    {
+      "case_name": "reaxff_dimer",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 12345,
+      "natom": 10,
+      "energy": -574.97902,
+      "pressure": 7403.1629,
+      "stress": {
+        "Pxx": 13290.748,
+        "Pyy": 8918.7409,
+        "Pzz": 0.0,
+        "Pxy": -3907.9163,
+        "Pxz": 0.0,
+        "Pyz": 0.0
+      },
+      "thermo": {
+        "Step": 0.0,
+        "PotEng": -574.97902,
+        "E_pair": -574.97902,
+        "Press": 7403.1629,
+        "Pxx": 13290.748,
+        "Pyy": 8918.7409,
+        "Pzz": 0.0,
+        "Pxy": -3907.9163,
+        "Pxz": 0.0,
+        "Pyz": 0.0,
+        "v_eb": -1464.927,
+        "v_ea": 462.65031,
+        "v_elp": 2.4151101,
+        "v_ev": 11.723065,
+        "v_epen": -5.724187,
+        "v_ecoa": -5.8522539e-10,
+        "v_ehb": -0.063029718,
+        "v_et": -3.5998737,
+        "v_eco": -2.5941751,
+        "v_ew": 466.49673,
+        "v_ep": -124.34004,
+        "v_eqeq": 82.984089
+      },
+      "forces_file": "forces/reaxff_dimer/iter0.npy"
+    },
+    {
+      "case_name": "reaxff_dimer",
+      "iteration": 1,
+      "perturbation": 0.1,
+      "seed": 12346,
+      "natom": 10,
+      "energy": -452.61338,
+      "pressure": 7324.9925,
+      "stress": {
+        "Pxx": 13338.286,
+        "Pyy": 8614.4237,
+        "Pzz": 22.268277,
+        "Pxy": -4076.8064,
+        "Pxz": 9.3832631e-13,
+        "Pyz": 1.0556171e-12
+      },
+      "thermo": {
+        "Step": 0.0,
+        "PotEng": -452.61338,
+        "E_pair": -452.61338,
+        "Press": 7324.9925,
+        "Pxx": 13338.286,
+        "Pyy": 8614.4237,
+        "Pzz": 22.268277,
+        "Pxy": -4076.8064,
+        "Pxz": 9.3832631e-13,
+        "Pyz": 1.0556171e-12,
+        "v_eb": -1487.5309,
+        "v_ea": 592.0959,
+        "v_elp": 3.2729235,
+        "v_ev": 15.499071,
+        "v_epen": -3.1143754,
+        "v_ecoa": -6.1728791e-12,
+        "v_ehb": -0.050529919,
+        "v_et": -3.3746725,
+        "v_eco": -2.151707,
+        "v_ew": 476.40876,
+        "v_ep": -140.16159,
+        "v_eqeq": 96.493758
+      },
+      "forces_file": "forces/reaxff_dimer/iter1.npy"
+    },
+    {
+      "case_name": "reaxff_dimer",
+      "iteration": 2,
+      "perturbation": 0.2,
+      "seed": 12347,
+      "natom": 10,
+      "energy": -436.64003,
+      "pressure": 7289.9005,
+      "stress": {
+        "Pxx": 13392.249,
+        "Pyy": 8454.1758,
+        "Pzz": 23.276949,
+        "Pxy": -3659.1648,
+        "Pxz": 1.0375724e-13,
+        "Pyz": 1.7593618e-13
+      },
+      "thermo": {
+        "Step": 0.0,
+        "PotEng": -436.64003,
+        "E_pair": -436.64003,
+        "Press": 7289.9005,
+        "Pxx": 13392.249,
+        "Pyy": 8454.1758,
+        "Pzz": 23.276949,
+        "Pxy": -3659.1648,
+        "Pxz": 1.0375724e-13,
+        "Pyz": 1.7593618e-13,
+        "v_eb": -1494.6297,
+        "v_ea": 586.25342,
+        "v_elp": 3.6862207,
+        "v_ev": 28.965017,
+        "v_epen": -2.3341283,
+        "v_ecoa": -4.2012849e-11,
+        "v_ehb": -0.08248858,
+        "v_et": -2.6499846,
+        "v_eco": -2.463631,
+        "v_ew": 489.27843,
+        "v_ep": -133.9395,
+        "v_eqeq": 91.27632
+      },
+      "forces_file": "forces/reaxff_dimer/iter2.npy"
+    },
+    {
+      "case_name": "reaxff_eeq",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 1919,
+      "natom": 10125,
+      "charges_file": "charges/reaxff_eeq/iter0.npy"
+    },
+    {
+      "case_name": "reaxff_eeq",
+      "iteration": 1,
+      "perturbation": 0.1,
+      "seed": 116433,
+      "natom": 10125,
+      "charges_file": "charges/reaxff_eeq/iter1.npy"
+    },
+    {
+      "case_name": "reaxff_eeq",
+      "iteration": 2,
+      "perturbation": 0.2,
+      "seed": 230947,
+      "natom": 10125,
+      "charges_file": "charges/reaxff_eeq/iter2.npy"
+    },
+    {
+      "case_name": "reaxff_h2",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 12345,
+      "natom": 2,
+      "energy": -99.842,
+      "pressure": -163.83013,
+      "stress": {
+        "Pxx": -491.49038,
+        "Pyy": 0.0,
+        "Pzz": 0.0,
+        "Pxy": 0.0,
+        "Pxz": 0.0,
+        "Pyz": 0.0
+      },
+      "forces_file": "forces/reaxff_h2/iter0.npy"
+    },
+    {
+      "case_name": "reaxff_h2",
+      "iteration": 1,
+      "perturbation": 0.1,
+      "seed": 12346,
+      "natom": 2,
+      "energy": -87.543722,
+      "pressure": -239.71472,
+      "stress": {
+        "Pxx": -719.14416,
+        "Pyy": 0.0,
+        "Pzz": 0.0,
+        "Pxy": 0.0,
+        "Pxz": 0.0,
+        "Pyz": 0.0
+      },
+      "forces_file": "forces/reaxff_h2/iter1.npy"
+    },
+    {
+      "case_name": "reaxff_h2",
+      "iteration": 2,
+      "perturbation": 0.2,
+      "seed": 12347,
+      "natom": 2,
+      "energy": -80.045556,
+      "pressure": -273.00855,
+      "stress": {
+        "Pxx": -819.02564,
+        "Pyy": 0.0,
+        "Pzz": 0.0,
+        "Pxy": 0.0,
+        "Pxz": 0.0,
+        "Pyz": 0.0
+      },
+      "forces_file": "forces/reaxff_h2/iter2.npy"
+    },
+    {
+      "case_name": "reaxff_h2",
+      "iteration": 3,
+      "perturbation": 0.30000000000000004,
+      "seed": 12348,
+      "natom": 2,
+      "energy": -84.746719,
+      "pressure": -252.96578,
+      "stress": {
+        "Pxx": -758.89733,
+        "Pyy": 0.0,
+        "Pzz": 0.0,
+        "Pxy": 0.0,
+        "Pxz": 0.0,
+        "Pyz": 0.0
+      },
+      "forces_file": "forces/reaxff_h2/iter3.npy"
+    },
+    {
+      "case_name": "reaxff_h2",
+      "iteration": 4,
+      "perturbation": 0.4,
+      "seed": 12349,
+      "natom": 2,
+      "energy": -45.738203,
+      "pressure": -316.81503,
+      "stress": {
+        "Pxx": -950.4451,
+        "Pyy": 0.0,
+        "Pzz": 0.0,
+        "Pxy": 0.0,
+        "Pxz": 0.0,
+        "Pyz": 0.0
+      },
+      "forces_file": "forces/reaxff_h2/iter4.npy"
+    },
+    {
+      "case_name": "sw",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 1919,
+      "natom": 10648,
+      "energy": 415131.99562119605,
+      "pressure": 1161725.1,
+      "stress": {
+        "Pxx": 1222009.3,
+        "Pyy": 1041156.7,
+        "Pzz": 1222009.3,
+        "Pxy": 4.3890533e-07,
+        "Pxz": 330478.01,
+        "Pyz": 4.380308e-07
+      },
+      "forces_file": "forces/sw/iter0.npy"
+    },
+    {
+      "case_name": "sw",
+      "iteration": 1,
+      "perturbation": 0.1,
+      "seed": 116433,
+      "natom": 10648,
+      "energy": 463485.122062116,
+      "pressure": 1214902.2,
+      "stress": {
+        "Pxx": 1265506.6,
+        "Pyy": 1113298.5,
+        "Pzz": 1265901.6,
+        "Pxy": 3416.2268,
+        "Pxz": 328491.34,
+        "Pyz": -57.987028
+      },
+      "forces_file": "forces/sw/iter1.npy"
+    },
+    {
+      "case_name": "sw",
+      "iteration": 2,
+      "perturbation": 0.2,
+      "seed": 230947,
+      "natom": 10648,
+      "energy": 614638.112830588,
+      "pressure": 1349379.8,
+      "stress": {
+        "Pxx": 1383288.4,
+        "Pyy": 1281286.8,
+        "Pzz": 1383564.3,
+        "Pxy": -2.9325495,
+        "Pxz": 331611.75,
+        "Pyz": 6486.8057
+      },
+      "forces_file": "forces/sw/iter2.npy"
+    },
+    {
+      "case_name": "tersoff",
+      "iteration": 0,
+      "perturbation": 0.0,
+      "seed": 1919,
+      "natom": 10648,
+      "energy": -1076021.819395656,
+      "pressure": -144785.25,
+      "stress": {
+        "Pxx": -144785.25,
+        "Pyy": -144785.25,
+        "Pzz": -144785.25,
+        "Pxy": 2.6560728e-08,
+        "Pxz": -308195.17,
+        "Pyz": 2.0952302e-09
+      },
+      "forces_file": "forces/tersoff/iter0.npy"
+    },
+    {
+      "case_name": "tersoff",
+      "iteration": 1,
+      "perturbation": 0.1,
+      "seed": 116433,
+      "natom": 10648,
+      "energy": -1069345.97523404,
+      "pressure": -129984.23,
+      "stress": {
+        "Pxx": -130278.67,
+        "Pyy": -129546.03,
+        "Pzz": -130127.99,
+        "Pxy": 2357.4989,
+        "Pxz": -322836.56,
+        "Pyz": -3171.6896
+      },
+      "forces_file": "forces/tersoff/iter1.npy"
+    },
+    {
+      "case_name": "tersoff",
+      "iteration": 2,
+      "perturbation": 0.2,
+      "seed": 230947,
+      "natom": 10648,
+      "energy": -1047998.8490109881,
+      "pressure": -89423.009,
+      "stress": {
+        "Pxx": -88963.641,
+        "Pyy": -89632.447,
+        "Pzz": -89672.938,
+        "Pxy": -5520.3551,
+        "Pxz": -363926.74,
+        "Pyz": 3121.6808
+      },
+      "forces_file": "forces/tersoff/iter2.npy"
+    }
+  ]
+}

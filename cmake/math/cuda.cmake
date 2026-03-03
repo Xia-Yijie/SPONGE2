@@ -1,0 +1,6 @@
+target_link_libraries(common_libraries INTERFACE CUDA::cufftw)
+target_link_libraries(common_libraries INTERFACE CUDA::nvrtc)
+target_link_libraries(common_libraries INTERFACE CUDA::cublas)
+target_link_libraries(common_libraries INTERFACE CUDA::cusolver)
+target_link_libraries(common_libraries INTERFACE CUDA::curand)
+target_link_libraries(common_libraries INTERFACE CUDA::cufft)
