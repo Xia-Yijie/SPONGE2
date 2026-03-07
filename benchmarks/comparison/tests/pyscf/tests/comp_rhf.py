@@ -1,10 +1,10 @@
 import pytest
 
-from utils import (
+from benchmarks.comparison.tests.pyscf.tests.utils import (
     HARTREE_TO_KCAL_MOL,
-    print_validation_table,
     run_sponge_vs_pyscf,
 )
+from benchmarks.utils import Outputer
 
 RHF_TOL_HA = 1.0e-3
 
@@ -31,7 +31,7 @@ RHF_CASE_BASIS = [
     RHF_CASE_BASIS,
     ids=[f"{case}_{basis}" for case, basis in RHF_CASE_BASIS],
 )
-def test_rhf(case_name, basis_name, statics_path, outputs_path):
+def test_rhf(case_name, basis_name, statics_path, outputs_path, mpi_np):
     result = run_sponge_vs_pyscf(
         statics_path=statics_path,
         outputs_path=outputs_path,
@@ -40,6 +40,7 @@ def test_rhf(case_name, basis_name, statics_path, outputs_path):
         basis_name=basis_name,
         restricted=True,
         run_prefix="rhf",
+        mpi_np=mpi_np,
     )
 
     tol_kcal = RHF_TOL_HA * HARTREE_TO_KCAL_MOL
@@ -63,6 +64,6 @@ def test_rhf(case_name, basis_name, statics_path, outputs_path):
             "PASS" if result["abs_diff_ha"] <= RHF_TOL_HA else "FAIL",
         ]
     ]
-    print_validation_table(headers, rows, title="RHF vs PySCF")
+    Outputer.print_table(headers, rows, title="RHF vs PySCF")
 
     assert result["abs_diff_ha"] <= RHF_TOL_HA

@@ -1,11 +1,10 @@
 import pytest
 
-from utils import (
+from benchmarks.utils import Outputer
+
+from benchmarks.validation.thermostat.tests.utils import (
     evaluate_temperature_distribution,
-    is_cuda_init_failure,
     parse_temperature_series,
-    prepare_output_case,
-    print_validation_table,
     read_atom_count_from_mass,
     read_constrain_pair_count_from_runlog,
     run_sponge_thermostat,
@@ -85,15 +84,15 @@ THERMOSTAT_CASES = [
 
 
 @pytest.mark.parametrize("cfg", THERMOSTAT_CASES)
-def test_thermostat_tip3p_water(statics_path, outputs_path, cfg):
+def test_thermostat_tip3p_water(statics_path, outputs_path, cfg, mpi_np):
     case_name = "tip3p_water"
     file_prefix = "tip3p"
-    run_tag = cfg["id"]
-    case_dir = prepare_output_case(
+    case_dir = Outputer.prepare_output_case(
         statics_path=statics_path,
         outputs_path=outputs_path,
         case_name=case_name,
-        run_tag=run_tag,
+        mpi_np=mpi_np,
+        run_name=cfg["id"],
     )
 
     write_thermostat_mdin(
@@ -111,21 +110,11 @@ def test_thermostat_tip3p_water(statics_path, outputs_path, cfg):
         md_name="benchmark tip3p_water thermostat",
     )
 
-    try:
-        run_sponge_thermostat(case_dir, timeout=600)
-    except RuntimeError as e:
-        if is_cuda_init_failure(str(e)):
-            pytest.skip(
-                "SPONGE CUDA initialization failed. "
-                "Use CPU binary or set SPONGE_BIN to a working executable."
-            )
-        raise
+    run_output = run_sponge_thermostat(case_dir, timeout=600, mpi_np=mpi_np)
 
     temperatures = parse_temperature_series(case_dir / "mdout.txt")
     n_atoms = read_atom_count_from_mass(case_dir / f"{file_prefix}_mass.txt")
-    constrain_pair_count = read_constrain_pair_count_from_runlog(
-        case_dir / "run.log"
-    )
+    constrain_pair_count = read_constrain_pair_count_from_runlog(run_output)
     stats = evaluate_temperature_distribution(
         temperatures,
         target_temperature=300.0,
@@ -177,7 +166,7 @@ def test_thermostat_tip3p_water(statics_path, outputs_path, cfg):
             "PASS" if (mean_ok and std_ok) else "FAIL",
         ]
     ]
-    print_validation_table(
+    Outputer.print_table(
         headers,
         rows,
         title="Thermostat Validation: TIP3P Water",

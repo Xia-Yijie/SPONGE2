@@ -6,15 +6,12 @@ import numpy as np
 import pytest
 from scipy.fft import fft2, fftfreq, ifft2
 
-from utils import (
-    is_cuda_init_failure,
+from benchmarks.performance.sits.tests.utils import (
     parse_column_series,
     parse_numeric_values,
-    prepare_output_case,
-    print_validation_table,
-    run_sponge_enhanced_sampling,
     write_sits_mdin,
 )
+from benchmarks.utils import Outputer, Runner
 
 
 def write_phi_psi_cv(case_dir):
@@ -45,18 +42,6 @@ def set_cv_in_file(case_dir, cv_file="cv.txt"):
     ]
     lines.append(f'cv_in_file = "{cv_file}"')
     mdin_path.write_text("\n".join(lines) + "\n")
-
-
-def run_sponge_or_skip(case_dir, timeout=1200):
-    try:
-        run_sponge_enhanced_sampling(case_dir, timeout=timeout)
-    except RuntimeError as e:
-        if is_cuda_init_failure(str(e)):
-            pytest.skip(
-                "SPONGE CUDA initialization failed. "
-                "Use a working CPU build and ensure SPONGE is in PATH."
-            )
-        raise
 
 
 def reweighted_1d_pmf_minimum(angles, weights, kT, bins=72, min_count=1):
@@ -262,20 +247,21 @@ def test_sits_iteration_to_production_reweight_phi_psi(
     outputs_path,
     sits_iter_steps,
     sits_prod_steps,
+    mpi_np,
 ):
     case_name = "ala2_sits"
-    run_tag = "sits_iter_prod_reweight"
     iteration_step_limit = sits_iter_steps
     prod_step_limit = sits_prod_steps
     iter_write_information_interval = 200
     prod_write_information_interval = 500
     iter_mdout_interval = 200
     prod_mdout_interval = 500
-    case_dir = prepare_output_case(
+    case_dir = Outputer.prepare_output_case(
         statics_path=statics_path,
         outputs_path=outputs_path,
         case_name=case_name,
-        run_tag=run_tag,
+        mpi_np=mpi_np,
+        run_name="sits_iter_prod_reweight",
     )
     write_phi_psi_cv(case_dir)
 
@@ -303,9 +289,7 @@ def test_sits_iteration_to_production_reweight_phi_psi(
         constrain_mode="SHAKE",
     )
     set_cv_in_file(case_dir)
-    run_sponge_or_skip(case_dir, timeout=21600)
-
-    iter_log = (Path(case_dir) / "run.log").read_text()
+    iter_log = Runner.run_sponge(case_dir, timeout=21600, mpi_np=mpi_np)
     assert "SITS mode = iteration" in iter_log
 
     nk_path = Path(case_dir) / "SITS_nk_rest.txt"
@@ -352,9 +336,7 @@ def test_sits_iteration_to_production_reweight_phi_psi(
         constrain_mode="SHAKE",
     )
     set_cv_in_file(case_dir)
-    run_sponge_or_skip(case_dir, timeout=172800)
-
-    prod_log = (Path(case_dir) / "run.log").read_text()
+    prod_log = Runner.run_sponge(case_dir, timeout=172800, mpi_np=mpi_np)
     assert "SITS mode = production" in prod_log
 
     phi = np.array(
@@ -442,7 +424,7 @@ def test_sits_iteration_to_production_reweight_phi_psi(
             "PASS",
         ]
     ]
-    print_validation_table(
+    Outputer.print_table(
         headers,
         rows,
         title="SITS Iteration->Production Reweight: Phi/Psi PMF minima",

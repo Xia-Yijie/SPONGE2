@@ -1,11 +1,11 @@
 import pytest
 
-from utils import (
+from benchmarks.comparison.tests.pyscf.tests.utils import (
     HARTREE_TO_KCAL_MOL,
     SUPPORTED_DFT_METHODS,
-    print_validation_table,
     run_sponge_vs_pyscf,
 )
+from benchmarks.utils import Outputer
 
 DFT_TOL_HA = {
     "LDA": 5.0e-3,
@@ -34,7 +34,14 @@ def test_rks_functional_coverage():
     RKS_CASES,
     ids=[f"{case}_{method}_{basis}" for case, basis, method in RKS_CASES],
 )
-def test_rks(case_name, basis_name, method_name, statics_path, outputs_path):
+def test_rks(
+    case_name,
+    basis_name,
+    method_name,
+    statics_path,
+    outputs_path,
+    mpi_np,
+):
     result = run_sponge_vs_pyscf(
         statics_path=statics_path,
         outputs_path=outputs_path,
@@ -43,6 +50,7 @@ def test_rks(case_name, basis_name, method_name, statics_path, outputs_path):
         basis_name=basis_name,
         restricted=True,
         run_prefix="rks",
+        mpi_np=mpi_np,
     )
 
     tol_ha = DFT_TOL_HA[method_name]
@@ -67,6 +75,6 @@ def test_rks(case_name, basis_name, method_name, statics_path, outputs_path):
             "PASS" if result["abs_diff_ha"] <= tol_ha else "FAIL",
         ]
     ]
-    print_validation_table(headers, rows, title="RKS vs PySCF")
+    Outputer.print_table(headers, rows, title="RKS vs PySCF")
 
     assert result["abs_diff_ha"] <= tol_ha

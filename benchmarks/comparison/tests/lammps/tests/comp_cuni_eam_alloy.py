@@ -1,21 +1,24 @@
-import pytest
 import shutil
+
 import numpy as np
+import pytest
 from ase.build import bulk
-from utils import (
+
+from benchmarks.utils import Outputer, Runner
+
+from benchmarks.comparison.tests.lammps.tests.utils import (
+    EV_TO_KCAL_MOL,
+    extract_sponge_forces,
+    extract_sponge_potential,
+    extract_sponge_pressure,
+    extract_sponge_stress,
     load_lammps_reference_entry,
     load_lammps_reference_forces,
     load_lammps_reference_stress,
-    extract_sponge_potential,
-    extract_sponge_forces,
-    extract_sponge_pressure,
-    extract_sponge_stress,
+    prepare_case_dir,
+    write_lammps_data,
     write_sponge_coords,
     write_sponge_mass,
-    write_lammps_data,
-    EV_TO_KCAL_MOL,
-    print_validation_table,
-    run_sponge_command,
 )
 
 
@@ -24,9 +27,10 @@ def test_cuni_eam_alloy(
     iteration,
     statics_path,
     outputs_path,
+    mpi_np,
 ):
     curr_perturbation = 0.1 * iteration
-    case_dir = outputs_path / "eam_alloy" / str(iteration)
+    case_dir = prepare_case_dir(outputs_path, "eam_alloy", iteration, mpi_np)
     lammps_dir = case_dir / "lammps"
     sponge_dir = case_dir / "sponge"
 
@@ -98,7 +102,7 @@ def test_cuni_eam_alloy(
     )
 
     # Run SPONGE
-    run_sponge_command(sponge_dir)
+    Runner.run_sponge(sponge_dir, mpi_np=mpi_np)
 
     ref_entry = load_lammps_reference_entry(
         statics_path, "cuni_eam_alloy", iteration
@@ -175,7 +179,7 @@ def test_cuni_eam_alloy(
     rows.append(["Force Max Diff", "", "", "", f"{max_force_diff:.4e}"])
     rows.append(["Cos Sim", "", "", "", cos_sim_str])
 
-    print_validation_table(headers, rows)
+    Outputer.print_table(headers, rows)
 
     assert e_diff < 0.1 * num_atoms
     assert iteration == 0 or cos_sim_val > 0.9999
