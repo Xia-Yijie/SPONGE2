@@ -119,9 +119,19 @@ enum FFT_TYPE
 
 enum deviceBlasOperation_t
 {
-    CUBLAS_OP_N,
-    CUBLAS_OP_T,
-    CUBLAS_OP_C
+    DEVICE_BLAS_OP_N,
+    DEVICE_BLAS_OP_T,
+    DEVICE_BLAS_OP_C
+};
+
+enum deviceFillMode_t
+{
+    DEVICE_FILL_MODE_UPPER
+};
+
+enum deviceEigMode_t
+{
+    DEVICE_EIG_MODE_VECTOR
 };
 
 #define deviceBlasCreate(handle)
@@ -136,12 +146,12 @@ enum deviceBlasOperation_t
             (C)[i] = (*(alpha)) * (A)[i] + (*(beta)) * (B)[i];                \
     } while (0)
 
-#define deviceBlasSgemm(handle, transa, transb, m, n, k, alpha, A, lda, B,    \
-                        ldb, beta, C, ldc)                                    \
-    cblas_sgemm(CblasColMajor,                                                \
-                (transa == CUBLAS_OP_N ? CblasNoTrans : CblasTrans),          \
-                (transb == CUBLAS_OP_N ? CblasNoTrans : CblasTrans), m, n, k, \
-                *(alpha), A, lda, B, ldb, *(beta), C, ldc)
+#define deviceBlasSgemm(handle, transa, transb, m, n, k, alpha, A, lda, B,   \
+                        ldb, beta, C, ldc)                                   \
+    cblas_sgemm(CblasColMajor,                                               \
+                (transa == DEVICE_BLAS_OP_N ? CblasNoTrans : CblasTrans),    \
+                (transb == DEVICE_BLAS_OP_N ? CblasNoTrans : CblasTrans), m, \
+                n, k, *(alpha), A, lda, B, ldb, *(beta), C, ldc)
 #endif
 
 #endif  // BLAS_BACKEND_H
