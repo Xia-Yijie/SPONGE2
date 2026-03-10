@@ -375,9 +375,9 @@ static __global__ void Find_Neighbors_Gridly(
                         }
                     }
 
-                    LaneMask mask(
-                        LaneGroup::Ballot(is_neighbor).bits & warp_mask);
-                    if (mask.bits != 0)
+                    LaneMask mask = LaneGroup::And(LaneGroup::Ballot(is_neighbor),
+                                                   LaneMask(warp_mask));
+                    if (LaneGroup::Any(mask))
                     {
                         int count = LaneGroup::Count(mask);
                         int base_slot = 0;
@@ -398,8 +398,8 @@ static __global__ void Find_Neighbors_Gridly(
                         if (is_neighbor)
                         {
                             int rank = LaneGroup::Count(
-                                LaneMask(mask.bits &
-                                         LaneGroup::Lower_Lane_Mask().bits));
+                                LaneGroup::And(mask,
+                                               LaneGroup::Lower_Lane_Mask()));
                             if (base_slot + rank < max_neighbor_numbers)
                             {
                                 nl[atom_i].atom_serial[base_slot + rank] =
@@ -454,9 +454,9 @@ static __global__ void Find_Neighbors_Gridly(
                         }
                     }
 
-                    LaneMask mask(
-                        LaneGroup::Ballot(is_neighbor).bits & warp_mask);
-                    if (mask.bits != 0)
+                    LaneMask mask = LaneGroup::And(LaneGroup::Ballot(is_neighbor),
+                                                   LaneMask(warp_mask));
+                    if (LaneGroup::Any(mask))
                     {
                         int count = LaneGroup::Count(mask);
                         int base_slot = 0;
@@ -478,8 +478,8 @@ static __global__ void Find_Neighbors_Gridly(
                         if (is_neighbor)
                         {
                             int rank = LaneGroup::Count(
-                                LaneMask(mask.bits &
-                                         LaneGroup::Lower_Lane_Mask().bits));
+                                LaneGroup::And(mask,
+                                               LaneGroup::Lower_Lane_Mask()));
                             if (base_slot + rank < max_neighbor_numbers)
                             {
                                 nl[atom_i].atom_serial[base_slot + rank] =

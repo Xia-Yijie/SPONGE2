@@ -395,11 +395,21 @@ void Sum_Of_List(const float* list, float* sum, const int end, const int start,
     deviceFree(block_sums);
 #else
     double s = 0.0;
+#if defined(SPONGE_LANE_GROUP_SVE)
+#pragma omp parallel for reduction(+ : s)
+    for (int i = start; i < end; i += LaneGroup::Width())
+    {
+        svbool_t pred = svwhilelt_b32(i, end);
+        svfloat32_t values = svld1_f32(pred, list + i);
+        s += static_cast<double>(LaneGroup::Reduce_Sum(values));
+    }
+#else
 #pragma omp parallel for reduction(+ : s)
     for (int i = start; i < end; i += 1)
     {
         s += list[i];
     }
+#endif
     sum[0] = static_cast<float>(s);
 #endif
 }

@@ -36,14 +36,41 @@ struct LaneGroup
         return LaneMask(predicate ? 1U : 0U);
     }
 
+    __host__ __device__ __forceinline__ static LaneMask And(LaneMask lhs,
+                                                            LaneMask rhs)
+    {
+        return LaneMask(lhs.bits & rhs.bits);
+    }
+
+    __host__ __device__ __forceinline__ static LaneMask Or(LaneMask lhs,
+                                                           LaneMask rhs)
+    {
+        return LaneMask(lhs.bits | rhs.bits);
+    }
+
+    __host__ __device__ __forceinline__ static LaneMask Not(LaneMask mask)
+    {
+        return LaneMask((~mask.bits) & Active_Mask().bits);
+    }
+
     __host__ __device__ __forceinline__ static bool Any(bool predicate)
     {
         return predicate;
     }
 
+    __host__ __device__ __forceinline__ static bool Any(LaneMask mask)
+    {
+        return mask.bits != 0;
+    }
+
     __host__ __device__ __forceinline__ static bool All(bool predicate)
     {
         return predicate;
+    }
+
+    __host__ __device__ __forceinline__ static bool All(LaneMask mask)
+    {
+        return mask.bits == Active_Mask().bits;
     }
 
     __host__ __device__ __forceinline__ static int Count(LaneMask mask)
@@ -63,7 +90,7 @@ struct LaneGroup
 
     __host__ __device__ __forceinline__ static int Prefix_Count(LaneMask mask)
     {
-        return Count(LaneMask(mask.bits & Lower_Lane_Mask().bits));
+        return Count(And(mask, Lower_Lane_Mask()));
     }
 
     template <typename T>
@@ -94,6 +121,7 @@ struct LaneGroup
         (void)width;
         return value;
     }
+
 };
 
 #endif  // SPONGE_LANE_GROUP_SCALAR_H

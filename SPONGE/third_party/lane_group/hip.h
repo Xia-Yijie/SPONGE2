@@ -37,15 +37,42 @@ struct LaneGroup
         return LaneMask(deviceBallot(active.bits, predicate ? 1 : 0));
     }
 
+    __device__ __forceinline__ static LaneMask And(LaneMask lhs, LaneMask rhs)
+    {
+        return LaneMask(lhs.bits & rhs.bits);
+    }
+
+    __device__ __forceinline__ static LaneMask Or(LaneMask lhs, LaneMask rhs)
+    {
+        return LaneMask(lhs.bits | rhs.bits);
+    }
+
+    __device__ __forceinline__ static LaneMask Not(LaneMask mask)
+    {
+        LaneMask active = Active_Mask();
+        return LaneMask((~mask.bits) & active.bits);
+    }
+
     __device__ __forceinline__ static bool Any(bool predicate)
     {
-        return Ballot(predicate).bits != 0;
+        return Any(Ballot(predicate));
+    }
+
+    __device__ __forceinline__ static bool Any(LaneMask mask)
+    {
+        return mask.bits != 0;
     }
 
     __device__ __forceinline__ static bool All(bool predicate)
     {
         LaneMask active = Active_Mask();
         return Ballot(predicate).bits == active.bits;
+    }
+
+    __device__ __forceinline__ static bool All(LaneMask mask)
+    {
+        LaneMask active = Active_Mask();
+        return mask.bits == active.bits;
     }
 
     __device__ __forceinline__ static int Count(LaneMask mask)
@@ -65,7 +92,7 @@ struct LaneGroup
 
     __device__ __forceinline__ static int Prefix_Count(LaneMask mask)
     {
-        return Count(LaneMask(mask.bits & Lower_Lane_Mask().bits));
+        return Count(And(mask, Lower_Lane_Mask()));
     }
 
     template <typename T>
@@ -103,6 +130,7 @@ struct LaneGroup
         }
         return value;
     }
+
 };
 
 #endif  // SPONGE_LANE_GROUP_HIP_H
