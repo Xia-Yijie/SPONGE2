@@ -305,11 +305,7 @@ static __global__ void Sum_Of_List_Float_Block(const int start, const int end,
         partial += static_cast<double>(list[i]);
     }
 
-    device_mask_t lane_mask = deviceActiveMask();
-    for (int offset = warp_size / 2; offset > 0; offset >>= 1)
-    {
-        partial += deviceShflDown(lane_mask, partial, offset, warp_size);
-    }
+    partial = LaneGroup::Reduce_Sum(partial, warp_size);
 
     int lane = threadIdx.x % warp_size;
     int warp_id = threadIdx.x / warp_size;
@@ -323,11 +319,7 @@ static __global__ void Sum_Of_List_Float_Block(const int start, const int end,
     if (warp_id == 0)
     {
         double block_sum = (lane < warp_numbers) ? warp_sums[lane] : 0.0;
-        for (int offset = warp_size / 2; offset > 0; offset >>= 1)
-        {
-            block_sum +=
-                deviceShflDown(FULL_MASK, block_sum, offset, warp_size);
-        }
+        block_sum = LaneGroup::Reduce_Sum(block_sum, warp_size);
         if (lane == 0)
         {
             block_sums[blockIdx.x] = block_sum;
@@ -345,11 +337,7 @@ static __global__ void Sum_Of_List_Float_Final(const double* block_sums,
     {
         partial += block_sums[i];
     }
-    device_mask_t lane_mask = deviceActiveMask();
-    for (int offset = warp_size / 2; offset > 0; offset >>= 1)
-    {
-        partial += deviceShflDown(lane_mask, partial, offset, warp_size);
-    }
+    partial = LaneGroup::Reduce_Sum(partial, warp_size);
 
     int lane = threadIdx.x % warp_size;
     int warp_id = threadIdx.x / warp_size;
@@ -362,10 +350,7 @@ static __global__ void Sum_Of_List_Float_Final(const double* block_sums,
 
     int warp_numbers = (blockDim.x + warp_size - 1) / warp_size;
     partial = (lane < warp_numbers) ? warp_buf[lane] : 0.0;
-    for (int offset = warp_size / 2; offset > 0; offset >>= 1)
-    {
-        partial += deviceShflDown(FULL_MASK, partial, offset, warp_size);
-    }
+    partial = LaneGroup::Reduce_Sum(partial, warp_size);
     if (lane == 0)
     {
         sum[0] = static_cast<float>(partial);

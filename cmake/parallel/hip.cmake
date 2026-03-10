@@ -8,3 +8,4 @@ include("${PROJECT_ROOT_DIR}/cmake/math/hip.cmake")
 
 add_definitions(-DUSE_GPU)
 add_definitions(-DUSE_HIP)
+target_compile_definitions(common_libraries INTERFACE SPONGE_LANE_GROUP_HIP)

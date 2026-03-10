@@ -173,27 +173,27 @@ compile = "cmake --build build --config Release --target install"
 install-msvc = "powershell -ExecutionPolicy Bypass -File scripts/install-msvc.ps1"
 
 [feature.cpu.target.linux-64.tasks]
-configure = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='none' -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\" -DCMAKE_CXX_COMPILER=\"$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-c++\""
+configure = { cmd = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='{{ parallel }}' -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\" -DCMAKE_CXX_COMPILER=\"$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-c++\"", args = [{ arg = "parallel", default = "none" }] }
 compile = "cmake --build build-$PIXI_ENVIRONMENT_NAME --config Release --target install"
 
 [feature.cpu.target.linux-aarch64.tasks]
-configure = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='none' -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\""
+configure = { cmd = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='{{ parallel }}' -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\"", args = [{ arg = "parallel", default = "none" }] }
 compile = "cmake --build build-$PIXI_ENVIRONMENT_NAME --config Release --target install"
 
 [feature.cpu.target.win-64.tasks]
-configure = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='none' -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\""
+configure = { cmd = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='{{ parallel }}' -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\"", args = [{ arg = "parallel", default = "none" }] }
 compile = "cmake --build build-$PIXI_ENVIRONMENT_NAME --config Release --target install"
 
 [feature.cpu.target.osx-arm64.tasks]
-configure = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='none' -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\""
+configure = { cmd = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='{{ parallel }}' -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\"", args = [{ arg = "parallel", default = "none" }] }
 compile = "cmake --build build-$PIXI_ENVIRONMENT_NAME --config Release --target install"
 
 [feature.cpu-mpi.target.linux-64.tasks]
-configure = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='none' -DMPI=ON -DMPI_CXX_COMPILER=\"$CONDA_PREFIX/bin/mpicxx\" -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\" -DCMAKE_CXX_COMPILER=\"$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-c++\""
+configure = { cmd = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='{{ parallel }}' -DMPI=ON -DMPI_CXX_COMPILER=\"$CONDA_PREFIX/bin/mpicxx\" -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\" -DCMAKE_CXX_COMPILER=\"$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-c++\"", args = [{ arg = "parallel", default = "none" }] }
 compile = "cmake --build build-$PIXI_ENVIRONMENT_NAME --config Release --target install"
 
 [feature.cpu-mpi.target.linux-aarch64.tasks]
-configure = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='none' -DMPI=ON -DMPI_CXX_COMPILER=\"$CONDA_PREFIX/bin/mpicxx\" -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\""
+configure = { cmd = "cmake -S . -B build-$PIXI_ENVIRONMENT_NAME -G Ninja -DPARALLEL='{{ parallel }}' -DMPI=ON -DMPI_CXX_COMPILER=\"$CONDA_PREFIX/bin/mpicxx\" -DCMAKE_INSTALL_PREFIX=\"$CONDA_PREFIX\"", args = [{ arg = "parallel", default = "none" }] }
 compile = "cmake --build build-$PIXI_ENVIRONMENT_NAME --config Release --target install"
 
 [feature.cuda.target.linux-64.tasks]
