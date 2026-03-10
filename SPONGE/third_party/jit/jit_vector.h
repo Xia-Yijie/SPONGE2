@@ -137,10 +137,13 @@ struct VECTOR
     }
     friend __device__ __forceinline__ void Warp_Sum_To(float* y, float& x, int delta)
     {
-        unsigned int mask = __ballot_sync(FULL_MASK, threadIdx.x < delta);
         for (delta >>= 1; delta > 0; delta >>= 1)
         {
+#ifdef USE_HIP
+            x += __shfl_down(x, delta);
+#else
             x += __shfl_down_sync(FULL_MASK, x, delta);
+#endif
         }
         if (threadIdx.x == 0)
         {
@@ -151,9 +154,15 @@ struct VECTOR
     {
         for (delta >>= 1; delta > 0; delta >>= 1)
         {
+#ifdef USE_HIP
+            x.x += __shfl_down(x.x, delta);
+            x.y += __shfl_down(x.y, delta);
+            x.z += __shfl_down(x.z, delta);
+#else
             x.x += __shfl_down_sync(FULL_MASK, x.x, delta);
             x.y += __shfl_down_sync(FULL_MASK, x.y, delta);
             x.z += __shfl_down_sync(FULL_MASK, x.z, delta);
+#endif
         }
         if (threadIdx.x == 0)
         {

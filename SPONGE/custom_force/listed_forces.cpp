@@ -508,7 +508,7 @@ VECTOR* crd, VECTOR box_length, VECTOR *frc, float *atom_ene, LTMatrix3 *atom_vi
             atomicAdd(&frc[atom_%0%].x, force_%0%.x);
             atomicAdd(&frc[atom_%0%].y, force_%0%.y);
             atomicAdd(&frc[atom_%0%].z, force_%0%.z);
-            if (need_virial && atom_virial != NULL)
+            if (need_virial && atom_virial != nullptr)
             {
                 atomicAdd(atom_virial + atom_%0%,
                           Get_Virial_From_Force_Dis(force_%0%, crd[atom_%0%]));
@@ -518,7 +518,7 @@ VECTOR* crd, VECTOR box_length, VECTOR *frc, float *atom_ene, LTMatrix3 *atom_vi
     std::string OUTPUT = string_format(
         "if (need_atom_energy && atom_%0% < local_atom_numbers)\n        {\n   "
         "         atomicAdd(atom_ene + atom_%0%, E.val);\n        }\n        "
-        "if (listed_item_energy != NULL)\n        {\n            "
+        "if (listed_item_energy != nullptr)\n        {\n            "
         "listed_item_energy[tid] = E.val;\n        }\n        %FORCE_OUTPUT%",
         {{"0", atom_labels[0]}, {"FORCE_OUTPUT", FORCE_OUTPUT}});
     full_source_code =

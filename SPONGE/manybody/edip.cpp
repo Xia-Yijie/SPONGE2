@@ -454,7 +454,7 @@ void EDIP_INFORMATION::EDIP_Force_With_Atom_Energy_And_Virial_Full_NL(
 
     dim3 blockSize = {CONTROLLER::device_warp,
                       CONTROLLER::device_max_thread / CONTROLLER::device_warp};
-    dim3 gridSize = (atom_numbers + blockSize.x - 1) / blockSize.x;
+    dim3 gridSize = (atom_numbers + blockSize.y - 1) / blockSize.y;
 
     auto f1 = EDIP_Force_With_Full_Neighbor_CUDA<false, false>;
     auto f2 = Redistribute_Z_to_Atoms<false>;

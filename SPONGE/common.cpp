@@ -1,4 +1,5 @@
 ﻿#include "common.h"
+#include "control.h"
 
 #ifdef USE_CPU
 float rnorm3df(float a, float b, float c)
@@ -291,7 +292,8 @@ void Sum_Of_List(const int* list, int* sum, const int end, const int start,
 #ifdef GPU_ARCH_NAME
 static __global__ void Sum_Of_List_Float_Block(const int start, const int end,
                                                const float* list,
-                                               double* block_sums)
+                                               double* block_sums,
+                                               const int warp_size)
 {
     extern __shared__ double warp_sums[];
     double partial = 0.0;
@@ -303,26 +305,27 @@ static __global__ void Sum_Of_List_Float_Block(const int start, const int end,
     }
 
     device_mask_t lane_mask = deviceActiveMask();
-    for (int offset = warpSize / 2; offset > 0; offset >>= 1)
+    for (int offset = warp_size / 2; offset > 0; offset >>= 1)
     {
-        partial += deviceShflDown(lane_mask, partial, offset);
+        partial += deviceShflDown(lane_mask, partial, offset, warp_size);
     }
 
-    int lane = threadIdx.x & (warpSize - 1);
-    int warp_id = threadIdx.x / warpSize;
+    int lane = threadIdx.x % warp_size;
+    int warp_id = threadIdx.x / warp_size;
     if (lane == 0)
     {
         warp_sums[warp_id] = partial;
     }
     __syncthreads();
 
-    const int warp_numbers = (blockDim.x + warpSize - 1) / warpSize;
+    const int warp_numbers = (blockDim.x + warp_size - 1) / warp_size;
     if (warp_id == 0)
     {
         double block_sum = (lane < warp_numbers) ? warp_sums[lane] : 0.0;
-        for (int offset = warpSize / 2; offset > 0; offset >>= 1)
+        for (int offset = warp_size / 2; offset > 0; offset >>= 1)
         {
-            block_sum += deviceShflDown(FULL_MASK, block_sum, offset);
+            block_sum +=
+                deviceShflDown(FULL_MASK, block_sum, offset, warp_size);
         }
         if (lane == 0)
         {
@@ -333,7 +336,8 @@ static __global__ void Sum_Of_List_Float_Block(const int start, const int end,
 
 static __global__ void Sum_Of_List_Float_Final(const double* block_sums,
                                                const int block_count,
-                                               float* sum)
+                                               float* sum,
+                                               const int warp_size)
 {
     double partial = 0.0;
     int idx = threadIdx.x;
@@ -342,13 +346,13 @@ static __global__ void Sum_Of_List_Float_Final(const double* block_sums,
         partial += block_sums[i];
     }
     device_mask_t lane_mask = deviceActiveMask();
-    for (int offset = warpSize / 2; offset > 0; offset >>= 1)
+    for (int offset = warp_size / 2; offset > 0; offset >>= 1)
     {
-        partial += deviceShflDown(lane_mask, partial, offset);
+        partial += deviceShflDown(lane_mask, partial, offset, warp_size);
     }
 
-    int lane = threadIdx.x & (warpSize - 1);
-    int warp_id = threadIdx.x / warpSize;
+    int lane = threadIdx.x % warp_size;
+    int warp_id = threadIdx.x / warp_size;
     __shared__ double warp_buf[32];  // 支持最多 32 个 warp（blockDim <= 1024）
     if (lane == 0)
     {
@@ -356,11 +360,11 @@ static __global__ void Sum_Of_List_Float_Final(const double* block_sums,
     }
     __syncthreads();
 
-    int warp_numbers = (blockDim.x + warpSize - 1) / warpSize;
+    int warp_numbers = (blockDim.x + warp_size - 1) / warp_size;
     partial = (lane < warp_numbers) ? warp_buf[lane] : 0.0;
-    for (int offset = warpSize / 2; offset > 0; offset >>= 1)
+    for (int offset = warp_size / 2; offset > 0; offset >>= 1)
     {
-        partial += deviceShflDown(FULL_MASK, partial, offset);
+        partial += deviceShflDown(FULL_MASK, partial, offset, warp_size);
     }
     if (lane == 0)
     {
@@ -372,15 +376,21 @@ static __global__ void Sum_Of_List_Float_Final(const double* block_sums,
 void Sum_Of_List(const float* list, float* sum, const int end, const int start,
                  int threads)
 {
+    Sum_Of_List(list, sum, end, start, threads, CONTROLLER::device_warp);
+}
+
+void Sum_Of_List(const float* list, float* sum, const int end, const int start,
+                 int threads, int warp_size)
+{
 #ifdef GPU_ARCH_NAME
-    const int WARP_SIZE = 32;
-    if (threads < WARP_SIZE) threads = WARP_SIZE;
+    if (warp_size < 1) warp_size = 32;
+    if (threads < warp_size) threads = warp_size;
     if (threads > 1024) threads = 1024;
-    threads = ((threads + WARP_SIZE - 1) / WARP_SIZE) * WARP_SIZE;
+    threads = ((threads + warp_size - 1) / warp_size) * warp_size;
 
     int grid = (end - start + threads - 1) / threads;
     if (grid < 1) grid = 1;
-    int warp_numbers = (threads + WARP_SIZE - 1) / WARP_SIZE;
+    int warp_numbers = (threads + warp_size - 1) / warp_size;
     size_t shared_memory_bytes = sizeof(double) * warp_numbers;
 
     double* block_sums = nullptr;
@@ -388,14 +398,15 @@ void Sum_Of_List(const float* list, float* sum, const int end, const int start,
 
     Launch_Device_Kernel(Sum_Of_List_Float_Block, grid, threads,
                          shared_memory_bytes, NULL, start, end, list,
-                         block_sums);
+                         block_sums, warp_size);
 
     int final_threads = (grid < 256) ? grid : 256;
-    if (final_threads < WARP_SIZE) final_threads = WARP_SIZE;
-    final_threads = ((final_threads + WARP_SIZE - 1) / WARP_SIZE) * WARP_SIZE;
+    if (final_threads < warp_size) final_threads = warp_size;
+    final_threads =
+        ((final_threads + warp_size - 1) / warp_size) * warp_size;
     if (final_threads > 256) final_threads = 256;
     Launch_Device_Kernel(Sum_Of_List_Float_Final, 1, final_threads, 0, NULL,
-                         block_sums, grid, sum);
+                         block_sums, grid, sum, warp_size);
 
     deviceFree(block_sums);
 #else

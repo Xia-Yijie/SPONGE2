@@ -244,11 +244,6 @@ __device__ __forceinline__ int Get_Pairwise_Type(int a, int b)
     x = (x - y) >> 1;
     return (z * (z + 1) >> 1) + x;
 }
-__device__ __forceinline__ float norm3df(float a, float b, float c)
-{
-    return sqrtf(a * a + b * b + c * c);
-}
-
 extern "C" __global__ void pairwise_force_energy_and_virial(%PARM_ARGS%,
     const float* charge, const float pme_beta, ATOM_GROUP* nl, const int* pairwise_types,
     const VECTOR* crd, const LTMatrix3 cell, const LTMatrix3 rcell, const float cutoff,
@@ -278,7 +273,7 @@ extern "C" __global__ void pairwise_force_energy_and_virial(%PARM_ARGS%,
         float energy_coulomb = 0.0f;
         float charge_i = 0;
         float charge_j = 0;
-        if (pme_atom_energy != NULL)
+        if (pme_atom_energy != nullptr)
         {
             charge_i = charge[atom_i];
         }
@@ -291,7 +286,9 @@ extern "C" __global__ void pairwise_force_energy_and_virial(%PARM_ARGS%,
             int atom_j = nl_i.atom_serial[j];
             float ij_factor = atom_j < local_atom_numbers ? 1.0f : 0.5f;
             VECTOR vector_dr = Get_Periodic_Displacement(crd[atom_j], r1, cell, rcell);
-            float float_dr_ij = norm3df(vector_dr.x, vector_dr.y, vector_dr.z);
+            float float_dr_ij =
+                sqrtf(vector_dr.x * vector_dr.x + vector_dr.y * vector_dr.y +
+                      vector_dr.z * vector_dr.z);
             if (float_dr_ij < cutoff)
             {
                 int atom_pairwise_type = Get_Pairwise_Type(pairwise_type_i, pairwise_types[atom_j]);
@@ -300,51 +297,51 @@ extern "C" __global__ void pairwise_force_energy_and_virial(%PARM_ARGS%,
                 SADfloat<1> E, E_ele;
                 %SOURCE_CODE%
                 energy_total += ij_factor * E.val;
-                if (pme_atom_energy != NULL)
+                if (pme_atom_energy != nullptr)
                 {
                     charge_j = charge[atom_j];
                     %COULOMB_CODE%
                     energy_coulomb += ij_factor * E_ele.val;
                 }
                 float frc_abs = E.dval[0] / float_dr_ij;
-                if (pme_atom_energy != NULL)
+                if (pme_atom_energy != nullptr)
                 {
                     frc_abs += E_ele.dval[0] / float_dr_ij;
                 }
                 VECTOR frc_temp = frc_abs * vector_dr;
-                if (frc != NULL)
+                if (frc != nullptr)
                 {
                     frc_record = frc_record + frc_temp;
                     if (atom_j < local_atom_numbers)
                         atomicAdd(frc + atom_j, -frc_temp);
                 }
-                if (need_virial && atom_virial != NULL)
+                if (need_virial && atom_virial != nullptr)
                 {
                     virial_record = virial_record -
                         ij_factor * Get_Virial_From_Force_Dis(frc_temp, vector_dr);
                 }
             }
         }
-        if (frc != NULL)
+        if (frc != nullptr)
         {
             Warp_Sum_To(frc + atom_i, frc_record, warpSize);
         }
-        if (pme_atom_energy != NULL && (need_atom_energy || need_virial))
+        if (pme_atom_energy != nullptr && (need_atom_energy || need_virial))
         {
             float energy_coulomb_sum = energy_coulomb;
             Warp_Sum_To(pme_atom_energy + atom_i, energy_coulomb_sum, warpSize);
         }
-        if (listed_item_energy != NULL)
+        if (listed_item_energy != nullptr)
         {
             float listed_energy_sum = energy_total;
             Warp_Sum_To(listed_item_energy + atom_i, listed_energy_sum, warpSize);
         }
-        if (need_atom_energy && atom_energy != NULL)
+        if (need_atom_energy && atom_energy != nullptr)
         {
             float atom_energy_sum = energy_total;
             Warp_Sum_To(atom_energy + atom_i, atom_energy_sum, warpSize);
         }
-        if (need_virial && atom_virial != NULL)
+        if (need_virial && atom_virial != nullptr)
         {
             Warp_Sum_To(&(atom_virial + atom_i)->a11, virial_record.a11, warpSize);
             Warp_Sum_To(&(atom_virial + atom_i)->a21, virial_record.a21, warpSize);
@@ -544,8 +541,10 @@ void PAIRWISE_FORCE::Compute_Force(ATOM_GROUP* nl, const VECTOR* crd,
     launch_args[parameter_name.size() + 15] = &need_virial_flag;
     launch_args[parameter_name.size() + 16] = &total_numbers_flag;
 
-    force_function({(total_local_numbers + 31u) / 32u, 1, 1}, {32, 32, 1}, 0, 0,
-                   launch_args);
+    dim3 blockSize = {CONTROLLER::device_warp,
+                      CONTROLLER::device_max_thread / CONTROLLER::device_warp};
+    dim3 gridSize = (total_local_numbers + blockSize.y - 1) / blockSize.y;
+    force_function(gridSize, blockSize, 0, 0, launch_args);
 
     if (need_energy)
     {
