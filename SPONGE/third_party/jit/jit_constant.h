@@ -4,8 +4,8 @@
 #define CONSTANT_Pi 3.1415926535897932f
 //自然对数的底
 #define CONSTANT_e 2.7182818284590452f
-//玻尔兹曼常量（kcal.mol^-1.K^ -1）
-//使用kcal为能量单位，因此kB=8.31441(J.mol^-1.K^-1)/4.18407(J/cal)/1000
+// 玻尔兹曼常量，单位为 kcal.mol^-1.K^-1
+// 使用 kcal 作为能量单位，因此 kB = 8.31441(J.mol^-1.K^-1) / 4.18407(J/cal) / 1000
 #define CONSTANT_kB 0.00198716f
 //程序中使用的单位时间与物理时间的换算1/20.455*dt=1 ps
 #define CONSTANT_TIME_CONVERTION 20.455f
