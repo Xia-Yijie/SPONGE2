@@ -395,7 +395,7 @@ void Sum_Of_List(const float* list, float* sum, const int end, const int start,
     deviceFree(block_sums);
 #else
     double s = 0.0;
-#if defined(SPONGE_LANE_GROUP_SVE)
+#if defined(USE_SVE) || defined(USE_SVE2)
 #pragma omp parallel for reduction(+ : s)
     for (int i = start; i < end; i += LaneGroup::Width())
     {

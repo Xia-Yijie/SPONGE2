@@ -1,22 +1,21 @@
 #ifndef SPONGE_LANE_GROUP_BACKEND_H
 #define SPONGE_LANE_GROUP_BACKEND_H
 
-#if defined(SPONGE_LANE_GROUP_CUDA) || defined(USE_CUDA)
+#ifdef USE_CUDA
 #include "cuda.h"
-#elif defined(SPONGE_LANE_GROUP_HIP) || defined(USE_HIP)
+#elif defined(USE_HIP)
 #include "hip.h"
-#elif defined(SPONGE_LANE_GROUP_SVE2) || defined(SPONGE_LANE_GROUP_SVE) || \
-    defined(__ARM_FEATURE_SVE)
+#elif defined(USE_SVE2) || defined(USE_SVE)
 #include "sve.h"
-#elif defined(SPONGE_LANE_GROUP_AVX512) || defined(__AVX512F__)
+#elif defined(USE_AVX512)
 #include "avx512.h"
-#elif defined(SPONGE_LANE_GROUP_AVX2) || defined(__AVX2__)
+#elif defined(USE_AVX2)
 #include "avx2.h"
-#elif defined(SPONGE_LANE_GROUP_AVX) || defined(__AVX__)
+#elif defined(USE_AVX)
 #include "avx.h"
-#elif defined(SPONGE_LANE_GROUP_SSE42) || defined(__SSE4_2__)
+#elif defined(USE_SSE42)
 #include "sse42.h"
-#elif defined(SPONGE_LANE_GROUP_NEON) || defined(__ARM_NEON)
+#elif defined(USE_NEON)
 #include "neon.h"
 #else
 #include "scalar.h"

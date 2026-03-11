@@ -11,5 +11,4 @@ include("${PROJECT_ROOT_DIR}/cmake/math/cuda.cmake")
 
 add_definitions(-DUSE_GPU)
 add_definitions(-DUSE_CUDA)
-target_compile_definitions(common_libraries INTERFACE SPONGE_LANE_GROUP_CUDA)
 target_link_libraries(common_libraries INTERFACE CUDA::cuda_driver)
