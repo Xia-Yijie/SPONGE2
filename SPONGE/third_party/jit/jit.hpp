@@ -102,8 +102,10 @@ struct JIT_Function
             return;
         }
 
-        std::vector<std::string> option_storage = {"--use_fast_math",
-                                                   arch_option};
+        std::vector<std::string> option_storage = {arch_option};
+#ifdef USE_CUDA
+        option_storage.insert(option_storage.begin(), "--use_fast_math");
+#endif
         std::vector<const char*> options;
         options.reserve(option_storage.size());
         for (const auto& option : option_storage)
