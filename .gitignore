@@ -15,14 +15,14 @@ restart.rst7
 
 .DS_Store
 
-.agent/
-.vscode/
-.qwen/
-.gemini/
-.kimi/
-.cursor/
-.windsurf/
+.agents/
 .claude/
+.gemini/
+.vscode/
+.windsurf/
+.cursor/
+.qwen/
+.kimi/
 .trae/
 .trae-cn/
 
