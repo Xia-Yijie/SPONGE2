@@ -91,6 +91,9 @@ typedef void* HMODULE;
 #endif
 #undef FFT_BACKEND_H
 
+// lane-group 抽象
+#include "third_party/lane_group/backend.h"
+
 // MPI setup
 #include "third_party/mpi.hpp"
 

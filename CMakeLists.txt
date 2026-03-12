@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
-project(SPONGE LANGUAGES CXX)
+project(SPONGE LANGUAGES C CXX)
 
 include(GNUInstallDirs)
 
