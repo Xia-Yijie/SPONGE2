@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from benchmarks.utils import Extractor, Outputer
-from benchmarks.validation.misc.tests.utils import run_sponge
+from benchmarks.utils import Runner
 
 
 def _prips_plugin_path():
@@ -120,7 +120,7 @@ def test_tip3p_prips_plugin_hooks_run(statics_path, outputs_path, mpi_np):
     )
     _write_prips_script(case_dir, backend)
     _write_prips_mdin(case_dir, plugin_path)
-    run_sponge(case_dir, timeout=1200, mpi_np=mpi_np)
+    Runner.run_sponge(case_dir, timeout=1200, mpi_np=mpi_np)
 
     hook_log = case_dir / "prips_hook.log"
     assert hook_log.exists()

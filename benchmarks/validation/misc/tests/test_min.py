@@ -4,8 +4,6 @@ import pytest
 
 from benchmarks.utils import Outputer, Runner
 
-from benchmarks.validation.misc.tests.utils import run_sponge
-
 
 def write_minimization_mdin(case_dir, *, step_limit=100000):
     mdin = (
@@ -61,7 +59,7 @@ def test_tip3p_bad_coordinate_minimization_runs(
         run_name="tip3p_min_bad_coordinate",
     )
     write_minimization_mdin(case_dir, step_limit=step_limit)
-    run_sponge(case_dir, timeout=1200, mpi_np=mpi_np)
+    Runner.run_sponge(case_dir, timeout=1200, mpi_np=mpi_np)
 
     potential_by_step = parse_potential_by_step(case_dir / "mdout.txt")
     milestones = [

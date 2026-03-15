@@ -4,7 +4,6 @@ from benchmarks.utils import Outputer, Runner
 
 from benchmarks.validation.misc.tests.utils import (
     parse_restart_coordinate_zmax,
-    run_sponge,
     write_mdin,
 )
 
@@ -32,7 +31,7 @@ def _run_tip3p_case(
         step_limit=step_limit,
         soft_walls_in_file=soft_walls_in_file,
     )
-    run_sponge(case_dir, timeout=1200, mpi_np=mpi_np)
+    Runner.run_sponge(case_dir, timeout=1200, mpi_np=mpi_np)
     return case_dir
 
 
