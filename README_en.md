@@ -18,7 +18,12 @@ A high-performance simulation engine for next-generation molecular modelling.
 
 Official website: https://spongemm.cn
 
-Read the `skills` folder for development and usage guides.
+When you need to understand or work with SPONGE:
+
+- If you are a human user, read the development and usage documents in the `docs` folder.
+- If you are an AI assistant:
+  - For using SPONGE, install this project's `skills` into your global skills directory, for example `~/.claude/skills` or `~/.agents/skills`.
+  - For developing SPONGE, link your project-level skills directory to this project's `skills`, for example `.claude/skills` or `.agents/skills`.
 
 ## Citation
 
