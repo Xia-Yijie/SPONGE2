@@ -35,7 +35,6 @@ Particle_Mesh pm;
 ANGLE angle;
 UREY_BRADLEY urey_bradley;
 BOND bond;
-BOND_SOFT bond_soft;
 CMAP cmap;
 DIHEDRAL dihedral;
 IMPROPER_DIHEDRAL improper;
@@ -284,8 +283,6 @@ void Main_Initial(int argc, char* argv[])
     urey_bradley.Initial(&controller);
     bond.Initial(&controller, &md_info.sys.connectivity,
                  &md_info.sys.connected_distance);
-    bond_soft.Initial(&controller, &md_info.sys.connectivity,
-                      &md_info.sys.connected_distance);
     cmap.Initial(&controller);
     dihedral.Initial(&controller);
     improper.Initial(&controller);
@@ -406,8 +403,6 @@ void Main_Initial(int argc, char* argv[])
                                dd.atom_local_label, dd.atom_local_id);
         bond.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,
                        dd.atom_local_label, dd.atom_local_id);
-        bond_soft.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,
-                            dd.atom_local_label, dd.atom_local_id);
         cmap.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,
                        dd.atom_local_label, dd.atom_local_id);
         dihedral.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,
@@ -688,10 +683,6 @@ void Main_Calculate_Force()
             dd.crd, md_info.pbc.cell, md_info.pbc.rcell, dd.frc,
             md_info.need_potential, dd.d_energy, md_info.need_pressure,
             dd.d_virial);
-        bond_soft.Soft_Bond_Force_With_Atom_Energy_And_Virial(
-            dd.crd, md_info.pbc.cell, md_info.pbc.rcell, dd.frc,
-            md_info.need_potential, dd.d_energy, md_info.need_pressure,
-            dd.d_virial, false);
         cmap.CMAP_Force_With_Atom_Energy_And_Virial(
             dd.crd, md_info.pbc.cell, md_info.pbc.rcell, dd.frc,
             md_info.need_potential, dd.d_energy, md_info.need_pressure,
@@ -970,9 +961,6 @@ void Main_Iteration()
                                          dd.atom_local_id);
                 bond.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,
                                dd.atom_local_label, dd.atom_local_id);
-                bond_soft.Get_Local(dd.atom_local, dd.atom_numbers,
-                                    dd.ghost_numbers, dd.atom_local_label,
-                                    dd.atom_local_id);
                 cmap.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,
                                dd.atom_local_label, dd.atom_local_id);
                 dihedral.Get_Local(dd.atom_local, dd.atom_numbers,
@@ -1090,7 +1078,6 @@ void Main_Print()
         angle.Step_Print(&controller);
         urey_bradley.Step_Print(&controller);
         bond.Step_Print(&controller);
-        bond_soft.Step_Print(&controller);
         cmap.Step_Print(&controller);
         listed_forces.Step_Print(&controller);
         dihedral.Step_Print(&controller);
@@ -1277,8 +1264,6 @@ void Main_Box_Change_Largely()
                                  dd.atom_local_id);
         bond.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,
                        dd.atom_local_label, dd.atom_local_id);
-        bond_soft.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,
-                            dd.atom_local_label, dd.atom_local_id);
         cmap.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,
                        dd.atom_local_label, dd.atom_local_id);
         dihedral.Get_Local(dd.atom_local, dd.atom_numbers, dd.ghost_numbers,

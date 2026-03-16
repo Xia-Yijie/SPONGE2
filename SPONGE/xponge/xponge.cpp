@@ -9,7 +9,9 @@ void Xponge::System::Load_Inputs(CONTROLLER* controller)
         controller->Command_Exist("amber_rst7"))
     {
         Load_Amber_Inputs(this, controller);
-        return;
     }
-    Load_Native_Inputs(this, controller);
+    else
+    {
+        Load_Native_Inputs(this, controller);
+    }
 }
