@@ -29,7 +29,9 @@ TABULATED_ABS_TOL = 5e-4
 RMSD_ABS_TOL = 5e-4
 
 
-def test_simple_and_composite_cv_matches_geometry(statics_path, outputs_path, mpi_np):
+def test_simple_and_composite_cv_matches_geometry(
+    statics_path, outputs_path, mpi_np
+):
     case_dir = Outputer.prepare_output_case(
         statics_path=statics_path,
         outputs_path=outputs_path,
@@ -61,7 +63,9 @@ def test_simple_and_composite_cv_matches_geometry(statics_path, outputs_path, mp
         [coordinates[index] for index in RMSD_ATOMS],
     )
 
-    distance_actual = float(parse_mdout_column(case_dir / "mdout.txt", "distance")[0])
+    distance_actual = float(
+        parse_mdout_column(case_dir / "mdout.txt", "distance")[0]
+    )
     angle_actual = float(parse_mdout_column(case_dir / "mdout.txt", "angle")[0])
     phi_series = parse_mdout_column(case_dir / "mdout.txt", "phi")
     psi_series = parse_mdout_column(case_dir / "mdout.txt", "psi")
@@ -71,7 +75,9 @@ def test_simple_and_composite_cv_matches_geometry(statics_path, outputs_path, mp
     tabulated_actual = float(
         parse_mdout_column(case_dir / "mdout.txt", "tab_distance_linear")[0]
     )
-    rmsd_actual = float(parse_mdout_column(case_dir / "mdout.txt", "rmsd_ala")[0])
+    rmsd_actual = float(
+        parse_mdout_column(case_dir / "mdout.txt", "rmsd_ala")[0]
+    )
 
     distance_abs_err = abs(distance_actual - distance_expected)
     angle_abs_err = abs(angle_actual - angle_expected)

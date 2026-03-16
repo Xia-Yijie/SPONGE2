@@ -39,7 +39,9 @@ def write_simple_cv_file(case_dir, cv_file="cv.txt"):
     Path(case_dir, cv_file).write_text(cv_text, encoding="utf-8")
 
 
-def write_extended_cv_file(case_dir, cv_file="cv.txt", rmsd_ref_file="rmsd_ref.txt"):
+def write_extended_cv_file(
+    case_dir, cv_file="cv.txt", rmsd_ref_file="rmsd_ref.txt"
+):
     rmsd_atoms = " ".join(str(atom) for atom in RMSD_ATOMS)
     cv_text = (
         "print\n"
@@ -316,7 +318,8 @@ def load_coordinates(coordinate_path):
             f"expected {expected}, got {len(values)}"
         )
     return [
-        tuple(values[3 * index : 3 * index + 3]) for index in range(atom_numbers)
+        tuple(values[3 * index : 3 * index + 3])
+        for index in range(atom_numbers)
     ]
 
 
@@ -354,8 +357,6 @@ def perturb_coordinates(coordinates, atom_indices):
         else:
             perturbed[atom_index] = (x - 0.35, y - 0.88, z + 0.61)
     return perturbed
-
-
 
 
 def compute_distance(coordinates, atom_indices):
@@ -396,7 +397,9 @@ def compute_kabsch_rmsd(reference_xyz, mobile_xyz):
     ref = [tuple(point) for point in reference_xyz]
     mob = [tuple(point) for point in mobile_xyz]
     if len(ref) != len(mob):
-        raise ValueError(f"Coordinate shape mismatch for RMSD: {len(ref)} vs {len(mob)}")
+        raise ValueError(
+            f"Coordinate shape mismatch for RMSD: {len(ref)} vs {len(mob)}"
+        )
     if not ref:
         raise ValueError("Cannot compute RMSD for empty atom set")
 
@@ -438,9 +441,12 @@ def compute_tabulated_distance(distance_value):
 
 def center_points(points):
     count = len(points)
-    center = tuple(sum(point[axis] for point in points) / count for axis in range(3))
+    center = tuple(
+        sum(point[axis] for point in points) / count for axis in range(3)
+    )
     return [
-        tuple(point[axis] - center[axis] for axis in range(3)) for point in points
+        tuple(point[axis] - center[axis] for axis in range(3))
+        for point in points
     ]
 
 
@@ -452,7 +458,10 @@ def matmul3x3(left_tall, right_points):
     matrix = [[0.0, 0.0, 0.0] for _ in range(3)]
     for i in range(3):
         for j in range(3):
-            matrix[i][j] = sum(left_tall[i][k] * right_points[k][j] for k in range(len(right_points)))
+            matrix[i][j] = sum(
+                left_tall[i][k] * right_points[k][j]
+                for k in range(len(right_points))
+            )
     return matrix
 
 

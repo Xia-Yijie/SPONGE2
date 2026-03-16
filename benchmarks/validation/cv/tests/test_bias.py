@@ -39,7 +39,10 @@ CV_SPECS = [
     {"name": "angle", "atoms": ANGLE_ATOMS},
     {"name": "phi", "atoms": PHI_ATOMS},
     {"name": "psi", "atoms": PSI_ATOMS},
-    {"name": "combo", "atoms": tuple(sorted(set(DISTANCE_ATOMS + ANGLE_ATOMS)))},
+    {
+        "name": "combo",
+        "atoms": tuple(sorted(set(DISTANCE_ATOMS + ANGLE_ATOMS))),
+    },
     {"name": "tab_distance_linear", "atoms": DISTANCE_ATOMS},
     {"name": "rmsd_ala", "atoms": RMSD_ATOMS},
 ]
@@ -111,8 +114,8 @@ def test_cv_steer_and_restrain_bias_match_theory(
     )
     restrain_force = Extractor.extract_sponge_forces(restrain_dir, ATOM_COUNT)
     restrain_terms = _load_scalar_terms(restrain_dir, cv_name)
-    restrain_prefactor = -2.0 * RESTRAIN_WEIGHT * (
-        cv_value - restrain_reference
+    restrain_prefactor = (
+        -2.0 * RESTRAIN_WEIGHT * (cv_value - restrain_reference)
     )
     restrain_expected_force = _build_bias_force(
         cv_name,
@@ -240,9 +243,9 @@ def _evaluate_cv_value(cv_name, coordinates, reference_coordinates):
     if cv_name == "psi":
         return compute_dihedral(coordinates, PSI_ATOMS)
     if cv_name == "combo":
-        return compute_distance(coordinates, DISTANCE_ATOMS) + 0.5 * compute_angle(
-            coordinates, ANGLE_ATOMS
-        )
+        return compute_distance(
+            coordinates, DISTANCE_ATOMS
+        ) + 0.5 * compute_angle(coordinates, ANGLE_ATOMS)
     if cv_name == "tab_distance_linear":
         return compute_tabulated_distance(
             compute_distance(coordinates, DISTANCE_ATOMS)

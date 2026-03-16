@@ -100,7 +100,10 @@ def write_velocity_file_for_temperature(
     total_mass = sum(masses)
     for axis in range(3):
         center_velocity = (
-            sum(mass * velocity[axis] for mass, velocity in zip(masses, velocities))
+            sum(
+                mass * velocity[axis]
+                for mass, velocity in zip(masses, velocities)
+            )
             / total_mass
         )
         for velocity in velocities:
@@ -155,9 +158,11 @@ def evaluate_temperature_block_average(
     ]
     mean_temp = statistics.fmean(block_means)
     block_std = statistics.stdev(block_means)
-    sem = block_std / (block_count ** 0.5)
-    z_score = abs(mean_temp - target_temperature) / sem if sem > 0.0 else (
-        0.0 if mean_temp == target_temperature else float("inf")
+    sem = block_std / (block_count**0.5)
+    z_score = (
+        abs(mean_temp - target_temperature) / sem
+        if sem > 0.0
+        else (0.0 if mean_temp == target_temperature else float("inf"))
     )
 
     return {
