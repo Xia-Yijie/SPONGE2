@@ -1,13 +1,12 @@
 ﻿#pragma once
 
-#include "./common.hpp"
+#include "../common.hpp"
 
 namespace Xponge
 {
 
 static void Native_Load_Impropers(Torsions* impropers, CONTROLLER* controller,
-                                  const char* module_name =
-                                      "improper_dihedral")
+                                  const char* module_name = "improper_dihedral")
 {
     if (!controller->Command_Exist(module_name, "in_file"))
     {

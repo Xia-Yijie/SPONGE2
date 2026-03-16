@@ -1,10 +1,5 @@
 ﻿#pragma once
 
-#include <cmath>
-#include <fstream>
-#include <string>
-#include <vector>
-
 #include "../xponge.h"
 
 namespace Xponge

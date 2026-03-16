@@ -3,7 +3,7 @@
 #include "./native/angle.hpp"
 #include "./native/bond.hpp"
 #include "./native/cmap.hpp"
-#include "./native/common.hpp"
+#include "./common.hpp"
 #include "./native/dihedral.hpp"
 #include "./native/gb.hpp"
 #include "./native/improper_dihedral.hpp"
@@ -41,7 +41,7 @@ void Load_Native_Inputs(System* system, CONTROLLER* controller)
     Native_Load_Exclusions(system, controller);
     system->generalized_born = GeneralizedBorn{};
     system->virtual_atoms = VirtualAtoms{};
-    Native_Reset_Classical_Force_Field(&system->classical_force_field);
+    Load_Reset_Classical_Force_Field(&system->classical_force_field);
     Native_Load_Classical_Force_Field(system, controller);
     Native_Load_Generalized_Born(system, controller);
     Native_Load_Virtual_Atoms(system, controller);

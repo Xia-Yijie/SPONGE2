@@ -1,14 +1,13 @@
 ﻿#pragma once
 
-#include "./common.hpp"
+#include "../common.hpp"
 
 namespace Xponge
 {
 
 static void Native_Load_LJ_Soft_Core(LJSoftCore* lj_soft,
                                      CONTROLLER* controller,
-                                     const char* module_name =
-                                         "LJ_soft_core")
+                                     const char* module_name = "LJ_soft_core")
 {
     if (!controller->Command_Exist(module_name, "in_file"))
     {
@@ -26,10 +25,10 @@ static void Native_Load_LJ_Soft_Core(LJSoftCore* lj_soft,
             "Reason:\n\tthe format of LJ_soft_core_in_file is not right\n");
     }
 
-    int pair_type_numbers_A = lj_soft->atom_type_numbers_A *
-                              (lj_soft->atom_type_numbers_A + 1) / 2;
-    int pair_type_numbers_B = lj_soft->atom_type_numbers_B *
-                              (lj_soft->atom_type_numbers_B + 1) / 2;
+    int pair_type_numbers_A =
+        lj_soft->atom_type_numbers_A * (lj_soft->atom_type_numbers_A + 1) / 2;
+    int pair_type_numbers_B =
+        lj_soft->atom_type_numbers_B * (lj_soft->atom_type_numbers_B + 1) / 2;
     lj_soft->LJ_AA.resize(pair_type_numbers_A);
     lj_soft->LJ_AB.resize(pair_type_numbers_A);
     lj_soft->LJ_BA.resize(pair_type_numbers_B);
@@ -100,14 +99,16 @@ static void Native_Load_LJ_Soft_Core(LJSoftCore* lj_soft,
         {
             controller->Throw_SPONGE_Error(
                 spongeErrorBadFileFormat, "Xponge::Native_Load_LJ_Soft_Core",
-                "Reason:\n\tthe format of subsys_division_in_file is not right\n");
+                "Reason:\n\tthe format of subsys_division_in_file is not "
+                "right\n");
         }
         if (atom_numbers != lj_soft->atom_numbers)
         {
             controller->Throw_SPONGE_Error(
                 spongeErrorConflictingCommand,
                 "Xponge::Native_Load_LJ_Soft_Core",
-                "Reason:\n\t'atom_numbers' is different in different input files\n");
+                "Reason:\n\t'atom_numbers' is different in different input "
+                "files\n");
         }
         for (int i = 0; i < atom_numbers; i++)
         {
@@ -116,7 +117,8 @@ static void Native_Load_LJ_Soft_Core(LJSoftCore* lj_soft,
                 controller->Throw_SPONGE_Error(
                     spongeErrorBadFileFormat,
                     "Xponge::Native_Load_LJ_Soft_Core",
-                    "Reason:\n\tthe format of subsys_division_in_file is not right\n");
+                    "Reason:\n\tthe format of subsys_division_in_file is not "
+                    "right\n");
             }
         }
         fclose(fp);

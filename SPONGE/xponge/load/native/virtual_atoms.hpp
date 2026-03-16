@@ -2,15 +2,14 @@
 
 #include <sstream>
 
-#include "./common.hpp"
+#include "../common.hpp"
 
 namespace Xponge
 {
 
 static void Native_Load_Virtual_Atoms(VirtualAtoms* virtual_atoms,
                                       CONTROLLER* controller,
-                                      const char* module_name =
-                                          "virtual_atom")
+                                      const char* module_name = "virtual_atom")
 {
     if (!controller->Command_Exist(module_name, "in_file"))
     {
@@ -41,7 +40,8 @@ static void Native_Load_Virtual_Atoms(VirtualAtoms* virtual_atoms,
                     controller->Throw_SPONGE_Error(
                         spongeErrorBadFileFormat,
                         "Xponge::Native_Load_Virtual_Atoms",
-                        "Reason:\n\tthe format of virtual_atom_in_file is not right\n");
+                        "Reason:\n\tthe format of virtual_atom_in_file is not "
+                        "right\n");
                 }
                 record.from.push_back(from);
                 record.parameter.push_back(h);
@@ -56,7 +56,8 @@ static void Native_Load_Virtual_Atoms(VirtualAtoms* virtual_atoms,
                     controller->Throw_SPONGE_Error(
                         spongeErrorBadFileFormat,
                         "Xponge::Native_Load_Virtual_Atoms",
-                        "Reason:\n\tthe format of virtual_atom_in_file is not right\n");
+                        "Reason:\n\tthe format of virtual_atom_in_file is not "
+                        "right\n");
                 }
                 record.from.push_back(from1);
                 record.from.push_back(from2);
@@ -73,7 +74,8 @@ static void Native_Load_Virtual_Atoms(VirtualAtoms* virtual_atoms,
                     controller->Throw_SPONGE_Error(
                         spongeErrorBadFileFormat,
                         "Xponge::Native_Load_Virtual_Atoms",
-                        "Reason:\n\tthe format of virtual_atom_in_file is not right\n");
+                        "Reason:\n\tthe format of virtual_atom_in_file is not "
+                        "right\n");
                 }
                 record.from.push_back(from1);
                 record.from.push_back(from2);
@@ -86,7 +88,8 @@ static void Native_Load_Virtual_Atoms(VirtualAtoms* virtual_atoms,
                 controller->Throw_SPONGE_Error(
                     spongeErrorBadFileFormat,
                     "Xponge::Native_Load_Virtual_Atoms",
-                    "Reason:\n\tvirtual_atom_in_file contains an unsupported virtual atom type\n");
+                    "Reason:\n\tvirtual_atom_in_file contains an unsupported "
+                    "virtual atom type\n");
         }
         virtual_atoms->records.push_back(record);
     }

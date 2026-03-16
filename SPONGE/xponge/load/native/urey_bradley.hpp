@@ -1,14 +1,13 @@
 ﻿#pragma once
 
-#include "./common.hpp"
+#include "../common.hpp"
 
 namespace Xponge
 {
 
 static void Native_Load_Urey_Bradley(UreyBradley* urey_bradley,
                                      CONTROLLER* controller,
-                                     const char* module_name =
-                                         "urey_bradley")
+                                     const char* module_name = "urey_bradley")
 {
     if (!controller->Command_Exist(module_name, "in_file"))
     {
@@ -37,8 +36,7 @@ static void Native_Load_Urey_Bradley(UreyBradley* urey_bradley,
     {
         if (fscanf(fp, "%d %d %d %f %f %f %f", &urey_bradley->atom_a[i],
                    &urey_bradley->atom_b[i], &urey_bradley->atom_c[i],
-                   &urey_bradley->angle_k[i],
-                   &urey_bradley->angle_theta0[i],
+                   &urey_bradley->angle_k[i], &urey_bradley->angle_theta0[i],
                    &urey_bradley->bond_k[i], &urey_bradley->bond_r0[i]) != 7)
         {
             controller->Throw_SPONGE_Error(

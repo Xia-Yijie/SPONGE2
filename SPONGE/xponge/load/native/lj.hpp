@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "./common.hpp"
+#include "../common.hpp"
 
 namespace Xponge
 {
@@ -26,9 +26,10 @@ static void Native_Load_LJ(LennardJones* lj, CONTROLLER* controller,
     }
     if (atom_numbers_hint > 0 && atom_numbers_hint != atom_numbers)
     {
-        controller->Throw_SPONGE_Error(
-            spongeErrorConflictingCommand, "Xponge::Native_Load_LJ",
-            "Reason:\n\t'atom_numbers' is different in different input files\n");
+        controller->Throw_SPONGE_Error(spongeErrorConflictingCommand,
+                                       "Xponge::Native_Load_LJ",
+                                       "Reason:\n\t'atom_numbers' is different "
+                                       "in different input files\n");
     }
     lj->atom_type_numbers = atom_type_numbers;
     int pair_type_numbers = atom_type_numbers * (atom_type_numbers + 1) / 2;
@@ -70,7 +71,7 @@ static void Native_Load_LJ(LennardJones* lj, CONTROLLER* controller,
 static void Native_Load_LJ(System* system, CONTROLLER* controller)
 {
     Native_Load_LJ(&system->classical_force_field.lj, controller,
-                   Native_Get_Atom_Numbers(system));
+                   Load_Get_Atom_Numbers(system));
 }
 
 }  // namespace Xponge

@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "./common.hpp"
+#include "../common.hpp"
 
 namespace Xponge
 {
@@ -18,7 +18,7 @@ static void Native_Load_Mass(System* system, CONTROLLER* controller)
                 spongeErrorBadFileFormat, "Xponge::Native_Load_Mass",
                 "Reason:\n\tthe format of mass_in_file is not right\n");
         }
-        Native_Ensure_Atom_Numbers(system, atom_numbers, controller,
+        Load_Ensure_Atom_Numbers(system, atom_numbers, controller,
                                    "Xponge::Native_Load_Mass");
         system->atoms.mass.resize(atom_numbers);
         for (int i = 0; i < atom_numbers; i++)
@@ -34,7 +34,7 @@ static void Native_Load_Mass(System* system, CONTROLLER* controller)
         return;
     }
 
-    int atom_numbers = Native_Get_Atom_Numbers(system);
+    int atom_numbers = Load_Get_Atom_Numbers(system);
     if (atom_numbers > 0)
     {
         system->atoms.mass.assign(atom_numbers, 20.0f);
@@ -59,7 +59,7 @@ static void Native_Load_Charge(System* system, CONTROLLER* controller)
                 spongeErrorBadFileFormat, "Xponge::Native_Load_Charge",
                 "Reason:\n\tthe format of charge_in_file is not right\n");
         }
-        Native_Ensure_Atom_Numbers(system, atom_numbers, controller,
+        Load_Ensure_Atom_Numbers(system, atom_numbers, controller,
                                    "Xponge::Native_Load_Charge");
         system->atoms.charge.resize(atom_numbers);
         for (int i = 0; i < atom_numbers; i++)
@@ -75,7 +75,7 @@ static void Native_Load_Charge(System* system, CONTROLLER* controller)
         return;
     }
 
-    int atom_numbers = Native_Get_Atom_Numbers(system);
+    int atom_numbers = Load_Get_Atom_Numbers(system);
     if (atom_numbers > 0)
     {
         system->atoms.charge.assign(atom_numbers, 0.0f);
@@ -120,7 +120,7 @@ static void Native_Load_Coordinate_And_Velocity(System* system,
             "Reason:\n\tthe format of coordinate_in_file is not right\n");
     }
     system->start_time = (scanf_ret == 2) ? start_time : 0.0;
-    Native_Ensure_Atom_Numbers(system, atom_numbers, controller,
+    Load_Ensure_Atom_Numbers(system, atom_numbers, controller,
                                "Xponge::Native_Load_Coordinate_And_Velocity");
 
     system->atoms.coordinate.resize(3 * atom_numbers);
@@ -169,7 +169,7 @@ static void Native_Load_Coordinate_And_Velocity(System* system,
                 "Xponge::Native_Load_Coordinate_And_Velocity",
                 "Reason:\n\tthe format of velocity_in_file is not right\n");
         }
-        Native_Ensure_Atom_Numbers(
+        Load_Ensure_Atom_Numbers(
             system, vel_atom_numbers, controller,
             "Xponge::Native_Load_Coordinate_And_Velocity");
         system->atoms.velocity.resize(3 * vel_atom_numbers);
@@ -194,7 +194,7 @@ static void Native_Load_Coordinate_And_Velocity(System* system,
 
 static void Native_Load_Residues(System* system, CONTROLLER* controller)
 {
-    int atom_numbers = Native_Get_Atom_Numbers(system);
+    int atom_numbers = Load_Get_Atom_Numbers(system);
     if (!controller->Command_Exist("residue_in_file"))
     {
         system->residues.atom_numbers.assign(atom_numbers, 1);
@@ -211,7 +211,7 @@ static void Native_Load_Residues(System* system, CONTROLLER* controller)
             spongeErrorBadFileFormat, "Xponge::Native_Load_Residues",
             "Reason:\n\tthe format of residue_in_file is not right\n");
     }
-    Native_Ensure_Atom_Numbers(system, residue_atom_numbers, controller,
+    Load_Ensure_Atom_Numbers(system, residue_atom_numbers, controller,
                                "Xponge::Native_Load_Residues");
     system->residues.atom_numbers.resize(residue_numbers);
     for (int i = 0; i < residue_numbers; i++)
@@ -228,7 +228,7 @@ static void Native_Load_Residues(System* system, CONTROLLER* controller)
 
 static void Native_Load_Exclusions(System* system, CONTROLLER* controller)
 {
-    int atom_numbers = Native_Get_Atom_Numbers(system);
+    int atom_numbers = Load_Get_Atom_Numbers(system);
     system->exclusions.excluded_atoms.assign(atom_numbers, {});
 
     if (!controller->Command_Exist("exclude_in_file"))
@@ -246,7 +246,7 @@ static void Native_Load_Exclusions(System* system, CONTROLLER* controller)
             spongeErrorBadFileFormat, "Xponge::Native_Load_Exclusions",
             "Reason:\n\tThe format of exclude_in_file is not right\n");
     }
-    Native_Ensure_Atom_Numbers(system, exclude_atom_numbers, controller,
+    Load_Ensure_Atom_Numbers(system, exclude_atom_numbers, controller,
                                "Xponge::Native_Load_Exclusions");
 
     int count = 0;

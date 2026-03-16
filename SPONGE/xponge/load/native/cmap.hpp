@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "./common.hpp"
+#include "../common.hpp"
 
 namespace Xponge
 {
@@ -49,7 +49,8 @@ static void Native_Load_CMap(CMap* cmap, CONTROLLER* controller,
                 "Reason:\n\tthe format of cmap_in_file is not right\n");
         }
         cmap->type_offset[i] = 16 * cmap->unique_gridpoint_numbers;
-        cmap->unique_gridpoint_numbers += cmap->resolution[i] * cmap->resolution[i];
+        cmap->unique_gridpoint_numbers +=
+            cmap->resolution[i] * cmap->resolution[i];
     }
 
     cmap->grid_value.resize(cmap->unique_gridpoint_numbers);

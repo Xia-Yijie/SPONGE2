@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "./common.hpp"
+#include "../common.hpp"
 
 namespace Xponge
 {
@@ -38,8 +38,7 @@ static void Native_Load_Generalized_Born(GeneralizedBorn* gb,
     fclose(fp);
 }
 
-static void Native_Load_Generalized_Born(System* system,
-                                         CONTROLLER* controller)
+static void Native_Load_Generalized_Born(System* system, CONTROLLER* controller)
 {
     Native_Load_Generalized_Born(&system->generalized_born, controller);
 }

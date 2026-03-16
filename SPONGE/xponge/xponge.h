@@ -12,6 +12,7 @@ enum class InputSource
     kUnknown,
     kNative,
     kAmber,
+    kGromacs,
 };
 
 struct System
@@ -31,6 +32,7 @@ struct System
 
 void Load_Native_Inputs(System* system, CONTROLLER* controller);
 void Load_Amber_Inputs(System* system, CONTROLLER* controller);
+void Load_Gromacs_Inputs(System* system, CONTROLLER* controller);
 extern System system;
 
 }  // namespace Xponge

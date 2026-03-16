@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "./common.hpp"
+#include "../common.hpp"
 
 namespace Xponge
 {
@@ -35,8 +35,8 @@ static void Native_Load_NB14(NB14* nb14, const int* atom_type,
 
     if (controller->Command_Exist(module_name, "extra_in_file"))
     {
-        Open_File_Safely(&fp_extra, controller->Command(module_name, "extra_in_file"),
-                         "r");
+        Open_File_Safely(
+            &fp_extra, controller->Command(module_name, "extra_in_file"), "r");
         if (fscanf(fp_extra, "%d", &extra_numbers) != 1)
         {
             controller->Throw_SPONGE_Error(
