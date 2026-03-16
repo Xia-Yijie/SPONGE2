@@ -205,6 +205,12 @@ jobs:
       - name: Benchmark validation/cv (MPI np=2)
         run: pixi run -e ${{ matrix.env_name }} vali-cv --mpi 2
 
+      - name: Benchmark validation/thermostat (MPI np=2)
+        run: pixi run -e ${{ matrix.env_name }} vali-thermostat --mpi 2
+
+      - name: Benchmark validation/barostat (MPI np=2)
+        run: pixi run -e ${{ matrix.env_name }} vali-barostat --mpi 2
+
       - name: Benchmark validation/misc (walls and softcore, MPI np=2)
         run: >-
           pixi run -e ${{ matrix.env_name }} vali-misc --mpi 2 -k
