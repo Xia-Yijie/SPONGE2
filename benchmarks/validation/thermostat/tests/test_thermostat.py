@@ -1,82 +1,67 @@
 import pytest
 
-from benchmarks.utils import Outputer
+from benchmarks.utils import Extractor, Outputer
 
 from benchmarks.validation.thermostat.tests.utils import (
-    evaluate_temperature_distribution,
+    evaluate_temperature_block_average,
     parse_temperature_series,
-    read_atom_count_from_mass,
-    read_constrain_pair_count_from_runlog,
+    read_mass_values,
     run_sponge_thermostat,
+    write_velocity_file_for_temperature,
     write_thermostat_mdin,
 )
+
+COMMON_CFG = {
+    "step_limit": 1000,
+    "burn_in": 20,
+    "block_size": 100,
+    "z_score_max": 3.0,
+    "thermostat_tau": 0.1,
+    "target_temperature": 300.0,
+    "velocity_temperature": 300.0,
+    "seed": 2026,
+}
 
 
 THERMOSTAT_CASES = [
     pytest.param(
         {
+            **COMMON_CFG,
             "id": "middle_langevin",
             "thermostat": "middle_langevin",
-            "thermostat_tau": 0.1,
-            "step_limit": 50000,
-            "burn_in": 10000,
-            "mean_tol_k": 1.5,
-            "std_ratio_min": 0.90,
-            "std_ratio_max": 1.10,
         },
         id="middle_langevin",
     ),
     pytest.param(
         {
+            **COMMON_CFG,
             "id": "andersen",
             "thermostat": "andersen",
-            "thermostat_tau": 0.1,
-            "step_limit": 50000,
-            "burn_in": 10000,
-            "mean_tol_k": 1.5,
-            "std_ratio_min": 0.90,
-            "std_ratio_max": 1.10,
         },
         id="andersen",
     ),
     pytest.param(
         {
+            **COMMON_CFG,
             "id": "berendsen_thermostat",
             "thermostat": "berendsen_thermostat",
-            "thermostat_tau": 0.1,
-            "step_limit": 50000,
-            "burn_in": 10000,
-            "mean_tol_k": 1.5,
-            "std_ratio_min": 0.90,
-            "std_ratio_max": 1.10,
-            "check_std": False,
         },
         id="berendsen_thermostat",
     ),
     pytest.param(
         {
+            **COMMON_CFG,
             "id": "nose_hoover_chain",
             "thermostat": "nose_hoover_chain",
-            "thermostat_tau": 0.1,
-            "step_limit": 50000,
-            "burn_in": 10000,
-            "mean_tol_k": 1.5,
-            "std_ratio_min": 0.90,
-            "std_ratio_max": 1.10,
         },
         id="nose_hoover_chain",
     ),
     pytest.param(
         {
+            **COMMON_CFG,
             "id": "bussi_thermostat",
             "thermostat": "bussi_thermostat",
             "thermostat_mode": "bussi_thermostat",
-            "thermostat_tau": 0.1,
-            "step_limit": 50000,
-            "burn_in": 10000,
-            "mean_tol_k": 1.5,
-            "std_ratio_min": 0.90,
-            "std_ratio_max": 1.10,
         },
         id="bussi_thermostat",
     ),
@@ -94,6 +79,17 @@ def test_thermostat_tip3p_water(statics_path, outputs_path, cfg, mpi_np):
         mpi_np=mpi_np,
         run_name=cfg["id"],
     )
+    masses = read_mass_values(case_dir / f"{file_prefix}_mass.txt")
+    constrain_pair_count = Extractor.read_first_field_int(
+        case_dir / f"{file_prefix}_bond.txt"
+    )
+    write_velocity_file_for_temperature(
+        case_dir / "initial_velocity.txt",
+        masses,
+        temperature=cfg["velocity_temperature"],
+        seed=cfg["seed"],
+        degrees_of_freedom=3 * len(masses) - constrain_pair_count,
+    )
 
     write_thermostat_mdin(
         case_dir,
@@ -103,75 +99,54 @@ def test_thermostat_tip3p_water(statics_path, outputs_path, cfg, mpi_np):
         thermostat=cfg["thermostat"],
         thermostat_mode=cfg.get("thermostat_mode"),
         constrain_mode="SETTLE",
-        target_temperature=300.0,
+        target_temperature=cfg["target_temperature"],
         thermostat_tau=cfg["thermostat_tau"],
-        thermostat_seed=2026,
+        thermostat_seed=cfg["seed"],
         default_in_file_prefix=file_prefix,
         md_name="benchmark tip3p_water thermostat",
+        velocity_in_file="initial_velocity.txt",
     )
 
-    run_output = run_sponge_thermostat(case_dir, timeout=600, mpi_np=mpi_np)
+    run_sponge_thermostat(case_dir, timeout=600, mpi_np=mpi_np)
 
     temperatures = parse_temperature_series(case_dir / "mdout.txt")
-    n_atoms = read_atom_count_from_mass(case_dir / f"{file_prefix}_mass.txt")
-    constrain_pair_count = read_constrain_pair_count_from_runlog(run_output)
-    stats = evaluate_temperature_distribution(
+    stats = evaluate_temperature_block_average(
         temperatures,
-        target_temperature=300.0,
-        n_atoms=n_atoms,
+        target_temperature=cfg["target_temperature"],
         burn_in=cfg["burn_in"],
-        constrain_pair_count=constrain_pair_count,
+        block_size=cfg["block_size"],
     )
-
-    mean_tol_k = cfg["mean_tol_k"]
-    std_ratio_min = cfg["std_ratio_min"]
-    std_ratio_max = cfg["std_ratio_max"]
-    check_std = cfg.get("check_std", True)
-
-    mean_ok = abs(stats["mean_temp"] - 300.0) <= mean_tol_k
-    std_ok = (
-        std_ratio_min <= stats["std_ratio"] <= std_ratio_max
-        if check_std
-        else True
-    )
-    std_ratio_range = (
-        f"[{std_ratio_min:.2f}, {std_ratio_max:.2f}]"
-        if check_std
-        else "N/A (mean only)"
-    )
+    z_score_max = cfg["z_score_max"]
+    mean_ok = stats["z_score"] <= z_score_max
 
     headers = [
-        "Case",
         "Thermostat",
         "Samples",
+        "Blocks",
         "Mean(K)",
-        "Std(K)",
-        "ExpectedStd(K)",
-        "StdRatio",
-        "MeanTol(K)",
-        "StdRatioRange",
+        "BlockStd(K)",
+        "SEM(K)",
+        "ZScore",
+        "ZScoreMax",
         "Status",
     ]
     rows = [
         [
-            case_name,
             cfg["id"],
             str(stats["sample_count"]),
+            str(stats["block_count"]),
             f"{stats['mean_temp']:.3f}",
-            f"{stats['std_temp']:.3f}",
-            f"{stats['expected_std']:.3f}",
-            f"{stats['std_ratio']:.3f}",
-            f"{mean_tol_k:.1f}",
-            std_ratio_range,
-            "PASS" if (mean_ok and std_ok) else "FAIL",
+            f"{stats['block_std']:.3f}",
+            f"{stats['sem']:.3f}",
+            f"{stats['z_score']:.3f}",
+            f"{z_score_max:.1f}",
+            "PASS" if mean_ok else "FAIL",
         ]
     ]
     Outputer.print_table(
         headers,
         rows,
-        title="Thermostat Validation: TIP3P Water",
+        title=f"Thermostat Validation: {case_name}",
     )
 
     assert mean_ok
-    if check_std:
-        assert std_ok

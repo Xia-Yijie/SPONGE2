@@ -69,6 +69,17 @@ jobs:
       - name: Benchmark comparison/gromacs
         run: pixi run -e ${{ matrix.env_name }} comp-gromacs
 
+      - name: Benchmark validation/cv
+        run: pixi run -e ${{ matrix.env_name }} vali-cv
+
+      - name: Benchmark validation/thermostat
+        run: pixi run -e ${{ matrix.env_name }} vali-thermostat
+
+      - name: Benchmark validation/misc (except prips and minimization)
+        run: >-
+          pixi run -e ${{ matrix.env_name }} vali-misc -k
+          "not prips and not minimization"
+
   benchmark-cpu-prips:
     name: PRIPS-CPU Benchmark (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
