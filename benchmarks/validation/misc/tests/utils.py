@@ -1,14 +1,6 @@
 from pathlib import Path
 
-from benchmarks.utils import Outputer, Runner
-
-
-def run_sponge(case_dir, timeout=900, mpi_np=None):
-    return Runner.run_sponge(
-        case_dir,
-        timeout=timeout,
-        mpi_np=mpi_np,
-    )
+from benchmarks.utils import Outputer
 
 
 def write_mdin(

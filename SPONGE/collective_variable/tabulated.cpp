@@ -23,10 +23,11 @@ static __global__ void BSpline_interpolate1d(
             y0 = BSpline_4_1(x0) * points[i - 1] + BSpline_4_2(x0) * points[i] +
                  BSpline_4_3(x0) * points[i + 1] +
                  BSpline_4_4(x0) * points[i + 2];
-            dy_dx = dBSpline_4_1(x0) * points[i - 1] +
-                    dBSpline_4_2(x0) * points[i] +
-                    dBSpline_4_3(x0) * points[i + 1] +
-                    dBSpline_4_4(x0) * points[i + 2];
+            dy_dx = (dBSpline_4_1(x0) * points[i - 1] +
+                     dBSpline_4_2(x0) * points[i] +
+                     dBSpline_4_3(x0) * points[i + 1] +
+                     dBSpline_4_4(x0) * points[i + 2]) /
+                    delta;
         }
         y[0] = y0;
         y_box_grads[0] = dy_dx * x_box_grads[0];
@@ -49,10 +50,11 @@ static __global__ void BSpline_interpolate1d(
             y0 = BSpline_4_1(x0) * points[i - 1] + BSpline_4_2(x0) * points[i] +
                  BSpline_4_3(x0) * points[i + 1] +
                  BSpline_4_4(x0) * points[i + 2];
-            dy_dx = dBSpline_4_1(x0) * points[i - 1] +
-                    dBSpline_4_2(x0) * points[i] +
-                    dBSpline_4_3(x0) * points[i + 1] +
-                    dBSpline_4_4(x0) * points[i + 2];
+            dy_dx = (dBSpline_4_1(x0) * points[i - 1] +
+                     dBSpline_4_2(x0) * points[i] +
+                     dBSpline_4_3(x0) * points[i + 1] +
+                     dBSpline_4_4(x0) * points[i + 2]) /
+                    delta;
         }
         y[0] = y0;
         y_box_grads[0] = dy_dx * x_box_grads[0];

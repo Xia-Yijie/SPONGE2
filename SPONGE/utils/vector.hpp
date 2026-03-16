@@ -247,7 +247,7 @@ struct VECTOR
     }
     friend __host__ __device__ __forceinline__ float dBSpline_4_4(float x)
     {
-        return -0.5f * x * x + x - 0.5f;
+        return 0.5f * x * x - x + 0.5f;
     }
 };
 
