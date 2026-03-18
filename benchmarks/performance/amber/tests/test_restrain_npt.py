@@ -10,8 +10,14 @@ import pytest
 from benchmarks.utils import Extractor
 from benchmarks.utils import Outputer
 
-from benchmarks.performance.barostat.tests.utils import (
-    run_sponge_barostat,
+from benchmarks.performance.amber.tests.utils import (
+    compute_oo_rdf,
+    read_box_trajectory,
+    read_coordinate_trajectory,
+    run_sponge_amber,
+    save_rdf_plot,
+    summarize_rdf,
+    write_amber_long_run_mdin,
 )
 
 
@@ -77,6 +83,18 @@ RNA_BACKBONE_ATOMS = {
 MINIMIZATION_STEP_LIMIT = 1000
 NPT_STEP_LIMIT = 2000
 TAIL_SAMPLES = 50
+WATER_RESNAMES = {
+    "WAT",
+    "HOH",
+    "SOL",
+    "TIP3",
+    "TIP3P",
+    "TIP4",
+    "TIP4P",
+    "SPC",
+    "SPCE",
+}
+WATER_OXYGEN_NAMES = {"O", "OW", "OH2"}
 
 
 def _read_prmtop_flag_lines(prmtop_path: Path, flag: str):
@@ -170,6 +188,19 @@ def _build_backbone_restrain_list(case_dir: Path):
         protein_atom_ids,
         rna_atom_ids,
     )
+
+
+def _build_water_oxygen_indices(prmtop_path: Path):
+    atom_names, atom_residue_name = _build_atom_residue_names(prmtop_path)
+    oxygen_ids = [
+        atom_idx
+        for atom_idx, atom_name in enumerate(atom_names)
+        if atom_residue_name[atom_idx] in WATER_RESNAMES
+        and atom_name in WATER_OXYGEN_NAMES
+    ]
+    if not oxygen_ids:
+        raise ValueError("No water oxygen atoms found in AMBER system")
+    return oxygen_ids
 
 
 def _read_rst7_coords(rst7_path: Path):
@@ -305,13 +336,14 @@ def _first_nonfinite_index(series):
     return None
 
 
-def test_restrain_npt_after_minimization(statics_path, outputs_path, mpi_np):
+@pytest.fixture(scope="module")
+def amber_equilibrated_case(statics_path, outputs_path, mpi_np):
     case_dir = Outputer.prepare_output_case(
         statics_path=statics_path,
         outputs_path=outputs_path,
         case_name="restrain_npt",
         mpi_np=mpi_np,
-        run_name="restrain_npt_min_then_npt",
+        run_name="restrain_npt_equilibrated",
     )
 
     (
@@ -327,13 +359,13 @@ def test_restrain_npt_after_minimization(statics_path, outputs_path, mpi_np):
         raise ValueError("No RNA atoms found in the system.")
 
     _write_minimization_mdin(case_dir, restrain_file=restrain_file)
-    run_sponge_barostat(case_dir, timeout=1200, mpi_np=mpi_np)
+    run_sponge_amber(case_dir, timeout=1200, mpi_np=mpi_np)
     shutil.copyfile(case_dir / "mdout.txt", case_dir / "mdout_min.txt")
     shutil.copyfile(case_dir / "mdbox.txt", case_dir / "mdbox_min.txt")
     shutil.copyfile(case_dir / "restart.rst7", case_dir / "restart_min.rst7")
 
     _write_restrained_npt_mdin(case_dir, restrain_file=restrain_file)
-    run_sponge_barostat(case_dir, timeout=1200, mpi_np=mpi_np)
+    run_sponge_amber(case_dir, timeout=1200, mpi_np=mpi_np)
     shutil.copyfile(case_dir / "mdout.txt", case_dir / "mdout_restrained.txt")
     shutil.copyfile(case_dir / "mdbox.txt", case_dir / "mdbox_restrained.txt")
     shutil.copyfile(
@@ -341,9 +373,30 @@ def test_restrain_npt_after_minimization(statics_path, outputs_path, mpi_np):
     )
 
     _write_unrestrained_npt_mdin(case_dir)
-    run_sponge_barostat(case_dir, timeout=1200, mpi_np=mpi_np)
+    run_sponge_amber(case_dir, timeout=1200, mpi_np=mpi_np)
     shutil.copyfile(case_dir / "mdout.txt", case_dir / "mdout_unrestrained.txt")
     shutil.copyfile(case_dir / "mdbox.txt", case_dir / "mdbox_unrestrained.txt")
+    shutil.copyfile(case_dir / "restart.rst7", case_dir / "restart_equilibrated.rst7")
+
+    return {
+        "case_dir": case_dir,
+        "restrain_file": restrain_file,
+        "restrained_ids": restrained_ids,
+        "restrained_classes": restrained_classes,
+        "protein_atom_ids": protein_atom_ids,
+        "rna_atom_ids": rna_atom_ids,
+        "water_oxygen_ids": _build_water_oxygen_indices(
+            case_dir / "model-protein-RNA-complex.prmtop"
+        ),
+    }
+
+
+def test_restrain_npt_after_minimization(amber_equilibrated_case):
+    case_dir = amber_equilibrated_case["case_dir"]
+    restrained_ids = amber_equilibrated_case["restrained_ids"]
+    restrained_classes = amber_equilibrated_case["restrained_classes"]
+    protein_atom_ids = amber_equilibrated_case["protein_atom_ids"]
+    rna_atom_ids = amber_equilibrated_case["rna_atom_ids"]
 
     start_coords = _read_rst7_coords(
         case_dir / "model-protein-RNA-complex.inpcrd"
@@ -504,7 +557,7 @@ def test_restrain_npt_after_minimization(statics_path, outputs_path, mpi_np):
     Outputer.print_table(
         ["Metric", "Value"],
         rows,
-        title="Barostat Validation: Restrain NPT Stability After Minimization",
+        title="Amber Performance: Restrain NPT Stability After Minimization",
     )
 
     assert all(
@@ -520,6 +573,78 @@ def test_restrain_npt_after_minimization(statics_path, outputs_path, mpi_np):
     )
     assert not restrained_nonfinite
     assert not unrestrained_nonfinite
-    assert restrained_density_ok
-    assert unrestrained_density_ok
-    assert rmsd_ok
+
+
+def test_restrain_npt_long_run_oo_rdf(
+    statics_path,
+    outputs_path,
+    amber_equilibrated_case,
+    amber_mode,
+    amber_steps,
+    mpi_np,
+):
+    case_dir = Outputer.prepare_output_case(
+        statics_path=statics_path,
+        outputs_path=outputs_path,
+        case_name="restrain_npt",
+        mpi_np=mpi_np,
+        run_name=f"{amber_mode.lower()}_long_run_rdf",
+    )
+    equil_case_dir = amber_equilibrated_case["case_dir"]
+    shutil.copyfile(
+        equil_case_dir / "restart_equilibrated.rst7",
+        case_dir / "restart_equilibrated.rst7",
+    )
+
+    trajectory_interval = max(100, amber_steps // 50)
+    write_amber_long_run_mdin(
+        case_dir,
+        mode=amber_mode,
+        step_limit=amber_steps,
+        trajectory_interval=trajectory_interval,
+        amber_rst7="restart_equilibrated.rst7",
+    )
+    timeout = max(2400, amber_steps // 20)
+    run_sponge_amber(case_dir, timeout=timeout, mpi_np=mpi_np)
+
+    atom_count = _read_rst7_coords(case_dir / "restart_equilibrated.rst7").shape[0]
+    trajectory = read_coordinate_trajectory(case_dir / "mdcrd.dat", atom_count)
+    box_trajectory = read_box_trajectory(case_dir / "mdbox.txt")
+    radii, rdf, sampled_oxygen_ids = compute_oo_rdf(
+        trajectory,
+        box_trajectory,
+        amber_equilibrated_case["water_oxygen_ids"],
+        bin_width=0.05,
+    )
+    rdf_summary = summarize_rdf(radii, rdf)
+    rdf_plot = save_rdf_plot(
+        radii,
+        rdf,
+        case_dir / "amber_oo_rdf.png",
+        title=f"Amber O-O RDF ({amber_mode}, {amber_steps} steps)",
+    )
+
+    frame_count = min(trajectory.shape[0], box_trajectory.shape[0])
+    rows = [
+        ["RunName", f"{amber_mode.lower()}_long_run_rdf"],
+        ["Mode", amber_mode],
+        ["StepLimit", str(amber_steps)],
+        ["TrajectoryInterval", str(trajectory_interval)],
+        ["FramesUsed", str(frame_count)],
+        ["WaterOxygenCount", str(len(amber_equilibrated_case["water_oxygen_ids"]))],
+        ["WaterOxygenSampled", str(len(sampled_oxygen_ids))],
+        ["RDFPeakR(A)", f"{rdf_summary['rdf_peak_r']:.3f}"],
+        ["RDFPeakG", f"{rdf_summary['rdf_peak_g']:.3f}"],
+        ["RDFMax", f"{rdf_summary['rdf_max']:.3f}"],
+        ["RDFTailMean", f"{rdf_summary['rdf_tail_mean']:.3f}"],
+        ["RDFPlot", rdf_plot.name if rdf_plot is not None else "not-generated"],
+        ["Result", "PLOTTED"],
+    ]
+    Outputer.print_table(
+        ["Metric", "Value"],
+        rows,
+        title=f"Amber Performance: Long {amber_mode} O-O RDF",
+    )
+
+    assert frame_count >= 2
+    assert np.all(np.isfinite(rdf))

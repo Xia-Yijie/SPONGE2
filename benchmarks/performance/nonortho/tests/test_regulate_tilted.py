@@ -5,7 +5,7 @@ import pytest
 
 from benchmarks.utils import Outputer
 
-from benchmarks.performance.barostat.tests.utils import run_sponge_barostat
+from benchmarks.performance.nonortho.tests.utils import run_sponge_barostat
 from benchmarks.validation.barostat.tests.utils import (
     AMU_PER_A3_TO_G_PER_CM3,
     parse_density_series_from_mdbox,
@@ -238,7 +238,7 @@ def test_wat_nonortho_regulate_from_expanded_nonorthogonal_box(
         ["Metric", "Value"],
         rows,
         title=(
-            "Barostat Validation: WAT_nonortho Regulate from Expanded "
+            "Nonortho Performance: WAT_nonortho Regulate from Expanded "
             f"Non-orthogonal Box ({cfg['id']})"
         ),
     )
