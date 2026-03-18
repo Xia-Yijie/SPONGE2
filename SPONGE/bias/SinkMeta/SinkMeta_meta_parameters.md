@@ -24,6 +24,7 @@ This list is derived from `META::Initial()` in `SPONGE/SPONGE/bias/SinkMeta/Meta
 | `cutoff` | float array (ndim) | No | `3 * CV_sigma` | Neighbor cutoff for lookup and border wall; if present enables `do_cutoff`. |
 | `potential_in_file` | string | No | None | Read potential from file; if set, `Read_Potential()` is called (grid/scatter settings below are bypassed). |
 | `scatter_in_file` | string | No | None | Read scatter potential from file; sets `use_scatter=true`, `usegrid=false`, and calls `Read_Potential()`. |
+| `edge_in_file` | string | No | `sumhill.log` | Edge-effect cache file used by `EdgeEffect()`. If the file exists and matches the expected grid size, SinkMeta reads it directly; otherwise it regenerates and writes to the same path. |
 | `scatter` | int | No | `0` | Number of scatter points; if > 0 uses scatter points instead of grid. |
 | `CV_minimal` | float array (ndim) | Conditionally | None in META | Grid minimum per CV; required when not using `potential_in_file` or `scatter_in_file`. |
 | `CV_maximum` | float array (ndim) | Conditionally | None in META | Grid maximum per CV; must be > `CV_minimal`. Required when not using `potential_in_file` or `scatter_in_file`. |

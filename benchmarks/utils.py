@@ -1,5 +1,4 @@
 import shutil
-import statistics
 import subprocess
 from pathlib import Path
 
@@ -61,14 +60,14 @@ class Outputer:
             raise ValueError(
                 f"burn_in={burn_in} is too large for sample count {len(series)}"
             )
-        sample = series[burn_in:]
-        std = statistics.stdev(sample) if len(sample) > 1 else 0.0
+        sample = np.asarray(series[burn_in:], dtype=float)
+        std = float(np.std(sample, ddof=1)) if sample.size > 1 else 0.0
         return {
-            "sample_count": len(sample),
-            "mean": statistics.fmean(sample),
+            "sample_count": int(sample.size),
+            "mean": float(np.mean(sample)),
             "std": std,
-            "min": min(sample),
-            "max": max(sample),
+            "min": float(np.min(sample)),
+            "max": float(np.max(sample)),
         }
 
 

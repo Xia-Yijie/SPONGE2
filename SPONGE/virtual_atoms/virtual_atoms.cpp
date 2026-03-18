@@ -129,6 +129,19 @@ static __global__ void v4_Coordinate_Refresh(const int atom_numbers,
     {
         new_position = new_position + weight[i] * coordinate[from_atoms[i]];
     }
+    for (int delta = warpSize >> 1; delta > 0; delta >>= 1)
+    {
+        new_position.x += deviceShflDown(FULL_MASK, new_position.x, delta,
+                                         warpSize);
+        new_position.y += deviceShflDown(FULL_MASK, new_position.y, delta,
+                                         warpSize);
+        new_position.z += deviceShflDown(FULL_MASK, new_position.z, delta,
+                                         warpSize);
+    }
+    if (threadIdx.x == 0)
+    {
+        coordinate[virtual_atom] = new_position;
+    }
 #else
     float px = 0.0f, py = 0.0f, pz = 0.0f;
 #pragma omp parallel for reduction(+ : px, py, pz)
@@ -140,8 +153,8 @@ static __global__ void v4_Coordinate_Refresh(const int atom_numbers,
         pz += p.z;
     }
     new_position = {px, py, pz};
+    coordinate[virtual_atom] = new_position;
 #endif
-    Warp_Sum_To(coordinate + virtual_atom, new_position, warpSize);
 }
 
 static __global__ void v0_Force_Redistribute(
