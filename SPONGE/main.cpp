@@ -451,6 +451,9 @@ void Main_Initial(int argc, char* argv[])
 void Main_Calculate_Force()
 {
     bool use_reaxff_eeq = reaxff_eeq.is_initialized;
+    const int cv_atom_numbers =
+        md_info.atom_numbers +
+        md_info.no_direct_interaction_virtual_atom_numbers;
     md_info.MD_Reset_Atom_Energy_And_Virial_And_Force();
     qc.Solve_SCF(dd.crd, md_info.sys.box_length);
     if (md_info.mode == md_info.MINIMIZATION && md_info.min.dynamic_dt)
@@ -727,20 +730,19 @@ void Main_Calculate_Force()
             }
 
             cv_controller.Compute_CV_For_Print(
-                md_info.atom_numbers, dd.crd, md_info.pbc.cell,
-                md_info.pbc.rcell, md_info.sys.steps,
-                md_info.output.write_mdout_interval,
+                cv_atom_numbers, dd.crd, md_info.pbc.cell, md_info.pbc.rcell,
+                md_info.sys.steps, md_info.output.write_mdout_interval,
                 md_info.output.print_zeroth_frame);
 
-            steer_cv.Steer(md_info.atom_numbers, dd.crd, md_info.pbc.cell,
+            steer_cv.Steer(cv_atom_numbers, dd.crd, md_info.pbc.cell,
                            md_info.pbc.rcell, md_info.sys.steps, dd.d_energy,
                            dd.d_virial, dd.frc, md_info.need_potential,
                            md_info.need_pressure);
             restrain_cv.Restraint(
-                md_info.atom_numbers, dd.crd, md_info.pbc.cell,
-                md_info.pbc.rcell, md_info.sys.steps, dd.d_energy, dd.d_virial,
-                dd.frc, md_info.need_potential, md_info.need_pressure);
-            meta.Do_Metadynamics(md_info.atom_numbers, dd.crd, md_info.pbc.cell,
+                cv_atom_numbers, dd.crd, md_info.pbc.cell, md_info.pbc.rcell,
+                md_info.sys.steps, dd.d_energy, dd.d_virial, dd.frc,
+                md_info.need_potential, md_info.need_pressure);
+            meta.Do_Metadynamics(cv_atom_numbers, dd.crd, md_info.pbc.cell,
                                  md_info.pbc.rcell, md_info.sys.steps,
                                  md_info.need_potential, md_info.need_pressure,
                                  dd.frc, dd.d_energy, dd.d_virial,
@@ -779,23 +781,22 @@ void Main_Calculate_Force()
                 md_info.need_potential, md_info.d_atom_virial_tensor,
                 md_info.d_atom_energy, md_info.sys.steps);
             cv_controller.Compute_CV_For_Print(
-                md_info.atom_numbers, pm.g_crd, md_info.pbc.cell,
-                md_info.pbc.rcell, md_info.sys.steps,
-                md_info.output.write_mdout_interval,
+                cv_atom_numbers, pm.g_crd, md_info.pbc.cell, md_info.pbc.rcell,
+                md_info.sys.steps, md_info.output.write_mdout_interval,
                 md_info.output.print_zeroth_frame);
-            steer_cv.Steer(md_info.atom_numbers, pm.g_crd, md_info.pbc.cell,
+            steer_cv.Steer(cv_atom_numbers, pm.g_crd, md_info.pbc.cell,
                            md_info.pbc.rcell, md_info.sys.steps,
                            md_info.d_atom_energy, md_info.d_atom_virial_tensor,
                            pm.g_frc, md_info.need_potential,
                            md_info.need_pressure);
             restrain_cv.Restraint(
-                md_info.atom_numbers, pm.g_crd, md_info.pbc.cell,
-                md_info.pbc.rcell, md_info.sys.steps, md_info.d_atom_energy,
+                cv_atom_numbers, pm.g_crd, md_info.pbc.cell, md_info.pbc.rcell,
+                md_info.sys.steps, md_info.d_atom_energy,
                 md_info.d_atom_virial_tensor, pm.g_frc, md_info.need_potential,
                 md_info.need_pressure);
             meta.Do_Metadynamics(
-                md_info.atom_numbers, pm.g_crd, md_info.pbc.cell,
-                md_info.pbc.rcell, md_info.sys.steps, md_info.need_potential,
+                cv_atom_numbers, pm.g_crd, md_info.pbc.cell, md_info.pbc.rcell,
+                md_info.sys.steps, md_info.need_potential,
                 md_info.need_pressure, pm.g_frc, md_info.d_atom_energy,
                 md_info.d_atom_virial_tensor, md_info.sys.h_temperature);
             // CV虚原子的力重分配就地进行

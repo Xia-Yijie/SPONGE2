@@ -14,6 +14,130 @@ namespace sponge::toml_wrap
 {
 namespace
 {
+std::string SerializeNodeCompact(const toml::node& node);
+
+bool RequiresStructuredSerialization(const toml::node& node)
+{
+    if (node.is_table())
+    {
+        return true;
+    }
+    if (const auto* arr = node.as_array())
+    {
+        for (const auto& item : *arr)
+        {
+            if (item.is_table() || item.is_array())
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+std::string EscapeTomlBasicString(const std::string& input)
+{
+    std::ostringstream oss;
+    for (char c : input)
+    {
+        switch (c)
+        {
+            case '\\':
+                oss << "\\\\";
+                break;
+            case '"':
+                oss << "\\\"";
+                break;
+            case '\b':
+                oss << "\\b";
+                break;
+            case '\f':
+                oss << "\\f";
+                break;
+            case '\n':
+                oss << "\\n";
+                break;
+            case '\r':
+                oss << "\\r";
+                break;
+            case '\t':
+                oss << "\\t";
+                break;
+            default:
+                oss << c;
+                break;
+        }
+    }
+    return oss.str();
+}
+
+std::string SerializeArrayCompact(const toml::array& arr)
+{
+    std::ostringstream oss;
+    oss << '[';
+    bool first = true;
+    for (const auto& item : arr)
+    {
+        if (!first)
+        {
+            oss << ',';
+        }
+        oss << SerializeNodeCompact(item);
+        first = false;
+    }
+    oss << ']';
+    return oss.str();
+}
+
+std::string SerializeTableCompact(const toml::table& table)
+{
+    std::ostringstream oss;
+    oss << '{';
+    bool first = true;
+    for (const auto& [key, value] : table)
+    {
+        if (!first)
+        {
+            oss << ',';
+        }
+        oss << std::string(key.str()) << '=' << SerializeNodeCompact(value);
+        first = false;
+    }
+    oss << '}';
+    return oss.str();
+}
+
+std::string SerializeNodeCompact(const toml::node& node)
+{
+    if (auto val = node.value<std::string>())
+    {
+        return "\"" + EscapeTomlBasicString(*val) + "\"";
+    }
+    if (auto val = node.value<int64_t>())
+    {
+        return std::to_string(*val);
+    }
+    if (auto val = node.value<double>())
+    {
+        std::ostringstream oss;
+        oss << *val;
+        return oss.str();
+    }
+    if (auto val = node.value<bool>())
+    {
+        return *val ? "true" : "false";
+    }
+    if (const auto* arr = node.as_array())
+    {
+        return SerializeArrayCompact(*arr);
+    }
+    if (const auto* table = node.as_table())
+    {
+        return SerializeTableCompact(*table);
+    }
+    throw std::runtime_error("unsupported TOML node type for serialization");
+}
+
 std::string NodeValueToString(const toml::node& node,
                               const std::string& full_key,
                               std::string* error_message)
@@ -38,6 +162,10 @@ std::string NodeValueToString(const toml::node& node,
     }
     if (const auto* arr = node.as_array())
     {
+        if (RequiresStructuredSerialization(node))
+        {
+            return SerializeArrayCompact(*arr);
+        }
         std::ostringstream oss;
         bool first = true;
         for (const auto& item : *arr)
@@ -56,6 +184,10 @@ std::string NodeValueToString(const toml::node& node,
             first = false;
         }
         return oss.str();
+    }
+    if (const auto* table = node.as_table())
+    {
+        return SerializeTableCompact(*table);
     }
     *error_message = "unsupported TOML value type for '" + full_key + "'";
     return "";

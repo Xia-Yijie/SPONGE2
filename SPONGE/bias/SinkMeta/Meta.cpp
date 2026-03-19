@@ -876,7 +876,7 @@ float META::Sumhills(int history_freq)  // const vector<float> heights)
 void META::EdgeEffect(const int dim, const int scatter_size)
 {
     vector<float> potential_from_file;
-    const char* file_name = "sumhill.log";
+    const char* file_name = edge_file_name;
 
     int total = normal_lse->size();
     if (scatter_size == total)
@@ -1390,6 +1390,14 @@ void META::Initial(CONTROLLER* controller,
         sprintf(write_potential_file_name, "Meta_Potential.txt");
     }
     sprintf(write_directly_file_name, "Meta_directly.txt");
+    sprintf(edge_file_name, "sumhill.log");
+    if (cv_controller->Command_Exist(this->module_name, "edge_in_file"))
+    {
+        strcpy(edge_file_name, cv_controller
+                                   ->Ask_For_String_Parameter(this->module_name,
+                                                              "edge_in_file")[0]
+                                   .c_str());
+    }
     if (cv_controller->Command_Exist(this->module_name, "subhill"))
     {
         subhill = true;
@@ -1638,6 +1646,7 @@ void META::Initial(CONTROLLER* controller,
     controller->Step_Print_Initial("rct", "%f");
     controller->printf("    potential output file: %s\n",
                        write_potential_file_name);
+    controller->printf("    edge effect file: %s\n", edge_file_name);
     is_initialized = 1;
     controller->printf("END INITIALIZING META\n\n");
 }
@@ -2541,18 +2550,28 @@ void META::Step_Print(CONTROLLER* controller)
     if (CONTROLLER::MPI_size == 1 && CONTROLLER::PM_MPI_size == 1)
     {
         controller->Step_Print(this->module_name, potential_local);
+        controller->Step_Print("rbias", rbias);
+        controller->Step_Print("rct", rct);
         return;
     }
 #ifdef USE_MPI
     if (CONTROLLER::MPI_rank == CONTROLLER::MPI_size - 1)
     {
         MPI_Send(&potential_local, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
+        MPI_Send(&rbias, 1, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
+        MPI_Send(&rct, 1, MPI_FLOAT, 0, 2, MPI_COMM_WORLD);
     }
     if (CONTROLLER::MPI_rank == 0)
     {
         MPI_Recv(&potential_local, 1, MPI_FLOAT, CONTROLLER::MPI_size - 1, 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&rbias, 1, MPI_FLOAT, CONTROLLER::MPI_size - 1, 1,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&rct, 1, MPI_FLOAT, CONTROLLER::MPI_size - 1, 2,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         controller->Step_Print(this->module_name, potential_local);
+        controller->Step_Print("rbias", rbias);
+        controller->Step_Print("rct", rct);
     }
 #endif
 }

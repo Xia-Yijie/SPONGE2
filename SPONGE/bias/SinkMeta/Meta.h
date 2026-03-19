@@ -139,6 +139,7 @@ struct META
 	char read_potential_file_name[256];
 	char write_potential_file_name[256];
 	char write_directly_file_name[256]; ///<  Use scatter points, directly
+	char edge_file_name[256];
 	void Step_Print(CONTROLLER *controller);
 	void Read_Potential(CONTROLLER *controller);
 	void Write_Potential(void);

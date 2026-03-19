@@ -24,6 +24,7 @@
 | `cutoff` | float 数组（ndim） | 否 | `3 * CV_sigma` | 邻域截断（查表/边界墙用）；存在则启用 `do_cutoff`。 |
 | `potential_in_file` | string | 否 | 无 | 从文件读取势能；若设置则调用 `Read_Potential()`（跳过网格/散点设置）。 |
 | `scatter_in_file` | string | 否 | 无 | 从文件读取散点势能；设置后 `use_scatter=true`、`usegrid=false` 并读取势能。 |
+| `edge_in_file` | string | 否 | `sumhill.log` | `EdgeEffect()` 使用的边缘效应缓存文件。若文件存在且网格大小匹配，则直接读取；否则重新生成并写回同一路径。 |
 | `scatter` | int | 否 | `0` | 散点数；> 0 时使用散点而非网格。 |
 | `CV_minimal` | float 数组（ndim） | 条件必需 | META 无默认 | 网格下界；当未使用 `potential_in_file`/`scatter_in_file` 时需要。 |
 | `CV_maximum` | float 数组（ndim） | 条件必需 | META 无默认 | 网格上界；必须大于 `CV_minimal`。 |
