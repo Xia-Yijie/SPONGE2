@@ -23,6 +23,12 @@ struct QC_INTEGRAL_TASKS
     std::vector<QC_ONE_E_TASK> h_1e_tasks;
     QC_ONE_E_TASK* d_1e_tasks = NULL;
 
+    // 壳层对（i >= j），用于 direct SCF screening
+    int n_shell_pairs = 0;
+    std::vector<QC_ONE_E_TASK> h_shell_pairs;
+    QC_ONE_E_TASK* d_shell_pairs = NULL;
+    float* d_shell_pair_bounds = NULL;
+
     // 双电子积分
     int n_eri_tasks = 0;
     std::vector<QC_ERI_TASK> h_eri_tasks;
@@ -31,6 +37,8 @@ struct QC_INTEGRAL_TASKS
     int eri_hr_size = 28561;
     int eri_shell_buf_size = 50625;
     float eri_prim_screen_tol = 1e-12f;
+    float direct_eri_prim_screen_tol = 1e-10f;
+    float eri_shell_screen_tol = 1e-10f;
 };
 
 #endif

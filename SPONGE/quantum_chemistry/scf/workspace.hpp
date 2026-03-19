@@ -124,8 +124,37 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
     }
     alloc_zero_double(&scf_ws.d_pvxc, 1);
     alloc_zero_double(&scf_ws.d_prev_energy, 1);
+    alloc_zero_double(&scf_ws.d_delta_e, 1);
+    alloc_zero_double(&scf_ws.d_density_residual, 1);
     alloc_zero_int(&scf_ws.d_converged, 1);
     alloc_zero_int(&scf_ws.d_info, 1);
+    alloc_zero_float(&scf_ws.d_pair_density_coul, task_ctx.n_shell_pairs);
+    alloc_zero_float(&scf_ws.d_pair_density_exx, task_ctx.n_shell_pairs);
+    if (unrestricted)
+    {
+        alloc_zero_float(&scf_ws.d_pair_density_exx_b, task_ctx.n_shell_pairs);
+    }
+    else
+    {
+        scf_ws.d_pair_density_exx_b = NULL;
+    }
+
+#ifdef USE_GPU
+    scf_ws.fock_thread_count = 1;
+    scf_ws.d_F_thread = NULL;
+    scf_ws.d_F_b_thread = NULL;
+#else
+    scf_ws.fock_thread_count = std::max(1, omp_get_max_threads());
+    alloc_zero_float(&scf_ws.d_F_thread, scf_ws.fock_thread_count * nao2);
+    if (unrestricted)
+    {
+        alloc_zero_float(&scf_ws.d_F_b_thread, scf_ws.fock_thread_count * nao2);
+    }
+    else
+    {
+        scf_ws.d_F_b_thread = NULL;
+    }
+#endif
 
     scf_ws.lwork = 0;
     scf_ws.liwork = 0;

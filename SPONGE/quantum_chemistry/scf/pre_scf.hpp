@@ -62,10 +62,19 @@ void QUANTUM_CHEMISTRY::Reset_SCF_State()
     scf_ws.diis_hist_count_b = scf_ws.diis_hist_head_b = 0;
 
     deviceMemset(scf_ws.d_scf_energy, 0, sizeof(double));
+    deviceMemset(scf_ws.d_prev_energy, 0, sizeof(double));
+    deviceMemset(scf_ws.d_delta_e, 0, sizeof(double));
+    deviceMemset(scf_ws.d_density_residual, 0, sizeof(double));
+    deviceMemset(scf_ws.d_e, 0, sizeof(double));
+    if (scf_ws.unrestricted) deviceMemset(scf_ws.d_e_b, 0, sizeof(double));
+    deviceMemset(scf_ws.d_pvxc, 0, sizeof(double));
     deviceMemset(scf_ws.d_converged, 0, sizeof(int));
     deviceMemset(scf_ws.d_P, 0, sizeof(float) * nao2);
     if (scf_ws.unrestricted)
+    {
         deviceMemset(scf_ws.d_P_b, 0, sizeof(float) * nao2);
+        deviceMemset(scf_ws.d_Ptot, 0, sizeof(float) * nao2);
+    }
 }
 
 // =========================== 单电子积分 ===========================
@@ -134,7 +143,7 @@ void QUANTUM_CHEMISTRY::Compute_Nuclear_Repulsion(const VECTOR box_length)
 }
 
 // =========================== 积分预处理 ===========================
-// 归一化单电子积分并构建 Hcore，同时计算、变换和归一化 ERI
+// 归一化单电子积分并构建 Hcore；双电子积分在 Build_Fock 中 direct 计算
 // ================================================================
 static __global__ void QC_Build_Norms_From_S_Kernel(const int nao,
                                                     const float* S,
@@ -166,32 +175,13 @@ static __global__ void QC_Scale_OneE_And_Build_Hcore_Kernel(const int nao,
     }
 }
 
-static __global__ void QC_Normalize_ERI_Kernel(const int eri4, const int nao,
-                                               const float* norms, float* ERI)
-{
-    SIMPLE_DEVICE_FOR(idx, eri4)
-    {
-        int t = idx;
-        int l = t % nao;
-        t /= nao;
-        int k = t % nao;
-        t /= nao;
-        int j = t % nao;
-        t /= nao;
-        ERI[idx] *= norms[t] * norms[j] * norms[k] * norms[l];
-    }
-}
-
 void QUANTUM_CHEMISTRY::Prepare_Integrals()
 {
-    const int nao_c = mol.nao_cart;
     const int nao = mol.nao;
     const int nao2 = mol.nao2;
-    const int eri4 = nao2 * nao2;
-    const int eri4_calc = nao_c * nao_c * nao_c * nao_c;
+    const int threads = 256;
 
     // 单电子积分归一化合并至 Hcore
-    const int threads = 256;
     Launch_Device_Kernel(QC_Build_Norms_From_S_Kernel,
                          (nao + threads - 1) / threads, threads, 0, 0, nao,
                          scf_ws.d_S, scf_ws.d_norms);
@@ -200,28 +190,26 @@ void QUANTUM_CHEMISTRY::Prepare_Integrals()
                          scf_ws.d_norms, scf_ws.d_S, scf_ws.d_T, scf_ws.d_V,
                          scf_ws.d_H_core);
 
-    // 计算双电子积分 ERI
-    float* p_ERI = mol.is_spherical ? cart2sph.d_ERI_cart : scf_ws.d_ERI;
-    deviceMemset(p_ERI, 0, sizeof(float) * eri4_calc);
-    const int chunk_size = ERI_BATCH_SIZE;
-    const int eri_threads = 64;
-    for (int i = 0; i < task_ctx.n_eri_tasks; i += chunk_size)
-    {
-        int current_chunk = std::min(chunk_size, task_ctx.n_eri_tasks - i);
-        QC_ERI_TASK* task_ptr = task_ctx.d_eri_tasks + i;
-        Launch_Device_Kernel(
-            ERI_Kernel, (current_chunk + eri_threads - 1) / eri_threads,
-            eri_threads, 0, 0, current_chunk, task_ptr, mol.d_atm, mol.d_bas,
-            mol.d_env, mol.d_ao_loc, p_ERI, d_hr_pool, nao_c,
-            task_ctx.eri_hr_base, task_ctx.eri_hr_size,
-            task_ctx.eri_shell_buf_size, task_ctx.eri_prim_screen_tol);
-    }
+    if (task_ctx.n_shell_pairs <= 0) return;
 
-    // 球谐变换 + 归一化 ERI
-    if (mol.is_spherical) Cart2Sph_ERI();
-    Launch_Device_Kernel(QC_Normalize_ERI_Kernel,
-                         (eri4 + threads - 1) / threads, threads, 0, 0, eri4,
-                         nao, scf_ws.d_norms, scf_ws.d_ERI);
+    int chunk_size = ERI_BATCH_SIZE;
+#ifndef USE_GPU
+    chunk_size = std::max(1, task_ctx.n_shell_pairs);
+#endif
+    for (int i = 0; i < task_ctx.n_shell_pairs; i += chunk_size)
+    {
+        const int current_chunk =
+            std::min(chunk_size, task_ctx.n_shell_pairs - i);
+        Launch_Device_Kernel(
+            QC_Build_Shell_Pair_Bounds_Kernel,
+            (current_chunk + threads - 1) / threads, threads, 0, 0,
+            current_chunk, task_ctx.d_shell_pairs + i, mol.d_atm, mol.d_bas,
+            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph, scf_ws.d_norms,
+            mol.is_spherical, cart2sph.d_cart2sph_mat, mol.nao_sph,
+            task_ctx.d_shell_pair_bounds + i, d_hr_pool, task_ctx.eri_hr_base,
+            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+            task_ctx.eri_prim_screen_tol);
+    }
 }
 
 // ========================= 重叠正交化矩阵 =========================
@@ -230,6 +218,7 @@ void QUANTUM_CHEMISTRY::Prepare_Integrals()
 static __global__ void QC_Build_X_From_EigCol_Kernel(const int nao,
                                                      const float* U_col,
                                                      const float* W,
+                                                     const float eig_floor,
                                                      float* X_row)
 {
 #ifdef USE_GPU
@@ -245,7 +234,7 @@ static __global__ void QC_Build_X_From_EigCol_Kernel(const int nao,
         double sum = 0.0;
         for (int k = 0; k < nao; k++)
         {
-            float wk = fmaxf(W[k], 1e-10f);
+            float wk = fmaxf(W[k], eig_floor);
             float uik = U_col[i + k * nao];
             float ujk = U_col[j + k * nao];
             sum += (double)uik * (double)ujk / sqrt((double)wk);
@@ -269,5 +258,160 @@ void QUANTUM_CHEMISTRY::Build_Overlap_X()
     const dim3 grid2d((nao + block2d.x - 1) / block2d.x,
                       (nao + block2d.y - 1) / block2d.y);
     Launch_Device_Kernel(QC_Build_X_From_EigCol_Kernel, grid2d, block2d, 0, 0,
-                         nao, scf_ws.d_Work, scf_ws.d_W, scf_ws.d_X);
+                         nao, scf_ws.d_Work, scf_ws.d_W,
+                         scf_ws.overlap_eig_floor, scf_ws.d_X);
+
+    if (scf_ws.print_iter && CONTROLLER::MPI_rank == 0)
+    {
+        QC_MatMul_RowRow_Blas(blas_handle, nao, nao, nao, scf_ws.d_S,
+                              scf_ws.d_X, scf_ws.d_Tmp);
+        QC_MatMul_RowRow_Blas(blas_handle, nao, nao, nao, scf_ws.d_X,
+                              scf_ws.d_Tmp, scf_ws.d_Fp);
+
+        scf_ws.h_W.resize(nao);
+        scf_ws.h_Fp.resize(nao2);
+        scf_ws.h_Work.resize(nao2);
+        deviceMemcpy(scf_ws.h_W.data(), scf_ws.d_W, sizeof(float) * nao,
+                     deviceMemcpyDeviceToHost);
+        deviceMemcpy(scf_ws.h_Work.data(), scf_ws.d_Work, sizeof(float) * nao2,
+                     deviceMemcpyDeviceToHost);
+        deviceMemcpy(scf_ws.h_Fp.data(), scf_ws.d_Fp, sizeof(float) * nao2,
+                     deviceMemcpyDeviceToHost);
+
+        std::vector<float> h_S(nao2, 0.0f);
+        deviceMemcpy(h_S.data(), scf_ws.d_S, sizeof(float) * nao2,
+                     deviceMemcpyDeviceToHost);
+
+        double max_diag_dev = 0.0;
+        double max_offdiag = 0.0;
+        double s_max_asym = 0.0;
+        for (int i = 0; i < nao; ++i)
+        {
+            for (int j = i + 1; j < nao; ++j)
+            {
+                s_max_asym =
+                    fmax(s_max_asym,
+                         fabs((double)h_S[i * nao + j] -
+                              (double)h_S[j * nao + i]));
+            }
+        }
+        for (int i = 0; i < nao; ++i)
+        {
+            for (int j = 0; j < nao; ++j)
+            {
+                const double v = (double)scf_ws.h_Fp[i * nao + j];
+                if (i == j)
+                    max_diag_dev = fmax(max_diag_dev, fabs(v - 1.0));
+                else
+                    max_offdiag = fmax(max_offdiag, fabs(v));
+            }
+        }
+
+        std::vector<double> x_ref(nao2, 0.0);
+        std::vector<double> tmp_ref(nao2, 0.0);
+        std::vector<double> xsx_ref(nao2, 0.0);
+        double eig_res_col = 0.0;
+        double eig_res_row = 0.0;
+        double u_ortho_diag_dev = 0.0;
+        double u_ortho_offdiag = 0.0;
+        for (int i = 0; i < nao; ++i)
+        {
+            for (int k = 0; k < nao; ++k)
+            {
+                double lhs_col = 0.0;
+                double lhs_row = 0.0;
+                for (int j = 0; j < nao; ++j)
+                {
+                    lhs_col += (double)h_S[i * nao + j] *
+                               (double)scf_ws.h_Work[j + k * nao];
+                    lhs_row += (double)h_S[i * nao + j] *
+                               (double)scf_ws.h_Work[j * nao + k];
+                }
+                const double rhs_col =
+                    (double)scf_ws.h_W[k] *
+                    (double)scf_ws.h_Work[i + k * nao];
+                const double rhs_row =
+                    (double)scf_ws.h_W[k] *
+                    (double)scf_ws.h_Work[i * nao + k];
+                eig_res_col =
+                    fmax(eig_res_col, fabs(lhs_col - rhs_col));
+                eig_res_row =
+                    fmax(eig_res_row, fabs(lhs_row - rhs_row));
+            }
+            for (int j = 0; j < nao; ++j)
+            {
+                double dot = 0.0;
+                for (int k = 0; k < nao; ++k)
+                {
+                    dot += (double)scf_ws.h_Work[k + i * nao] *
+                           (double)scf_ws.h_Work[k + j * nao];
+                }
+                if (i == j)
+                    u_ortho_diag_dev =
+                        fmax(u_ortho_diag_dev, fabs(dot - 1.0));
+                else
+                    u_ortho_offdiag = fmax(u_ortho_offdiag, fabs(dot));
+            }
+        }
+        for (int i = 0; i < nao; ++i)
+        {
+            for (int j = 0; j < nao; ++j)
+            {
+                double sum = 0.0;
+                for (int k = 0; k < nao; ++k)
+                {
+                    const double wk = fmax((double)scf_ws.h_W[k],
+                                           (double)scf_ws.overlap_eig_floor);
+                    const double uik =
+                        (double)scf_ws.h_Work[i + k * nao];
+                    const double ujk =
+                        (double)scf_ws.h_Work[j + k * nao];
+                    sum += uik * ujk / sqrt(wk);
+                }
+                x_ref[i * nao + j] = sum;
+            }
+        }
+        for (int i = 0; i < nao; ++i)
+        {
+            for (int j = 0; j < nao; ++j)
+            {
+                double sum = 0.0;
+                for (int k = 0; k < nao; ++k)
+                    sum += (double)h_S[i * nao + k] * x_ref[k * nao + j];
+                tmp_ref[i * nao + j] = sum;
+            }
+        }
+        for (int i = 0; i < nao; ++i)
+        {
+            for (int j = 0; j < nao; ++j)
+            {
+                double sum = 0.0;
+                for (int k = 0; k < nao; ++k)
+                    sum += x_ref[i * nao + k] * tmp_ref[k * nao + j];
+                xsx_ref[i * nao + j] = sum;
+            }
+        }
+
+        double ref_max_diag_dev = 0.0;
+        double ref_max_offdiag = 0.0;
+        for (int i = 0; i < nao; ++i)
+        {
+            for (int j = 0; j < nao; ++j)
+            {
+                const double v = xsx_ref[i * nao + j];
+                if (i == j)
+                    ref_max_diag_dev = fmax(ref_max_diag_dev, fabs(v - 1.0));
+                else
+                    ref_max_offdiag = fmax(ref_max_offdiag, fabs(v));
+            }
+        }
+
+        printf(
+            "Overlap X Check | eig_min=%.6e | eig_max=%.6e | eig_floor=%.6e | s_max_asym=%.6e | eig_res_col=%.6e | eig_res_row=%.6e | u_ortho_diag_dev=%.6e | u_ortho_offdiag=%.6e | max_diag_dev=%.6e | max_offdiag=%.6e | ref_max_diag_dev=%.6e | ref_max_offdiag=%.6e\n",
+            (double)scf_ws.h_W.front(), (double)scf_ws.h_W.back(),
+            (double)scf_ws.overlap_eig_floor, s_max_asym, eig_res_col,
+            eig_res_row, u_ortho_diag_dev, u_ortho_offdiag, max_diag_dev,
+            max_offdiag, ref_max_diag_dev, ref_max_offdiag);
+        fflush(stdout);
+    }
 }

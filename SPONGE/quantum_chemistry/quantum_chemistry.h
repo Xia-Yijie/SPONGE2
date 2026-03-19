@@ -38,8 +38,8 @@ struct QUANTUM_CHEMISTRY
     BLAS_HANDLE blas_handle;
     SOLVER_HANDLE solver_handle;
 
-    // device pointers for 2e integrals
-    float* d_hr_pool = NULL;  // Keep float to save memory
+    // direct SCF shell-quartet scratch pool
+    float* d_hr_pool = NULL;
 
     // Cartesian->spherical transform buffers/workspaces
     QC_CARTESIAN_TO_SPHERICAL cart2sph;
@@ -67,7 +67,6 @@ struct QUANTUM_CHEMISTRY
     // 积分与基组变换内部流程
     void Build_Cart2Sph_Matrix();
     void Cart2Sph_OneE_Integrals();
-    void Cart2Sph_ERI();
 
     void Update_DFT_Grid();
 

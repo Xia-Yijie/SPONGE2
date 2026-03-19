@@ -11,12 +11,12 @@ struct QC_SCF_WORKSPACE
     float* d_T = NULL;
     float* d_V = NULL;
     float* d_H_core = NULL;
-    float* d_ERI = NULL;
     double* d_scf_energy = NULL;
     double* d_nuc_energy_dev = NULL;
 
     // 重叠正交化与本征分解工作区
     std::vector<float> h_X;
+    std::vector<double> h_X_double;
     float* d_X = NULL;
     std::vector<float> h_W;
     float* d_W = NULL;
@@ -67,10 +67,21 @@ struct QC_SCF_WORKSPACE
 
     // 能量累计、收敛状态与线性求解信息
     double *d_e = NULL, *d_e_b = NULL, *d_pvxc = NULL, *d_prev_energy = NULL,
+           *d_delta_e = NULL, *d_density_residual = NULL,
            *d_diis_accum = NULL, *d_diis_B = NULL, *d_diis_rhs = NULL;
     int *d_converged = NULL, *d_diis_info = NULL, *d_info = NULL;
     int lwork = 0;
     int liwork = 0;
+
+    // direct SCF shell-pair density screening buffers
+    float* d_pair_density_coul = NULL;
+    float* d_pair_density_exx = NULL;
+    float* d_pair_density_exx_b = NULL;
+
+    // CPU direct SCF thread-private Fock accumulation buffers
+    int fock_thread_count = 1;
+    float* d_F_thread = NULL;
+    float* d_F_b_thread = NULL;
 
     // SCF 配置与每轮 Solve_SCF 写入的派生参数
     bool unrestricted = false;
@@ -84,6 +95,9 @@ struct QC_SCF_WORKSPACE
     int diis_space = 6;
     double diis_reg = 1e-10;
     double energy_tol = 1e-6;
+    float overlap_eig_floor = 1e-10f;
+    bool print_iter = false;
+    bool profile_build_fock = false;
     float* d_P_coul = NULL;
 
     // DIIS 循环状态

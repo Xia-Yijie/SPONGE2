@@ -168,11 +168,12 @@ static __global__ void ERI_Kernel(const int n_tasks, const QC_ERI_TASK* tasks,
                                                (P[2] - Q[2])};
                             int L_sum = l[0] + l[1] + l[2] + l[3];
                             float F_vals[17];
-                            compute_boys(F_vals,
-                                         alpha * (PQ_val[0] * PQ_val[0] +
-                                                  PQ_val[1] * PQ_val[1] +
-                                                  PQ_val[2] * PQ_val[2]),
-                                         L_sum);
+                            compute_boys_stable(
+                                F_vals,
+                                alpha * (PQ_val[0] * PQ_val[0] +
+                                         PQ_val[1] * PQ_val[1] +
+                                         PQ_val[2] * PQ_val[2]),
+                                L_sum);
                             compute_hr_tensor(HR, F_vals, alpha, PQ_val, L_sum,
                                               hr_base);
 

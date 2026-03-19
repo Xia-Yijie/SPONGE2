@@ -120,6 +120,7 @@ __device__ void compute_boys(float* F, float t, int max_m)
     if (t < 1e-7f)
     {
         for (int m = 0; m <= max_m; m++) F[m] = 1.0f / (2.0f * m + 1.0f);
+        return;
     }
     else
     {
@@ -133,6 +134,47 @@ __device__ void compute_boys(float* F, float t, int max_m)
             F[m + 1] = next_f;
             prev_f = next_f;
         }
+    }
+}
+
+__device__ void compute_boys_stable(float* F, float t, int max_m)
+{
+    if (t < 1e-8f)
+    {
+        for (int m = 0; m <= max_m; m++) F[m] = 1.0f / (2.0f * m + 1.0f);
+        return;
+    }
+
+    const double td = (double)t;
+    const double exp_t = exp(-td);
+    const double st = sqrt(td);
+    const double f0_exact =
+        0.5 * sqrt((double)CONSTANT_Pi) * erf(st) / fmax(st, 1e-30);
+
+    // Upward recursion is numerically fragile for small/moderate t at high m.
+    // Use Miller downward recursion in that regime and normalize by the exact
+    // F0 value; keep the cheaper upward recursion only for large t.
+    if (t <= 20.0f)
+    {
+        double work[64];
+        const int m_top = max_m + 20;
+        work[m_top] = 1.0;
+        for (int m = m_top - 1; m >= 0; m--)
+        {
+            work[m] = (2.0 * td * work[m + 1] + exp_t) / (2.0 * m + 1.0);
+        }
+        const double scale = f0_exact / work[0];
+        for (int m = 0; m <= max_m; m++) F[m] = (float)(work[m] * scale);
+        return;
+    }
+
+    F[0] = (float)f0_exact;
+    double prev_f = f0_exact;
+    for (int m = 0; m < max_m; m++)
+    {
+        double next_f = ((2.0 * m + 1.0) * prev_f - exp_t) / (2.0 * td);
+        F[m + 1] = (float)next_f;
+        prev_f = next_f;
     }
 }
 

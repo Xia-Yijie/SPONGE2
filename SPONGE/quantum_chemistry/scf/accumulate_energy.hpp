@@ -16,9 +16,12 @@ static __global__ void QC_Update_Convergence_Flag_Kernel(const int iter,
                                                          const double tol,
                                                          const double* d_curr_e,
                                                          double* d_prev_e,
+                                                         double* d_delta_e,
                                                          int* d_converged)
 {
-    if (iter > 0 && fabs(d_curr_e[0] - d_prev_e[0]) < tol)
+    const double delta_e = (iter > 0) ? (d_curr_e[0] - d_prev_e[0]) : 0.0;
+    d_delta_e[0] = delta_e;
+    if (iter > 0 && fabs(delta_e) < tol)
     {
         d_converged[0] = 1;
     }
@@ -65,5 +68,6 @@ void QUANTUM_CHEMISTRY::Accumulate_SCF_Energy(int iter)
 
     Launch_Device_Kernel(QC_Update_Convergence_Flag_Kernel, 1, 1, 0, 0, iter,
                          scf_ws.energy_tol, scf_ws.d_scf_energy,
-                         scf_ws.d_prev_energy, scf_ws.d_converged);
+                         scf_ws.d_prev_energy, scf_ws.d_delta_e,
+                         scf_ws.d_converged);
 }

@@ -24,7 +24,7 @@
 #define ONEE_MD_BASE 9
 #define ONEE_MD_IDX(t, u, v, n) \
     ((((t) * ONEE_MD_BASE + (u)) * ONEE_MD_BASE + (v)) * ONEE_MD_BASE + (n))
-#define ERI_BATCH_SIZE 8192
+#define ERI_BATCH_SIZE 128
 #define MAX_CART_SHELL 15
 #define MAX_SHELL_ERI \
     (MAX_CART_SHELL * MAX_CART_SHELL * MAX_CART_SHELL * MAX_CART_SHELL)
@@ -142,6 +142,38 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
+    task_ctx.direct_eri_prim_screen_tol = 1e-10f;
+    if (controller->Command_Exist("qc_direct_eri_prim_screen_tol"))
+    {
+        controller->Check_Float("qc_direct_eri_prim_screen_tol",
+                                "QUANTUM_CHEMISTRY::Initial");
+        task_ctx.direct_eri_prim_screen_tol =
+            atof(controller->Command("qc_direct_eri_prim_screen_tol"));
+        if (task_ctx.direct_eri_prim_screen_tol < 0.0f)
+        {
+            Throw_QC_Initial_Error(
+                controller, spongeErrorValueErrorCommand,
+                "Reason:\n    qc_direct_eri_prim_screen_tol must be >= 0, got %g\n",
+                (double)task_ctx.direct_eri_prim_screen_tol);
+        }
+    }
+
+    task_ctx.eri_shell_screen_tol = 1e-10f;
+    if (controller->Command_Exist("qc_eri_shell_screen_tol"))
+    {
+        controller->Check_Float("qc_eri_shell_screen_tol",
+                                "QUANTUM_CHEMISTRY::Initial");
+        task_ctx.eri_shell_screen_tol =
+            atof(controller->Command("qc_eri_shell_screen_tol"));
+        if (task_ctx.eri_shell_screen_tol < 0.0f)
+        {
+            Throw_QC_Initial_Error(
+                controller, spongeErrorValueErrorCommand,
+                "Reason:\n    qc_eri_shell_screen_tol must be >= 0, got %g\n",
+                (double)task_ctx.eri_shell_screen_tol);
+        }
+    }
+
     scf_ws.unrestricted = false;
     if (controller->Command_Exist("qc_restricted"))
     {
@@ -255,6 +287,57 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
                 "Reason:\n    qc_scf_energy_tol must be > 0, got \"%s\"\n",
                 controller->Command("qc_scf_energy_tol"));
         }
+    }
+
+    scf_ws.overlap_eig_floor = 1e-10f;
+    if (controller->Command_Exist("qc_overlap_eig_floor"))
+    {
+        controller->Check_Float("qc_overlap_eig_floor",
+                                "QUANTUM_CHEMISTRY::Initial");
+        scf_ws.overlap_eig_floor =
+            atof(controller->Command("qc_overlap_eig_floor"));
+        if (scf_ws.overlap_eig_floor <= 0.0f)
+        {
+            Throw_QC_Initial_Error(
+                controller, spongeErrorValueErrorCommand,
+                "Reason:\n    qc_overlap_eig_floor must be > 0, got \"%s\"\n",
+                controller->Command("qc_overlap_eig_floor"));
+        }
+    }
+
+    scf_ws.print_iter = false;
+    if (controller->Command_Exist("qc_scf_print_iter"))
+    {
+        controller->Check_Int("qc_scf_print_iter",
+                              "QUANTUM_CHEMISTRY::Initial");
+        const int qc_scf_print_iter =
+            atoi(controller->Command("qc_scf_print_iter"));
+        if (qc_scf_print_iter != 0 && qc_scf_print_iter != 1)
+        {
+            Throw_QC_Initial_Error(
+                controller, spongeErrorValueErrorCommand,
+                "Reason:\n    qc_scf_print_iter must be 0 or 1, got \"%s\"\n",
+                controller->Command("qc_scf_print_iter"));
+        }
+        scf_ws.print_iter = (qc_scf_print_iter != 0);
+    }
+
+    scf_ws.profile_build_fock = false;
+    if (controller->Command_Exist("qc_scf_profile_build_fock"))
+    {
+        controller->Check_Int("qc_scf_profile_build_fock",
+                              "QUANTUM_CHEMISTRY::Initial");
+        const int qc_scf_profile_build_fock =
+            atoi(controller->Command("qc_scf_profile_build_fock"));
+        if (qc_scf_profile_build_fock != 0 &&
+            qc_scf_profile_build_fock != 1)
+        {
+            Throw_QC_Initial_Error(
+                controller, spongeErrorValueErrorCommand,
+                "Reason:\n    qc_scf_profile_build_fock must be 0 or 1, got \"%s\"\n",
+                controller->Command("qc_scf_profile_build_fock"));
+        }
+        scf_ws.profile_build_fock = (qc_scf_profile_build_fock != 0);
     }
 
     dft.dft_radial_points = 60;
@@ -483,7 +566,6 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
             mol.h_l_list.push_back(shell.l);
             mol.h_shell_sizes.push_back(shell.exps.size());
             mol.h_shell_offsets.push_back(mol.h_exps.size());
-            mol.h_ao_offsets.push_back(0);
 
             mol.h_exps.insert(mol.h_exps.end(), shell.exps.begin(),
                               shell.exps.end());
@@ -502,11 +584,18 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
     mol.nao2 = (int)((int)mol.nao * (int)mol.nao);
     mol.h_ao_loc.push_back(mol.nao_cart);
     mol.h_ao_offsets.clear();
+    mol.h_ao_offsets_sph.clear();
     int acc = 0;
+    int acc_sph = 0;
     for (int k = 0; k < mol.h_l_list.size(); k++)
     {
+        const int l = mol.h_l_list[k];
+        const int cart_dim = (l + 1) * (l + 2) / 2;
+        const int sph_dim = mol.is_spherical ? (2 * l + 1) : cart_dim;
         mol.h_ao_offsets.push_back(acc);
-        acc += (mol.h_l_list[k] + 1) * (mol.h_l_list[k] + 2) / 2;
+        mol.h_ao_offsets_sph.push_back(acc_sph);
+        acc += cart_dim;
+        acc_sph += sph_dim;
     }
     mol.h_shell_offsets.clear();
     int exp_acc = 0;
@@ -546,6 +635,9 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
     Device_Malloc_And_Copy_Safely((void**)&mol.d_ao_offsets,
                                   (void*)mol.h_ao_offsets.data(),
                                   sizeof(int) * mol.h_ao_offsets.size());
+    Device_Malloc_And_Copy_Safely((void**)&mol.d_ao_offsets_sph,
+                                  (void*)mol.h_ao_offsets_sph.data(),
+                                  sizeof(int) * mol.h_ao_offsets_sph.size());
     Device_Malloc_And_Copy_Safely((void**)&d_atom_local,
                                   (void*)atom_local.data(),
                                   sizeof(int) * atom_local.size());
@@ -577,6 +669,11 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
             std::max(1, std::min(MAX_SHELL_ERI, task_ctx.eri_shell_buf_size));
     }
 
+    task_ctx.h_shell_pairs.clear();
+    for (int i = 0; i < mol.nbas; i++)
+        for (int j = 0; j <= i; j++) task_ctx.h_shell_pairs.push_back({i, j});
+    task_ctx.n_shell_pairs = task_ctx.h_shell_pairs.size();
+
     for (int i = 0; i < mol.nbas; i++)
     {
         for (int j = 0; j <= i; j++)
@@ -606,6 +703,9 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
     Device_Malloc_And_Copy_Safely(
         (void**)&task_ctx.d_1e_tasks, (void*)task_ctx.h_1e_tasks.data(),
         sizeof(QC_ONE_E_TASK) * task_ctx.h_1e_tasks.size());
+    Device_Malloc_And_Copy_Safely(
+        (void**)&task_ctx.d_shell_pairs, (void*)task_ctx.h_shell_pairs.data(),
+        sizeof(QC_ONE_E_TASK) * task_ctx.h_shell_pairs.size());
 }
 
 void QUANTUM_CHEMISTRY::Initial(CONTROLLER* controller, const int atom_numbers,
@@ -643,8 +743,6 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
     Device_Malloc_Safely((void**)&scf_ws.d_T, sizeof(float) * mol.nao2);
     Device_Malloc_Safely((void**)&scf_ws.d_V, sizeof(float) * mol.nao2);
     Device_Malloc_Safely((void**)&scf_ws.d_H_core, sizeof(float) * mol.nao2);
-    Device_Malloc_Safely((void**)&scf_ws.d_ERI,
-                         sizeof(float) * mol.nao2 * mol.nao2);
     Device_Malloc_Safely((void**)&scf_ws.d_scf_energy, sizeof(double));
     Device_Malloc_Safely((void**)&scf_ws.d_nuc_energy_dev, sizeof(double));
     Device_Malloc_Safely((void**)&dft.d_exc_total, sizeof(double));
@@ -662,25 +760,22 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
                              sizeof(float) * nao_c * nao_c);
         Device_Malloc_Safely((void**)&cart2sph.d_V_cart,
                              sizeof(float) * nao_c * nao_c);
-        Device_Malloc_Safely(
-            (void**)&cart2sph.d_ERI_cart,
-            sizeof(float) * (int)nao_c * nao_c * nao_c * nao_c);
         Device_Malloc_Safely((void**)&cart2sph.d_cart2sph_1e_tmp,
                              sizeof(float) * (int)nao_c * (int)nao_s);
-        const int n_t1 = (int)nao_s * nao_c * nao_c * nao_c;
-        const int n_t2 = (int)nao_s * nao_s * nao_c * nao_c;
-        const int n_t3 = (int)nao_s * nao_s * nao_s * nao_c;
-        Device_Malloc_Safely((void**)&cart2sph.d_cart2sph_eri_t1,
-                             sizeof(float) * n_t1);
-        Device_Malloc_Safely((void**)&cart2sph.d_cart2sph_eri_t2,
-                             sizeof(float) * n_t2);
-        Device_Malloc_Safely((void**)&cart2sph.d_cart2sph_eri_t3,
-                             sizeof(float) * n_t3);
     }
-    Device_Malloc_Safely((void**)&d_hr_pool, (int)ERI_BATCH_SIZE *
-                                                 (task_ctx.eri_hr_size +
-                                                  task_ctx.eri_shell_buf_size) *
-                                                 sizeof(float));
+    int hr_pool_tasks = ERI_BATCH_SIZE;
+#ifndef USE_GPU
+    hr_pool_tasks = std::max(1, omp_get_max_threads());
+#endif
+    Device_Malloc_Safely(
+        (void**)&d_hr_pool,
+        (int)hr_pool_tasks *
+            (task_ctx.eri_hr_size + 2 * task_ctx.eri_shell_buf_size) *
+            sizeof(float));
+    Device_Malloc_Safely((void**)&task_ctx.d_shell_pair_bounds,
+                         sizeof(float) * task_ctx.n_shell_pairs);
+    deviceMemset(task_ctx.d_shell_pair_bounds, 0,
+                 sizeof(float) * task_ctx.n_shell_pairs);
     if (dft.enable_dft)
     {
         dft.max_grid_capacity =
