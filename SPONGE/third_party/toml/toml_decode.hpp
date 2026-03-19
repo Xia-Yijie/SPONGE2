@@ -145,6 +145,9 @@ T decode_table(const table& value);
 template <class T>
 T parse_file(std::string_view path);
 
+template <class T>
+T parse_string(std::string_view content, std::string_view source_path = {});
+
 namespace detail
 {
 
@@ -170,6 +173,8 @@ struct optional_value_type<std::optional<T>>
 };
 
 auto parse_toml_file(std::string_view path) -> table;
+auto parse_toml_string(std::string_view content,
+                       std::string_view source_path = {}) -> table;
 
 inline const node* find_node(const table& value, std::string_view key)
 {
@@ -314,6 +319,12 @@ template <class T>
 T parse_file(std::string_view path)
 {
     return decode_table<T>(detail::parse_toml_file(path));
+}
+
+template <class T>
+T parse_string(std::string_view content, std::string_view source_path)
+{
+    return decode_table<T>(detail::parse_toml_string(content, source_path));
 }
 
 }  // namespace sponge::toml_decode

@@ -72,4 +72,12 @@ auto parse_toml_file(std::string_view path) -> table
     return convert_table(parsed);
 }
 
+auto parse_toml_string(std::string_view content, std::string_view source_path)
+    -> table
+{
+    const auto parsed =
+        toml::parse(std::string(content), std::string(source_path));
+    return convert_table(parsed);
+}
+
 }  // namespace sponge::toml_decode::detail
