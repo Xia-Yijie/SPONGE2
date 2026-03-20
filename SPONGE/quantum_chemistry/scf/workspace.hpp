@@ -84,7 +84,8 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
     };
 
     alloc_zero_float(&scf_ws.d_norms, (int)nao);
-    alloc_from_host_float(&scf_ws.d_X, scf_ws.h_X);
+    // X = S^{-1/2} stored in double to preserve precision for large basis sets
+    alloc_zero_double(&scf_ws.d_X, nao2);
     alloc_from_host_float(&scf_ws.d_W, scf_ws.h_W);
     alloc_from_host_float(&scf_ws.d_Work, scf_ws.h_Work);
     alloc_from_host_float(&scf_ws.d_F, scf_ws.h_F);

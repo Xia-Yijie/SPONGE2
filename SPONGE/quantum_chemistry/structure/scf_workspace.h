@@ -17,7 +17,7 @@ struct QC_SCF_WORKSPACE
     // 重叠正交化与本征分解工作区
     std::vector<float> h_X;
     std::vector<double> h_X_double;
-    float* d_X = NULL;
+    double* d_X = NULL;
     std::vector<float> h_W;
     float* d_W = NULL;
     std::vector<float> h_Work;

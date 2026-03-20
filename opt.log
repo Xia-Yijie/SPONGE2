@@ -197,52 +197,137 @@ Kahan 求和覆盖范围和 benzene/def2-qzvp iter 3 能量：
 | JK + ERI + fallback + reduce | -312 | 进一步改善 |
 | PySCF float64 | -217 | 13 轮收敛到 -230.8 |
 
+### 近似等 NAO 对照实验
+
+目的：区分 "NAO 数量多" 和 "高角动量" 哪个更关键。
+
+新增体系：`Ace-Ala-Ala-Ala-Ala-Nme`
+- 方法：`RHF/def2-svp`
+- 电子数：192
+- **NAO = 485**（与 benzene/def2-qzvp 的 480 很接近）
+- 最高角动量：`d`（没有 `f/g`）
+
+构型来源：
+- 用 `PeptideBuilder` 生成 `Ala4` 主链
+- 手工补 `ACE/NME` 重原子
+- 用 `OpenMM amber14-all.xml` 补氢并做快速最小化
+- 静态 case 已加入 `benchmarks/comparison/tests/pyscf/statics/ace_ala4_nme`
+
+PySCF 参考：
+- `RHF/def2-svp`
+- 初猜 `minao`
+- `nao = 485`
+- 前几轮：`init E=-1238.62`，`cycle 1 E=-1226.63`，随后向 `-1227.46` 收敛
+
+SPONGE 手工观测（未额外做 profile，只开 `-qc_scf_print_iter 1`）：
+- 命令：
+
+```bash
+cd benchmarks/comparison/tests/pyscf/outputs/rhf_ace_ala4_nme_hf_def2-svp_r1/sponge
+SPONGE -mdin mdin.txt -qc_model_chemistry HF/def2-svp \
+  -qc_scf_max_iter 6 -qc_scf_print_iter 1
+```
+
+- 前 6 轮能量：
+  - iter 1: `+2197.90 Ha`
+  - iter 2: `-594.72 Ha`
+  - iter 3: `-872.38 Ha`
+  - iter 4: `-958.03 Ha`
+  - iter 5: `-995.91 Ha`
+  - iter 6: `-1046.77 Ha`
+- `Core Run Wall Time = 53.04 s`
+  - 粗略平均：`~8.8 s / iter`
+  - 注意：这是完整 SCF 前 6 轮总时间，**不是** `Build_Fock` profile
+
+结论：
+- 高角动量 `f/g` **不是必要条件**
+- 仅仅把体系换成 **485 NAO 且最高只到 d**，SCF 仍然从 iter 1 就严重偏离 PySCF
+- 当前问题更像是 **大 NAO 下 SCF 前段矩阵链路/状态更新** 有 bug，
+  不能再把主因简单归结为 "高角动量太高" 或 "double 不够"
+
 ### 验证要求
 
 1. he_def2-qzvp 回归测试通过
 2. benzene/6-31g 能收敛到 E ≈ -230.6 Ha（误差 < 0.1 Ha）
 3. benzene/def2-qzvp SCF 能收敛（**当前首要目标**）
 
-## 6. 当前最短路径
+## 6. 根因定位：基组系数归一化约定不一致
 
-**首要目标：benzene/def2-qzvp SCF 收敛**
+### 排查路径
 
-Kahan 求和改善了 Fock 精度但还不够。剩余精度瓶颈可能在：
-1. ERI 内层累加（val 的 bra×ket term 乘积求和）还是 float32
-2. HR 张量计算（Boys 函数、MD 系数）是 float32
-3. 密度矩阵构建（特征值分解、MO 系数）是 float32
-4. cart2sph 变换是 float32
+1. 大 NAO 体系 SCF 发散 → 尝试了 double Fock 累加、dsyevd、
+   double X 等各种混合精度改造，全部无效
+2. dump iter 2 的 F、X、P 矩阵到文件，用 Python 对拍
+3. 发现：**用 PySCF 的 X + SPONGE 的 F 做对角化，P max=216（正常）**
+   **用 SPONGE 的 X + SPONGE 的 F，P max=16570（爆炸）**
+4. 进一步发现 SPONGE X 有误差（X diff max=65 vs PySCF X）
+5. 追溯到 overlap S：**SPONGE Cartesian S 和 PySCF Cartesian S
+   差异 max=11.57**
+6. 根因：**SPONGE 的 Cartesian S 对角线不是 1.0**
+   - s shell: S_diag = 3.74 ~ 12.57（应为 1.0）
+   - p shell: S_diag = 0.48 ~ 4.19（应为 1.0）
 
-下一步方向：
-1. 把 Fock 累加从 Kahan float32 改成真正的 double 累加
-   （d_F_thread 改为 double*，最后 cast 回 float）
-2. 或者找到具体是哪个环节的精度损失最大，针对性改
+### 根因
 
-性能方面：
-- 当前 ~27 s，之前最佳 ~22 s
-- 等收敛问题解决后再继续 term-count 派发优化
+**SPONGE 基组系数的归一化约定和 PySCF/libcint 不一致。**
+
+SPONGE 的 `basis_def2_qzvp.hpp` 中存储的 contraction coefficients
+包含了 primitive GTO normalization（`(2α/π)^{3/4}`）但：
+- **缺少 `sqrt(4π/(2l+1))` 的球谐归一化因子**
+- **contracted shells 缺少 contraction normalization**
+
+具体比较（H 第一个 s shell, 4 primitives contracted）：
+- SPONGE coeffs: `[0.0918, 0.171, 0.288, 0.430]`
+- PySCF env coeffs: `[0.693, 1.289, 2.172, 3.243]`
+- 比率恒定 = 7.544 = `sqrt(4π) × contraction_norm`
+
+对 uncontracted shells（单 primitive），SPONGE 和 PySCF 系数完全一致。
+
+### 修复方案（进行中）
+
+直接修改基组 hpp 文件中的系数，改用 PySCF `_env` 约定（已包含
+完整归一化）。这样不需要运行时修正。
+
+已生成 def2-qzvp 的 PySCF 约定系数，但编译时遇到 float 字面量
+格式问题（整数缺小数点），待修复后测试。
+
+### 当前代码状态
+
+- `quantum_chemistry.cpp`：已去掉运行时修正（不需要了）
+- `basis_def2_qzvp.hpp`：需要替换为 PySCF 约定系数（进行中）
+- `diag_density.hpp`：包含 double matmul + dsyevd + 诊断 dump
+  （这些在修复基组后可以简化回 sgemm + ssyevd）
+- `pre_scf.hpp`：包含 dsyevd overlap + double X 构建 + S_cart dump
+  （修复基组后也可以简化）
 
 ## 7. debug 教训
 
 ### 7.1 不要轻易归因于 float32 精度
 
 多次在遇到数值偏差时第一反应是"float32 精度不足"，但实际原因
-都是代码逻辑 bug：
+都是代码逻辑或数据问题：
 
 - benzene SCF 发散（偏差 20 Ha）→ 归因 float32 → 实际是
   mix_converge.hpp 的新 kernel 破坏了密度矩阵
-- 收敛慢 → 归因 "float32 下 DIIS 锁定" → 实际是 diis_start=8，
-  前 8 轮没有 DIIS
+- 收敛慢 → 归因 "float32 下 DIIS 锁定" → 实际是 diis_start=8
+- 大基组 SCF 发散 → 归因 float32 累加精度 → 试了 Kahan、
+  double Fock、dsyevd、double X → 全部无效
+  → **实际是基组系数归一化约定不一致**
 
-判断标准：
-- 偏差 > 0.1 Ha：几乎肯定是代码 bug，不是精度问题
-- 偏差 < 0.001 Ha 且表现为最后几位振荡：才可能是 float32 精度
-- 先排查逻辑问题（数据损坏、竞争条件、遗漏操作），再考虑精度
+完整排查路径记录：
+1. 尝试 Kahan 求和（JK 快路径 → 全路径）：iter 3 从 -181 改善到
+   -312，但仍然发散。误以为是精度改善的迹象。
+2. 尝试 double Fock 累加：反而变差（iter 3 从 -312 回退到 -77）。
+   这本该提示精度不是根因。
+3. 尝试 dsyevd（double 特征值分解）：无变化。
+4. 尝试 double X 矩阵：无变化。
+5. overlap_eig_floor 扫描：无变化。
+6. 最终通过 **dump 中间矩阵 + Python 对拍** 定位到 S 矩阵差异。
 
-补充：benzene/def2-qzvp iter 2 得到 E=-181 Ha（vs 正确 -230.8 Ha，
-偏差 50 Ha）。这个确实是 float32 精度问题——大基组（480 基函数）下
-第一轮 Fock 矩阵的累积误差就已经很大。但 6-31g（66 基函数）iter 2
-E=-204 Ha 和 PySCF 零密度初猜的 -204 Ha 一致，说明小基组下精度够用。
+教训：
+- 如果多种精度改进都无效，停下来 **dump 对拍**，不要继续猜
+- 对拍应该从最上游开始（S 矩阵），而不是从下游（P 矩阵）
+- 系数归一化约定是一种"全局数据 bug"，不是精度问题
 
 ### 7.2 大重构要逐文件验证
 
@@ -251,7 +336,12 @@ e3004ce 一次性改了 17 个文件（+2117/-246 行），导致 bug 混在
 - 每改一个文件就跑 benzene/6-31g 收敛测试
 - 出问题立刻知道是哪个文件引入的
 
-## 8. 维护规则
+## 8. 性能现状
+
+benzene/def2-qzvp iter 2 Build_Fock = ~27 s（之前最佳 ~22 s）。
+等收敛问题解决后再继续 term-count 派发优化。
+
+## 9. 维护规则
 
 后面只要有新结果，就立刻更新这份文件，至少补三件事：
 - benchmark 数字

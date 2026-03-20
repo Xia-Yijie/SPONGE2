@@ -102,6 +102,17 @@ void QUANTUM_CHEMISTRY::Compute_OneE_Integrals()
             mol.d_shell_offsets, mol.d_shell_sizes, mol.d_ao_offsets, mol.d_atm,
             mol.d_env, mol.natm, p_S, p_T, p_V, nao_c);
     }
+    // Dump Cartesian S for debugging
+#ifndef USE_GPU
+    if (mol.is_spherical)
+    {
+        FILE* fp = fopen("/tmp/sponge_S_cart.bin", "wb");
+        fwrite(cart2sph.d_S_cart, sizeof(float), (size_t)nao_c * nao_c, fp);
+        fclose(fp);
+        printf("DUMPED S_cart to /tmp/sponge_S_cart.bin (nao_c=%d)\n", nao_c);
+        fflush(stdout);
+    }
+#endif
     Cart2Sph_OneE_Integrals();
 }
 
@@ -219,7 +230,7 @@ static __global__ void QC_Build_X_From_EigCol_Kernel(const int nao,
                                                      const float* U_col,
                                                      const float* W,
                                                      const float eig_floor,
-                                                     float* X_row)
+                                                     double* X_row)
 {
 #ifdef USE_GPU
     int j = blockIdx.x * blockDim.x + threadIdx.x;
@@ -239,7 +250,7 @@ static __global__ void QC_Build_X_From_EigCol_Kernel(const int nao,
             float ujk = U_col[j + k * nao];
             sum += (double)uik * (double)ujk / sqrt((double)wk);
         }
-        X_row[i * nao + j] = (float)sum;
+        X_row[i * nao + j] = sum;
     }
 }
 
@@ -257,17 +268,32 @@ void QUANTUM_CHEMISTRY::Build_Overlap_X()
         for (int i = 0; i < nao2; i++) dS[i] = (double)scf_ws.d_S[i];
         int lw = -1, liw = -1;
         double wq; lapack_int iwq;
-        LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'U', (lapack_int)nao,
+        // S is stored row-major, so row-major upper = col-major lower → use 'L'
+        LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'L', (lapack_int)nao,
                             dS.data(), (lapack_int)nao, dW.data(),
                             &wq, lw, &iwq, liw);
         lw = (int)wq; liw = iwq;
         std::vector<double> dwork(lw);
         std::vector<lapack_int> diwork(liw);
-        LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'U', (lapack_int)nao,
+        LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'L', (lapack_int)nao,
                             dS.data(), (lapack_int)nao, dW.data(),
                             dwork.data(), (lapack_int)lw,
                             diwork.data(), (lapack_int)liw);
-        // Cast eigenvectors and eigenvalues back to float for X construction
+        // Build X = S^{-1/2} entirely in double precision
+        // X[i,j] = sum_k U[i,k] * U[j,k] / sqrt(W[k])
+        for (int i = 0; i < nao; i++)
+            for (int j = 0; j < nao; j++)
+            {
+                double sum = 0.0;
+                for (int k = 0; k < nao; k++)
+                {
+                    double wk = fmax(dW[k], (double)scf_ws.overlap_eig_floor);
+                    // dS now holds eigenvectors in col-major: U(i,k) = dS[i + k*nao]
+                    sum += dS[i + k * nao] * dS[j + k * nao] / sqrt(wk);
+                }
+                scf_ws.d_X[i * nao + j] = sum;  // store as double
+            }
+        // Also store float versions for diagnostics
         for (int i = 0; i < nao2; i++) scf_ws.d_Work[i] = (float)dS[i];
         for (int i = 0; i < nao; i++) scf_ws.d_W[i] = (float)dW[i];
     }
@@ -277,14 +303,13 @@ void QUANTUM_CHEMISTRY::Build_Overlap_X()
     QC_Diagonalize(solver_handle, mol.nao, scf_ws.d_Work, scf_ws.d_W,
                    scf_ws.d_solver_work, scf_ws.lwork, scf_ws.d_solver_iwork,
                    scf_ws.liwork, scf_ws.d_info);
-#endif
-
     const dim3 block2d(16, 16);
     const dim3 grid2d((nao + block2d.x - 1) / block2d.x,
                       (nao + block2d.y - 1) / block2d.y);
     Launch_Device_Kernel(QC_Build_X_From_EigCol_Kernel, grid2d, block2d, 0, 0,
                          nao, scf_ws.d_Work, scf_ws.d_W,
                          scf_ws.overlap_eig_floor, scf_ws.d_X);
+#endif
 
     // Always print overlap eigenvalue diagnostics on CPU
 #ifndef USE_GPU
@@ -307,10 +332,24 @@ void QUANTUM_CHEMISTRY::Build_Overlap_X()
 #endif
     if (scf_ws.print_iter && CONTROLLER::MPI_rank == 0)
     {
-        QC_MatMul_RowRow_Blas(blas_handle, nao, nao, nao, scf_ws.d_S,
-                              scf_ws.d_X, scf_ws.d_Tmp);
-        QC_MatMul_RowRow_Blas(blas_handle, nao, nao, nao, scf_ws.d_X,
-                              scf_ws.d_Tmp, scf_ws.d_Fp);
+        // Compute X^T * S * X in double to check orthogonality
+        // Tmp = S * X, Fp = X^T * Tmp
+        for (int i = 0; i < nao; i++)
+            for (int j = 0; j < nao; j++)
+            {
+                double s = 0.0;
+                for (int k = 0; k < nao; k++)
+                    s += (double)scf_ws.d_S[i*nao+k] * scf_ws.d_X[k*nao+j];
+                scf_ws.d_Tmp[i*nao+j] = (float)s;
+            }
+        for (int i = 0; i < nao; i++)
+            for (int j = 0; j < nao; j++)
+            {
+                double s = 0.0;
+                for (int k = 0; k < nao; k++)
+                    s += scf_ws.d_X[k*nao+i] * (double)scf_ws.d_Tmp[k*nao+j];
+                scf_ws.d_Fp[i*nao+j] = (float)s;
+            }
 
         scf_ws.h_W.resize(nao);
         scf_ws.h_Fp.resize(nao2);
