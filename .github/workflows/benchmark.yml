@@ -41,10 +41,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Pixi
-        uses: prefix-dev/setup-pixi@v0
+        uses: prefix-dev/setup-pixi@v0.9.4
         with:
           run-install: false
 
@@ -109,10 +109,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Pixi
-        uses: prefix-dev/setup-pixi@v0
+        uses: prefix-dev/setup-pixi@v0.9.4
         with:
           run-install: false
 
@@ -202,10 +202,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Pixi
-        uses: prefix-dev/setup-pixi@v0
+        uses: prefix-dev/setup-pixi@v0.9.4
         with:
           run-install: false
 
@@ -257,10 +257,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Pixi
-        uses: prefix-dev/setup-pixi@v0
+        uses: prefix-dev/setup-pixi@v0.9.4
         with:
           run-install: false
 
@@ -330,10 +330,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Pixi
-        uses: prefix-dev/setup-pixi@v0
+        uses: prefix-dev/setup-pixi@v0.9.4
         with:
           run-install: false
 
@@ -388,10 +388,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Pixi
-        uses: prefix-dev/setup-pixi@v0
+        uses: prefix-dev/setup-pixi@v0.9.4
         with:
           run-install: false
 
