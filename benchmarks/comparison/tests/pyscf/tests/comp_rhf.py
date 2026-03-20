@@ -21,6 +21,7 @@ RHF_CASE_BASIS = [
     ("he", "def2-tzvp"),
     ("h2", "def2-tzvpp"),
     ("he", "def2-qzvp"),
+    ("ace_ala4_nme", "def2-svp"),
     ("benzene", "def2-qzvp"),
     ("h2", "cc-pvdz"),
     ("he", "cc-pvtz"),

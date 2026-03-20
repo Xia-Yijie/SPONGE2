@@ -248,11 +248,36 @@ void QUANTUM_CHEMISTRY::Build_Overlap_X()
     const int nao = mol.nao;
     const int nao2 = mol.nao2;
 
+#ifndef USE_GPU
+    // CPU: use dsyevd (double) for overlap diagonalization to get
+    // accurate X = S^{-1/2}. Float32 ssyevd eigenvectors cause
+    // X^T*S*X to deviate from identity by ~1%, which corrupts density.
+    {
+        std::vector<double> dS(nao2), dW(nao);
+        for (int i = 0; i < nao2; i++) dS[i] = (double)scf_ws.d_S[i];
+        int lw = -1, liw = -1;
+        double wq; lapack_int iwq;
+        LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'U', (lapack_int)nao,
+                            dS.data(), (lapack_int)nao, dW.data(),
+                            &wq, lw, &iwq, liw);
+        lw = (int)wq; liw = iwq;
+        std::vector<double> dwork(lw);
+        std::vector<lapack_int> diwork(liw);
+        LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'U', (lapack_int)nao,
+                            dS.data(), (lapack_int)nao, dW.data(),
+                            dwork.data(), (lapack_int)lw,
+                            diwork.data(), (lapack_int)liw);
+        // Cast eigenvectors and eigenvalues back to float for X construction
+        for (int i = 0; i < nao2; i++) scf_ws.d_Work[i] = (float)dS[i];
+        for (int i = 0; i < nao; i++) scf_ws.d_W[i] = (float)dW[i];
+    }
+#else
     deviceMemcpy(scf_ws.d_Work, scf_ws.d_S, sizeof(float) * nao2,
                  deviceMemcpyDeviceToDevice);
     QC_Diagonalize(solver_handle, mol.nao, scf_ws.d_Work, scf_ws.d_W,
                    scf_ws.d_solver_work, scf_ws.lwork, scf_ws.d_solver_iwork,
                    scf_ws.liwork, scf_ws.d_info);
+#endif
 
     const dim3 block2d(16, 16);
     const dim3 grid2d((nao + block2d.x - 1) / block2d.x,
@@ -261,6 +286,25 @@ void QUANTUM_CHEMISTRY::Build_Overlap_X()
                          nao, scf_ws.d_Work, scf_ws.d_W,
                          scf_ws.overlap_eig_floor, scf_ws.d_X);
 
+    // Always print overlap eigenvalue diagnostics on CPU
+#ifndef USE_GPU
+    if (CONTROLLER::MPI_rank == 0)
+    {
+        scf_ws.h_W.resize(nao);
+        deviceMemcpy(scf_ws.h_W.data(), scf_ws.d_W, sizeof(float) * nao,
+                     deviceMemcpyDeviceToHost);
+        printf("Overlap eigenvalues (smallest 10):");
+        for (int i = 0; i < std::min(nao, 10); i++)
+            printf(" %.6e", (double)scf_ws.h_W[i]);
+        printf("\n");
+        int n_below_floor = 0;
+        for (int i = 0; i < nao; i++)
+            if (scf_ws.h_W[i] < scf_ws.overlap_eig_floor) n_below_floor++;
+        printf("Overlap eig_floor=%.1e | n_below=%d | nao=%d\n",
+               (double)scf_ws.overlap_eig_floor, n_below_floor, nao);
+        fflush(stdout);
+    }
+#endif
     if (scf_ws.print_iter && CONTROLLER::MPI_rank == 0)
     {
         QC_MatMul_RowRow_Blas(blas_handle, nao, nao, nao, scf_ws.d_S,
