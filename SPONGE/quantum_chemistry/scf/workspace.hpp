@@ -145,17 +145,14 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
     scf_ws.d_F_b_thread = NULL;
 #else
     scf_ws.fock_thread_count = std::max(1, omp_get_max_threads());
-    alloc_zero_float(&scf_ws.d_F_thread, scf_ws.fock_thread_count * nao2);
-    alloc_zero_float(&scf_ws.d_F_comp, scf_ws.fock_thread_count * nao2);
+    alloc_zero_double(&scf_ws.d_F_thread, scf_ws.fock_thread_count * nao2);
     if (unrestricted)
     {
-        alloc_zero_float(&scf_ws.d_F_b_thread, scf_ws.fock_thread_count * nao2);
-        alloc_zero_float(&scf_ws.d_F_b_comp, scf_ws.fock_thread_count * nao2);
+        alloc_zero_double(&scf_ws.d_F_b_thread, scf_ws.fock_thread_count * nao2);
     }
     else
     {
         scf_ws.d_F_b_thread = NULL;
-        scf_ws.d_F_b_comp = NULL;
     }
 #endif
 
