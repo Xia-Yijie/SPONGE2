@@ -607,9 +607,11 @@ void QUANTUM_CHEMISTRY::Build_Fock()
 #else
     const int thread_total = scf_ws.fock_thread_count * total;
     deviceMemset(scf_ws.d_F_thread, 0, sizeof(float) * thread_total);
+    deviceMemset(scf_ws.d_F_comp, 0, sizeof(float) * thread_total);
     if (scf_ws.unrestricted)
     {
         deviceMemset(scf_ws.d_F_b_thread, 0, sizeof(float) * thread_total);
+        deviceMemset(scf_ws.d_F_b_comp, 0, sizeof(float) * thread_total);
     }
     float* d_F_build = scf_ws.d_F_thread;
     float* d_F_b_build =
@@ -689,7 +691,10 @@ void QUANTUM_CHEMISTRY::Build_Fock()
         task_ctx.eri_shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
         scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
         exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph, mol.is_spherical,
-        cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build, d_hr_pool,
+        cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build,
+        scf_ws.d_F_comp,
+        scf_ws.unrestricted ? scf_ws.d_F_b_comp : (float*)nullptr,
+        d_hr_pool,
         task_ctx.eri_hr_base, task_ctx.eri_hr_size,
         task_ctx.eri_shell_buf_size, task_ctx.direct_eri_prim_screen_tol,
         scf_ws.fock_thread_count, scf_ws.profile_build_fock);

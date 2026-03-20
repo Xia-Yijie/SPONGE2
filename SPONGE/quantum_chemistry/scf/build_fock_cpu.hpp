@@ -97,6 +97,14 @@ struct QC_Bra_Prim_Cache_CPU
     float E_bra[3][5][5][9];
 };
 
+static inline void QC_Kahan_Add(float* sum, float* comp, const float val)
+{
+    const float y = val - *comp;
+    const float t = *sum + y;
+    *comp = (t - *sum) - y;
+    *sum = t;
+}
+
 struct QC_Angular_Term_CPU
 {
     unsigned short hr_offset;
@@ -622,7 +630,8 @@ static inline void QC_Build_Fock_Direct_CPU(
     const float shell_screen_tol, const float* P_coul, const float* P_exx_a,
     const float* P_exx_b, const float exx_scale_a, const float exx_scale_b,
     const int nao, const int nao_sph, const int is_spherical,
-    const float* cart2sph_mat, float* F_a, float* F_b, float* global_hr_pool,
+    const float* cart2sph_mat, float* F_a, float* F_b,
+    float* F_a_comp, float* F_b_comp, float* global_hr_pool,
     int hr_base, int hr_size, int shell_buf_size, float prim_screen_tol,
     const int fock_thread_count, const bool profile_build_fock)
 {
@@ -713,6 +722,8 @@ static inline void QC_Build_Fock_Direct_CPU(
         float* F_a_accum = F_a + (size_t)tid * (size_t)nao2;
         float* F_b_accum =
             (F_b != NULL) ? (F_b + (size_t)tid * (size_t)nao2) : NULL;
+        float* C_a = F_a_comp + (size_t)tid * (size_t)nao2;
+        float* C_b = (F_b_comp != NULL) ? (F_b_comp + (size_t)tid * (size_t)nao2) : NULL;
         float* task_pool =
             global_hr_pool + (size_t)tid * (size_t)(hr_size + 2 * shell_buf_size);
         float* HR = task_pool;
@@ -868,17 +879,17 @@ static inline void QC_Build_Fock_Direct_CPU(
                                     const float j_pq =
                                         (P_coul[rn + s] + P_coul[sn + r]) *
                                         val;
-                                    F_a_accum[pn + q] += j_pq;
-                                    F_a_accum[qn + p] += j_pq;
+                                    QC_Kahan_Add(&F_a_accum[pn + q], &C_a[pn + q], j_pq);
+                                    QC_Kahan_Add(&F_a_accum[qn + p], &C_a[qn + p], j_pq);
                                     const float j_rs = Ppq_sym * val;
-                                    F_a_accum[rn + s] += j_rs;
-                                    F_a_accum[sn + r] += j_rs;
+                                    QC_Kahan_Add(&F_a_accum[rn + s], &C_a[rn + s], j_rs);
+                                    QC_Kahan_Add(&F_a_accum[sn + r], &C_a[sn + r], j_rs);
                                     if (F_b_accum != NULL)
                                     {
-                                        F_b_accum[pn + q] += j_pq;
-                                        F_b_accum[qn + p] += j_pq;
-                                        F_b_accum[rn + s] += j_rs;
-                                        F_b_accum[sn + r] += j_rs;
+                                        QC_Kahan_Add(&F_b_accum[pn + q], &C_b[pn + q], j_pq);
+                                        QC_Kahan_Add(&F_b_accum[qn + p], &C_b[qn + p], j_pq);
+                                        QC_Kahan_Add(&F_b_accum[rn + s], &C_b[rn + s], j_rs);
+                                        QC_Kahan_Add(&F_b_accum[sn + r], &C_b[sn + r], j_rs);
                                     }
                                     if (exx_scale_a != 0.0f)
                                     {
@@ -892,14 +903,14 @@ static inline void QC_Build_Fock_Direct_CPU(
                                             nsv * P_exx_a[pn + s];
                                         const float k4 =
                                             nsv * P_exx_a[pn + r];
-                                        F_a_accum[pn + r] += k1;
-                                        F_a_accum[rn + p] += k1;
-                                        F_a_accum[pn + s] += k2;
-                                        F_a_accum[sn + p] += k2;
-                                        F_a_accum[qn + r] += k3;
-                                        F_a_accum[rn + q] += k3;
-                                        F_a_accum[qn + s] += k4;
-                                        F_a_accum[sn + q] += k4;
+                                        QC_Kahan_Add(&F_a_accum[pn + r], &C_a[pn + r], k1);
+                                        QC_Kahan_Add(&F_a_accum[rn + p], &C_a[rn + p], k1);
+                                        QC_Kahan_Add(&F_a_accum[pn + s], &C_a[pn + s], k2);
+                                        QC_Kahan_Add(&F_a_accum[sn + p], &C_a[sn + p], k2);
+                                        QC_Kahan_Add(&F_a_accum[qn + r], &C_a[qn + r], k3);
+                                        QC_Kahan_Add(&F_a_accum[rn + q], &C_a[rn + q], k3);
+                                        QC_Kahan_Add(&F_a_accum[qn + s], &C_a[qn + s], k4);
+                                        QC_Kahan_Add(&F_a_accum[sn + q], &C_a[sn + q], k4);
                                     }
                                     if (F_b_accum != NULL &&
                                         P_exx_b != NULL &&
@@ -915,14 +926,14 @@ static inline void QC_Build_Fock_Direct_CPU(
                                             nsv * P_exx_b[pn + s];
                                         const float k4 =
                                             nsv * P_exx_b[pn + r];
-                                        F_b_accum[pn + r] += k1;
-                                        F_b_accum[rn + p] += k1;
-                                        F_b_accum[pn + s] += k2;
-                                        F_b_accum[sn + p] += k2;
-                                        F_b_accum[qn + r] += k3;
-                                        F_b_accum[rn + q] += k3;
-                                        F_b_accum[qn + s] += k4;
-                                        F_b_accum[sn + q] += k4;
+                                        QC_Kahan_Add(&F_b_accum[pn + r], &C_b[pn + r], k1);
+                                        QC_Kahan_Add(&F_b_accum[rn + p], &C_b[rn + p], k1);
+                                        QC_Kahan_Add(&F_b_accum[pn + s], &C_b[pn + s], k2);
+                                        QC_Kahan_Add(&F_b_accum[sn + p], &C_b[sn + p], k2);
+                                        QC_Kahan_Add(&F_b_accum[qn + r], &C_b[qn + r], k3);
+                                        QC_Kahan_Add(&F_b_accum[rn + q], &C_b[rn + q], k3);
+                                        QC_Kahan_Add(&F_b_accum[qn + s], &C_b[qn + s], k4);
+                                        QC_Kahan_Add(&F_b_accum[sn + q], &C_b[sn + q], k4);
                                     }
                                 }
                             }

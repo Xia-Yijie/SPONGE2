@@ -82,6 +82,8 @@ struct QC_SCF_WORKSPACE
     int fock_thread_count = 1;
     float* d_F_thread = NULL;
     float* d_F_b_thread = NULL;
+    float* d_F_comp = NULL;
+    float* d_F_b_comp = NULL;
 
     // SCF 配置与每轮 Solve_SCF 写入的派生参数
     bool unrestricted = false;
