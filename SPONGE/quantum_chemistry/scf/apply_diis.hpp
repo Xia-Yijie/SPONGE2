@@ -93,8 +93,58 @@ static void QC_Build_DIIS_Error(BLAS_HANDLE blas_handle, int nao,
                                 float* d_w2, float* d_w3, float* d_w4)
 {
     const int nao2 = (int)nao * nao;
+#ifndef USE_GPU
+    // CPU path: compute DIIS error e = FPS - SPF in double precision
+    // to avoid float32 accumulation errors in matmul for large basis sets
+    std::vector<double> dF(nao2), dP(nao2), dS(nao2);
+    std::vector<double> t1(nao2), t2(nao2), t3(nao2);
+    for (int i = 0; i < nao2; i++)
+    {
+        dF[i] = (double)d_F[i];
+        dP[i] = (double)d_P[i];
+        dS[i] = (double)d_S[i];
+    }
+    // t1 = F * P
+    for (int i = 0; i < nao; i++)
+        for (int j = 0; j < nao; j++)
+        {
+            double s = 0.0;
+            for (int k = 0; k < nao; k++)
+                s += dF[i * nao + k] * dP[k * nao + j];
+            t1[i * nao + j] = s;
+        }
+    // t2 = FP * S
+    for (int i = 0; i < nao; i++)
+        for (int j = 0; j < nao; j++)
+        {
+            double s = 0.0;
+            for (int k = 0; k < nao; k++)
+                s += t1[i * nao + k] * dS[k * nao + j];
+            t2[i * nao + j] = s;
+        }
+    // t1 = S * P
+    for (int i = 0; i < nao; i++)
+        for (int j = 0; j < nao; j++)
+        {
+            double s = 0.0;
+            for (int k = 0; k < nao; k++)
+                s += dS[i * nao + k] * dP[k * nao + j];
+            t1[i * nao + j] = s;
+        }
+    // t3 = SP * F
+    for (int i = 0; i < nao; i++)
+        for (int j = 0; j < nao; j++)
+        {
+            double s = 0.0;
+            for (int k = 0; k < nao; k++)
+                s += t1[i * nao + k] * dF[k * nao + j];
+            t3[i * nao + j] = s;
+        }
+    // err = FPS - SPF
+    for (int i = 0; i < nao2; i++)
+        d_err[i] = (float)(t2[i] - t3[i]);
+#else
     const int threads = 256;
-
     QC_MatMul_RowRow_Blas(blas_handle, nao, nao, nao, d_F, d_P, d_w1);
     QC_MatMul_RowRow_Blas(blas_handle, nao, nao, nao, d_w1, d_S, d_w2);
     QC_MatMul_RowRow_Blas(blas_handle, nao, nao, nao, d_S, d_P, d_w3);
@@ -102,6 +152,7 @@ static void QC_Build_DIIS_Error(BLAS_HANDLE blas_handle, int nao,
     Launch_Device_Kernel(QC_Sub_Matrix_Kernel,
                          ((int)nao2 + threads - 1) / threads, threads, 0, 0,
                          (int)nao2, d_w2, d_w4, d_err);
+#endif
 }
 
 static void QC_DIIS_History_Push_Device(int nao2, int diis_space,
@@ -176,9 +227,51 @@ static bool QC_DIIS_Extrapolate_Device(int nao, int diis_space, int hist_count,
     return true;
 }
 
+static void QC_DIIS_Reset(int& hist_count, int& hist_head)
+{
+    hist_count = 0;
+    hist_head = 0;
+}
+
 void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
 {
     if (!scf_ws.use_diis || (iter + 1) < scf_ws.diis_start_iter) return;
+
+    // Check if DIIS is stagnating: energy not improving for several iters
+    // If so, reset DIIS subspace to let SCF escape local minimum
+    {
+        double h_energy = 0.0;
+        deviceMemcpy(&h_energy, scf_ws.d_scf_energy, sizeof(double),
+                     deviceMemcpyDeviceToHost);
+        if (scf_ws.diis_hist_count >= 2)
+        {
+            const double improvement = scf_ws.diis_best_energy - h_energy;
+            if (improvement > 1e-6)
+            {
+                scf_ws.diis_best_energy = h_energy;
+                scf_ws.diis_stagnant_count = 0;
+            }
+            else
+            {
+                scf_ws.diis_stagnant_count++;
+                if (scf_ws.diis_stagnant_count >= 5)
+                {
+                    QC_DIIS_Reset(scf_ws.diis_hist_count,
+                                  scf_ws.diis_hist_head);
+                    if (scf_ws.unrestricted)
+                        QC_DIIS_Reset(scf_ws.diis_hist_count_b,
+                                      scf_ws.diis_hist_head_b);
+                    scf_ws.diis_stagnant_count = 0;
+                    scf_ws.diis_best_energy = h_energy;
+                }
+            }
+        }
+        else
+        {
+            scf_ws.diis_best_energy = h_energy;
+            scf_ws.diis_stagnant_count = 0;
+        }
+    }
 
     QC_Build_DIIS_Error(blas_handle, mol.nao, scf_ws.d_F, scf_ws.d_P,
                         scf_ws.d_S, scf_ws.d_diis_err, scf_ws.d_diis_w1,
