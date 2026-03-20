@@ -129,48 +129,28 @@ struct TomlSystemScheduleInputs
 namespace sponge::toml_decode
 {
 
-template <>
-struct reflect<TomlSchedulePoint>
-{
-    static constexpr auto fields()
-    {
-        return std::make_tuple(field("step", &TomlSchedulePoint::step),
-                               field("value", &TomlSchedulePoint::value));
-    }
-};
-
-template <>
-struct reflect<TomlScheduleConfig>
-{
-    static constexpr auto fields()
-    {
-        return std::make_tuple(field("mode", &TomlScheduleConfig::mode),
-                               field("steps", &TomlScheduleConfig::steps));
-    }
-};
-
-template <>
-struct reflect<TomlSystemScheduleInputs>
-{
-    static constexpr auto fields()
-    {
-        return std::make_tuple(
-            field("target_temperature_schedule_mode",
-                  &TomlSystemScheduleInputs::target_temperature_schedule_mode),
-            field("target_temperature_schedule_steps",
-                  &TomlSystemScheduleInputs::target_temperature_schedule_steps),
-            field("target_temperature_schedule_file",
-                  &TomlSystemScheduleInputs::target_temperature_schedule_file),
-            field("target_pressure_schedule_mode",
-                  &TomlSystemScheduleInputs::target_pressure_schedule_mode),
-            field("target_pressure_schedule_steps",
-                  &TomlSystemScheduleInputs::target_pressure_schedule_steps),
-            field("target_pressure_schedule_file",
-                  &TomlSystemScheduleInputs::target_pressure_schedule_file));
-    }
-};
-
 }  // namespace sponge::toml_decode
+
+SPONGE_TOML_DECODE_REFLECT(
+    TomlSchedulePoint, SPONGE_TOML_DECODE_MEMBER(TomlSchedulePoint, step),
+    SPONGE_TOML_DECODE_MEMBER(TomlSchedulePoint, value))
+SPONGE_TOML_DECODE_REFLECT(
+    TomlScheduleConfig, SPONGE_TOML_DECODE_MEMBER(TomlScheduleConfig, mode),
+    SPONGE_TOML_DECODE_MEMBER(TomlScheduleConfig, steps))
+SPONGE_TOML_DECODE_REFLECT(
+    TomlSystemScheduleInputs,
+    SPONGE_TOML_DECODE_MEMBER(TomlSystemScheduleInputs,
+                              target_temperature_schedule_mode),
+    SPONGE_TOML_DECODE_MEMBER(TomlSystemScheduleInputs,
+                              target_temperature_schedule_steps),
+    SPONGE_TOML_DECODE_MEMBER(TomlSystemScheduleInputs,
+                              target_temperature_schedule_file),
+    SPONGE_TOML_DECODE_MEMBER(TomlSystemScheduleInputs,
+                              target_pressure_schedule_mode),
+    SPONGE_TOML_DECODE_MEMBER(TomlSystemScheduleInputs,
+                              target_pressure_schedule_steps),
+    SPONGE_TOML_DECODE_MEMBER(TomlSystemScheduleInputs,
+                              target_pressure_schedule_file))
 
 namespace
 {
