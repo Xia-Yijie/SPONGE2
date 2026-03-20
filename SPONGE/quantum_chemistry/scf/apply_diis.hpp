@@ -237,52 +237,6 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
 {
     if (!scf_ws.use_diis || (iter + 1) < scf_ws.diis_start_iter) return;
 
-    // After a DIIS reset, skip DIIS for a few iterations to let
-    // plain density mixing stabilize before DIIS re-engages
-    if (scf_ws.diis_cooldown > 0)
-    {
-        scf_ws.diis_cooldown--;
-        return;
-    }
-
-    // Check if DIIS is stagnating: energy not improving
-    // If so, reset DIIS subspace and enter cooldown
-    {
-        double h_energy = 0.0;
-        deviceMemcpy(&h_energy, scf_ws.d_scf_energy, sizeof(double),
-                     deviceMemcpyDeviceToHost);
-        if (scf_ws.diis_hist_count >= 2)
-        {
-            const double improvement = scf_ws.diis_best_energy - h_energy;
-            if (improvement > 1e-6)
-            {
-                scf_ws.diis_best_energy = h_energy;
-                scf_ws.diis_stagnant_count = 0;
-            }
-            else
-            {
-                scf_ws.diis_stagnant_count++;
-                if (scf_ws.diis_stagnant_count >= 3)
-                {
-                    QC_DIIS_Reset(scf_ws.diis_hist_count,
-                                  scf_ws.diis_hist_head);
-                    if (scf_ws.unrestricted)
-                        QC_DIIS_Reset(scf_ws.diis_hist_count_b,
-                                      scf_ws.diis_hist_head_b);
-                    scf_ws.diis_stagnant_count = 0;
-                    scf_ws.diis_best_energy = h_energy;
-                    scf_ws.diis_cooldown = 3;
-                    return;
-                }
-            }
-        }
-        else
-        {
-            scf_ws.diis_best_energy = h_energy;
-            scf_ws.diis_stagnant_count = 0;
-        }
-    }
-
     QC_Build_DIIS_Error(blas_handle, mol.nao, scf_ws.d_F, scf_ws.d_P,
                         scf_ws.d_S, scf_ws.d_diis_err, scf_ws.d_diis_w1,
                         scf_ws.d_diis_w2, scf_ws.d_diis_w3, scf_ws.d_diis_w4);

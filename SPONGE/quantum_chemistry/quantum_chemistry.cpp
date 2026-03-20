@@ -218,7 +218,7 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         scf_ws.use_diis = (qc_diis != 0);
     }
 
-    scf_ws.diis_start_iter = 1;
+    scf_ws.diis_start_iter = 2;
     if (controller->Command_Exist("qc_diis_start"))
     {
         controller->Check_Int("qc_diis_start", "QUANTUM_CHEMISTRY::Initial");
