@@ -193,47 +193,43 @@ static bool QC_DIIS_Extrapolate_Double(int nao, int diis_space, int hist_count,
         }
     }
 
-    // Solve
+    // Solve using eigenvalue decomposition (PySCF approach)
+    // This handles ill-conditioned B matrices by filtering small eigenvalues
     d_info[0] = 0;
-    // Use the existing kernel logic inline (it's simple Gaussian elimination)
     {
-        // Copy B and rhs for in-place solve
-        std::vector<double> A(n * n), b(n);
-        memcpy(A.data(), d_B, sizeof(double) * n * n);
-        memcpy(b.data(), d_rhs, sizeof(double) * n);
+        // dsyev workspace query and solve (B is symmetric)
+        // B is stored row-major; dsyev expects col-major
+        // For symmetric matrix, row-major = col-major (transpose of symmetric = itself)
+        std::vector<double> H(n * n);
+        memcpy(H.data(), d_B, sizeof(double) * n * n);
+        std::vector<double> w(n);
+        int lwork_q = -1;
+        double wq;
+        LAPACKE_dsyev_work(LAPACK_COL_MAJOR, 'V', 'U', n,
+                           H.data(), n, w.data(), &wq, lwork_q);
+        int lwork = (int)wq;
+        std::vector<double> work(lwork);
+        int info = LAPACKE_dsyev_work(LAPACK_COL_MAJOR, 'V', 'U', n,
+                                      H.data(), n, w.data(),
+                                      work.data(), lwork);
+        if (info != 0) { d_info[0] = info; return false; }
+
+        // H now contains eigenvectors (col-major)
+        // c = V * (1/w) * (V^T * g), filtering |w| < 1e-14
+        // g = d_rhs = [0, 0, ..., -1]
+        std::vector<double> c(n, 0.0);
         for (int k = 0; k < n; k++)
         {
-            int pivot = k;
-            double max_abs = fabs(A[k * n + k]);
-            for (int i = k + 1; i < n; i++)
-            {
-                double v = fabs(A[i * n + k]);
-                if (v > max_abs) { max_abs = v; pivot = i; }
-            }
-            if (max_abs < 1e-18) { d_info[0] = k + 1; return false; }
-            if (pivot != k)
-            {
-                for (int j = k; j < n; j++) std::swap(A[k*n+j], A[pivot*n+j]);
-                std::swap(b[k], b[pivot]);
-            }
-            double diag = A[k * n + k];
-            for (int i = k + 1; i < n; i++)
-            {
-                double factor = A[i*n+k] / diag;
-                A[i*n+k] = 0;
-                for (int j = k+1; j < n; j++) A[i*n+j] -= factor * A[k*n+j];
-                b[i] -= factor * b[k];
-            }
+            if (fabs(w[k]) < 1e-14) continue;
+            // v_k^T * g
+            double vg = 0.0;
+            for (int i = 0; i < n; i++)
+                vg += H[k * n + i] * d_rhs[i];  // col-major: H[i, k] = H[k*n+i]
+            double coeff = vg / w[k];
+            for (int i = 0; i < n; i++)
+                c[i] += coeff * H[k * n + i];
         }
-        for (int i = n-1; i >= 0; i--)
-        {
-            double sum = b[i];
-            for (int j = i+1; j < n; j++) sum -= A[i*n+j] * b[j];
-            double diag = A[i*n+i];
-            if (fabs(diag) < 1e-18) { d_info[0] = i+1; return false; }
-            b[i] = sum / diag;
-        }
-        memcpy(d_rhs, b.data(), sizeof(double) * n);
+        memcpy(d_rhs, c.data(), sizeof(double) * n);
     }
 
     // Print DIIS coefficients and B matrix diagonal
