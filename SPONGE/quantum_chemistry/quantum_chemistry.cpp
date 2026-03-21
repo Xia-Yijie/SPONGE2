@@ -327,24 +327,6 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         scf_ws.level_shift = atof(controller->Command("qc_level_shift"));
     }
 
-    scf_ws.profile_build_fock = false;
-    if (controller->Command_Exist("qc_scf_profile_build_fock"))
-    {
-        controller->Check_Int("qc_scf_profile_build_fock",
-                              "QUANTUM_CHEMISTRY::Initial");
-        const int qc_scf_profile_build_fock =
-            atoi(controller->Command("qc_scf_profile_build_fock"));
-        if (qc_scf_profile_build_fock != 0 &&
-            qc_scf_profile_build_fock != 1)
-        {
-            Throw_QC_Initial_Error(
-                controller, spongeErrorValueErrorCommand,
-                "Reason:\n    qc_scf_profile_build_fock must be 0 or 1, got \"%s\"\n",
-                controller->Command("qc_scf_profile_build_fock"));
-        }
-        scf_ws.profile_build_fock = (qc_scf_profile_build_fock != 0);
-    }
-
     dft.dft_radial_points = 60;
     if (controller->Command_Exist("qc_dft_radial_points"))
     {

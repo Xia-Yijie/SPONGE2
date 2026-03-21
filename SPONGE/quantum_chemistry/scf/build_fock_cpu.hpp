@@ -551,67 +551,6 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
     return true;
 }
 
-static inline void QC_Profile_Vector_CPU(const char* name, const int n,
-                                         const float* x)
-{
-    double norm2 = 0.0;
-    float max_abs = 0.0f;
-    int max_idx = 0;
-    for (int i = 0; i < n; i++)
-    {
-        const float v = x[i];
-        const float av = fabsf(v);
-        norm2 += (double)v * (double)v;
-        if (av > max_abs)
-        {
-            max_abs = av;
-            max_idx = i;
-        }
-    }
-    printf("Build_Fock CPU Vector         | %s norm=%.6e | max_abs=%.6e @%d\n",
-           name, sqrt(norm2), (double)max_abs, max_idx);
-}
-
-static inline void QC_Profile_Matrix_CPU(const char* name, const int nao,
-                                         const float* M)
-{
-    double frob2 = 0.0;
-    float max_abs = 0.0f;
-    float max_asym = 0.0f;
-    int max_abs_i = 0, max_abs_j = 0;
-    int max_asym_i = 0, max_asym_j = 0;
-    for (int i = 0; i < nao; i++)
-    {
-        for (int j = 0; j < nao; j++)
-        {
-            const float v = M[i * nao + j];
-            const float av = fabsf(v);
-            frob2 += (double)v * (double)v;
-            if (av > max_abs)
-            {
-                max_abs = av;
-                max_abs_i = i;
-                max_abs_j = j;
-            }
-            if (j > i)
-            {
-                const float asym = fabsf(v - M[j * nao + i]);
-                if (asym > max_asym)
-                {
-                    max_asym = asym;
-                    max_asym_i = i;
-                    max_asym_j = j;
-                }
-            }
-        }
-    }
-    printf(
-        "Build_Fock CPU Matrix         | %s frob=%.6e | max_abs=%.6e @(%d,%d) | "
-        "max_asym=%.6e @(%d,%d)\n",
-        name, sqrt(frob2), (double)max_abs, max_abs_i, max_abs_j,
-        (double)max_asym, max_asym_i, max_asym_j);
-}
-
 static inline void QC_Accumulate_Fock_Unique_Quartet_Double(
     const int p, const int q, const int r, const int s, const float value,
     const int nao, const float* P_coul, const float* P_exx_a,
@@ -671,7 +610,7 @@ static inline void QC_Build_Fock_Direct_CPU(
     const float* cart2sph_mat, double* F_a, double* F_b,
     float* global_hr_pool,
     int hr_base, int hr_size, int shell_buf_size, float prim_screen_tol,
-    const int fock_thread_count, const bool profile_build_fock)
+    const int fock_thread_count)
 {
     const int n_pairs = task_ctx.n_shell_pairs;
     if (n_pairs <= 0) return;
@@ -737,22 +676,6 @@ static inline void QC_Build_Fock_Direct_CPU(
     const float max_bound = shell_pair_bounds[sorted_pair_ids.front()];
     const float max_activity = anchor_activity[(size_t)sorted_activity_ids.front()];
     const int nao2 = nao * nao;
-    double total_candidate_time = 0.0;
-    double total_exact_screen_time = 0.0;
-    double total_eri_time = 0.0;
-    double total_jk_time = 0.0;
-    long long total_anchor_pairs = 0;
-    long long total_candidate_pairs = 0;
-    long long total_exact_screen_calls = 0;
-    long long total_screen_pass_quartets = 0;
-    long long total_eri_quartets = 0;
-    long long total_ao_unique_quartets = 0;
-    float total_max_abs_eri = 0.0f;
-    float total_max_ratio_eri = 0.0f;
-    int total_max_abs_shells[4] = {0, 0, 0, 0};
-    int total_max_abs_aos[4] = {0, 0, 0, 0};
-    int total_max_ratio_shells[4] = {0, 0, 0, 0};
-    int total_max_ratio_aos[4] = {0, 0, 0, 0};
 
 #pragma omp parallel num_threads(fock_thread_count)
     {
@@ -769,22 +692,6 @@ static inline void QC_Build_Fock_Direct_CPU(
         std::vector<int> candidate_partners;
         candidate_partners.reserve(256);
         std::vector<QC_Bra_Prim_Cache_CPU> bra_prims;
-        double thread_candidate_time = 0.0;
-        double thread_exact_screen_time = 0.0;
-        double thread_eri_time = 0.0;
-        double thread_jk_time = 0.0;
-        long long thread_anchor_pairs = 0;
-        long long thread_candidate_pairs = 0;
-        long long thread_exact_screen_calls = 0;
-        long long thread_screen_pass_quartets = 0;
-        long long thread_eri_quartets = 0;
-        long long thread_ao_unique_quartets = 0;
-        float thread_max_abs_eri = 0.0f;
-        float thread_max_ratio_eri = 0.0f;
-        int thread_max_abs_shells[4] = {0, 0, 0, 0};
-        int thread_max_abs_aos[4] = {0, 0, 0, 0};
-        int thread_max_ratio_shells[4] = {0, 0, 0, 0};
-        int thread_max_ratio_aos[4] = {0, 0, 0, 0};
 
 #pragma omp for schedule(dynamic)
         for (int pair_ij = 0; pair_ij < n_pairs; pair_ij++)
@@ -795,10 +702,7 @@ static inline void QC_Build_Fock_Direct_CPU(
                       shell_pair_bounds[pair_ij] * max_activity) <
                 shell_screen_tol)
                 continue;
-            thread_anchor_pairs++;
 
-            const double candidate_t0 =
-                profile_build_fock ? omp_get_wtime() : 0.0;
             candidate_partners.clear();
             const int stamp = pair_ij;
 
@@ -830,56 +734,32 @@ static inline void QC_Build_Fock_Direct_CPU(
                 partner_marks[(size_t)pair_kl] = stamp;
                 candidate_partners.push_back(pair_kl);
             }
-            if (profile_build_fock)
-            {
-                thread_candidate_time += omp_get_wtime() - candidate_t0;
-            }
-            thread_candidate_pairs += (long long)candidate_partners.size();
             QC_Build_Bra_Prim_Cache_CPU(bra_meta, env, prim_screen_tol,
                                         bra_prims);
             if (bra_prims.empty()) continue;
 
             for (const int pair_kl : candidate_partners)
             {
-                const double exact_t0 =
-                    profile_build_fock ? omp_get_wtime() : 0.0;
                 const float exact_screen = QC_Exact_Quartet_Screen_CPU(
                     task_ctx, pair_ij, pair_kl, shell_pair_bounds,
                     pair_density_coul, pair_density_exx_a, pair_density_exx_b,
                     exx_scale_a, exx_scale_b);
-                if (profile_build_fock)
-                {
-                    thread_exact_screen_time += omp_get_wtime() - exact_t0;
-                }
-                thread_exact_screen_calls++;
                 if (exact_screen < shell_screen_tol) continue;
-                thread_screen_pass_quartets++;
 
                 const QC_ONE_E_TASK& ij = task_ctx.h_shell_pairs[pair_ij];
                 const QC_ONE_E_TASK& kl = task_ctx.h_shell_pairs[pair_kl];
                 const QC_Shell_Pair_Meta_CPU& ket_meta =
                     pair_meta[(size_t)pair_kl];
-                const float quartet_bound =
-                    shell_pair_bounds[pair_ij] * shell_pair_bounds[pair_kl];
                 int dims_eff[4];
                 int off_eff[4];
-                const double eri_t0 =
-                    profile_build_fock ? omp_get_wtime() : 0.0;
                 const bool eri_ok =
                     QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
                         bra_meta, ket_meta, env, norms, is_spherical,
                         cart2sph_mat, nao_sph, bra_prims, HR, shell_eri,
                         shell_tmp, hr_base, shell_buf_size, prim_screen_tol,
                         dims_eff, off_eff);
-                if (profile_build_fock)
-                {
-                    thread_eri_time += omp_get_wtime() - eri_t0;
-                }
                 if (!eri_ok) continue;
-                thread_eri_quartets++;
 
-                const double jk_t0 =
-                    profile_build_fock ? omp_get_wtime() : 0.0;
                 const bool jk_same_bra = (ij.x == ij.y);
                 const bool jk_same_ket = (kl.x == kl.y);
                 const bool jk_same_braket =
@@ -909,8 +789,6 @@ static inline void QC_Build_Fock_Direct_CPU(
                                             i, j, k, l_idx, dims_eff[1],
                                             dims_eff[2], dims_eff[3])];
                                     if (val == 0.0f) continue;
-                                    if (profile_build_fock)
-                                        thread_ao_unique_quartets++;
                                     const int sn = s * nao;
                                     const float j_pq =
                                         (P_coul[rn + s] + P_coul[sn + r]) *
@@ -1006,7 +884,6 @@ static inline void QC_Build_Fock_Direct_CPU(
                                             i, j, k, l_idx, dims_eff[1],
                                             dims_eff[2], dims_eff[3])];
                                     if (val == 0.0f) continue;
-                                    thread_ao_unique_quartets++;
                                     QC_Accumulate_Fock_Unique_Quartet_Double(
                                         p, q, r, s, val, nao, P_coul,
                                         P_exx_a, P_exx_b, exx_scale_a,
@@ -1016,75 +893,8 @@ static inline void QC_Build_Fock_Direct_CPU(
                         }
                     }
                 }
-                if (profile_build_fock)
-                {
-                    thread_jk_time += omp_get_wtime() - jk_t0;
-                }
             }
         }
-
-#pragma omp critical
-        {
-            total_candidate_time += thread_candidate_time;
-            total_exact_screen_time += thread_exact_screen_time;
-            total_eri_time += thread_eri_time;
-            total_jk_time += thread_jk_time;
-            total_anchor_pairs += thread_anchor_pairs;
-            total_candidate_pairs += thread_candidate_pairs;
-            total_exact_screen_calls += thread_exact_screen_calls;
-            total_screen_pass_quartets += thread_screen_pass_quartets;
-            total_eri_quartets += thread_eri_quartets;
-            total_ao_unique_quartets += thread_ao_unique_quartets;
-            if (thread_max_abs_eri > total_max_abs_eri)
-            {
-                total_max_abs_eri = thread_max_abs_eri;
-                for (int i = 0; i < 4; i++)
-                {
-                    total_max_abs_shells[i] = thread_max_abs_shells[i];
-                    total_max_abs_aos[i] = thread_max_abs_aos[i];
-                }
-            }
-            if (thread_max_ratio_eri > total_max_ratio_eri)
-            {
-                total_max_ratio_eri = thread_max_ratio_eri;
-                for (int i = 0; i < 4; i++)
-                {
-                    total_max_ratio_shells[i] = thread_max_ratio_shells[i];
-                    total_max_ratio_aos[i] = thread_max_ratio_aos[i];
-                }
-            }
-        }
-    }
-
-    if (profile_build_fock)
-    {
-        printf(
-            "Build_Fock CPU Direct Profile | anchor_pairs=%lld | candidate_pairs=%lld | "
-            "exact_calls=%lld | exact_pass=%lld | eri_quartets=%lld | "
-            "ao_unique=%lld\n",
-            total_anchor_pairs, total_candidate_pairs, total_exact_screen_calls,
-            total_screen_pass_quartets, total_eri_quartets,
-            total_ao_unique_quartets);
-        printf(
-            "Build_Fock CPU Direct Time    | candidate=%.6f s | exact=%.6f s | "
-            "eri=%.6f s | jk=%.6f s\n",
-            total_candidate_time, total_exact_screen_time, total_eri_time,
-            total_jk_time);
-        printf(
-            "Build_Fock CPU ERI Check      | max_abs=%.6e | shells=(%d,%d|%d,%d) | "
-            "aos=(%d,%d|%d,%d)\n",
-            (double)total_max_abs_eri, total_max_abs_shells[0],
-            total_max_abs_shells[1], total_max_abs_shells[2],
-            total_max_abs_shells[3], total_max_abs_aos[0],
-            total_max_abs_aos[1], total_max_abs_aos[2], total_max_abs_aos[3]);
-        printf(
-            "Build_Fock CPU Schwarz Check  | max_ratio=%.6e | shells=(%d,%d|%d,%d) | "
-            "aos=(%d,%d|%d,%d)\n",
-            (double)total_max_ratio_eri, total_max_ratio_shells[0],
-            total_max_ratio_shells[1], total_max_ratio_shells[2],
-            total_max_ratio_shells[3], total_max_ratio_aos[0],
-            total_max_ratio_aos[1], total_max_ratio_aos[2],
-            total_max_ratio_aos[3]);
     }
 }
 

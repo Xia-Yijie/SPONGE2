@@ -539,18 +539,9 @@ void QUANTUM_CHEMISTRY::Build_Fock()
 {
     const int threads = 256;
     const int total = mol.nao2;
-    const double build_fock_t0 =
-        scf_ws.profile_build_fock ? omp_get_wtime() : 0.0;
-    double dft_time = 0.0;
-    double init_time = 0.0;
-    double pair_density_time = 0.0;
-    double direct_time = 0.0;
-    double reduce_time = 0.0;
 
     if (dft.enable_dft)
     {
-        const double section_t0 =
-            scf_ws.profile_build_fock ? omp_get_wtime() : 0.0;
         if (scf_ws.unrestricted)
         {
             QC_Build_DFT_VXC_UKS(
@@ -580,10 +571,8 @@ void QUANTUM_CHEMISTRY::Build_Fock()
                 dft.d_exc, dft.d_vrho, dft.d_vsigma, dft.d_exc_total,
                 dft.d_Vxc);
         }
-        if (scf_ws.profile_build_fock) dft_time += omp_get_wtime() - section_t0;
     }
 
-    const double init_t0 = scf_ws.profile_build_fock ? omp_get_wtime() : 0.0;
     Launch_Device_Kernel(QC_Init_Fock_Kernel,
                          (total + threads - 1) / threads, threads, 0, 0,
                          total, scf_ws.d_H_core, dft.d_Vxc, dft.enable_dft,
@@ -604,7 +593,6 @@ void QUANTUM_CHEMISTRY::Build_Fock()
         for (int i = 0; i < total; i++)
             scf_ws.d_F_b_double[i] = (double)scf_ws.d_F_b[i];
 #endif
-    if (scf_ws.profile_build_fock) init_time += omp_get_wtime() - init_t0;
 
 #ifdef USE_GPU
     float* d_F_build = scf_ws.d_F;
@@ -619,8 +607,6 @@ void QUANTUM_CHEMISTRY::Build_Fock()
         scf_ws.unrestricted ? scf_ws.d_F_b_thread : (double*)nullptr;
 #endif
 
-    const double pair_density_t0 =
-        scf_ws.profile_build_fock ? omp_get_wtime() : 0.0;
     Launch_Device_Kernel(
         QC_Build_Shell_Pair_Density_Kernel,
         (task_ctx.n_shell_pairs + threads - 1) / threads, threads, 0, 0,
@@ -630,27 +616,6 @@ void QUANTUM_CHEMISTRY::Build_Fock()
         scf_ws.d_pair_density_exx,
         scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
         scf_ws.d_pair_density_exx_b);
-    if (scf_ws.profile_build_fock)
-        pair_density_time += omp_get_wtime() - pair_density_t0;
-    if (scf_ws.profile_build_fock)
-    {
-#ifndef USE_GPU
-        QC_Profile_Matrix_CPU("P_coul", mol.nao, scf_ws.d_P_coul);
-        QC_Profile_Matrix_CPU("P_exx_a", mol.nao, scf_ws.d_P);
-        QC_Profile_Vector_CPU("shell_pair_bounds", task_ctx.n_shell_pairs,
-                              task_ctx.d_shell_pair_bounds);
-        QC_Profile_Vector_CPU("pair_density_coul", task_ctx.n_shell_pairs,
-                              scf_ws.d_pair_density_coul);
-        QC_Profile_Vector_CPU("pair_density_exx_a", task_ctx.n_shell_pairs,
-                              scf_ws.d_pair_density_exx);
-        if (scf_ws.unrestricted)
-        {
-            QC_Profile_Matrix_CPU("P_exx_b", mol.nao, scf_ws.d_P_b);
-            QC_Profile_Vector_CPU("pair_density_exx_b", task_ctx.n_shell_pairs,
-                                  scf_ws.d_pair_density_exx_b);
-        }
-#endif
-    }
 
     const float exx_scale_a =
         scf_ws.unrestricted ? dft.exx_fraction : (0.5f * dft.exx_fraction);
@@ -660,7 +625,6 @@ void QUANTUM_CHEMISTRY::Build_Fock()
     const QC_ERI_TASK* eri_tasks_ptr = task_ctx.d_eri_tasks;
     const int n_eri_tasks = task_ctx.n_eri_tasks;
 
-    const double direct_t0 = scf_ws.profile_build_fock ? omp_get_wtime() : 0.0;
     for (int i = 0; i < n_eri_tasks; i += chunk_size)
     {
         const int current_chunk = std::min(chunk_size, n_eri_tasks - i);
@@ -680,9 +644,7 @@ void QUANTUM_CHEMISTRY::Build_Fock()
             task_ctx.eri_hr_base, task_ctx.eri_hr_size,
             task_ctx.eri_shell_buf_size, task_ctx.direct_eri_prim_screen_tol);
     }
-    if (scf_ws.profile_build_fock) direct_time += omp_get_wtime() - direct_t0;
 #else
-    const double direct_t0 = scf_ws.profile_build_fock ? omp_get_wtime() : 0.0;
     QC_Build_Fock_Direct_CPU(
         task_ctx, mol.nbas, mol.d_atm, mol.d_bas, mol.d_env, mol.d_ao_offsets,
         mol.d_ao_offsets_sph, scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
@@ -695,12 +657,10 @@ void QUANTUM_CHEMISTRY::Build_Fock()
         cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build, d_hr_pool,
         task_ctx.eri_hr_base, task_ctx.eri_hr_size,
         task_ctx.eri_shell_buf_size, task_ctx.direct_eri_prim_screen_tol,
-        scf_ws.fock_thread_count, scf_ws.profile_build_fock);
-    if (scf_ws.profile_build_fock) direct_time += omp_get_wtime() - direct_t0;
+        scf_ws.fock_thread_count);
 #endif
 
 #ifndef USE_GPU
-    const double reduce_t0 = scf_ws.profile_build_fock ? omp_get_wtime() : 0.0;
     Launch_Device_Kernel(QC_Reduce_Thread_Fock_Kernel,
                          (total + threads - 1) / threads, threads, 0, 0,
                          total, scf_ws.fock_thread_count, scf_ws.d_F_thread,
@@ -713,27 +673,5 @@ void QUANTUM_CHEMISTRY::Build_Fock()
                              scf_ws.d_F_b_thread, scf_ws.d_F_b,
                              scf_ws.d_F_b_double);
     }
-    if (scf_ws.profile_build_fock) reduce_time += omp_get_wtime() - reduce_t0;
-
 #endif
-
-    if (scf_ws.profile_build_fock)
-    {
-#ifndef USE_GPU
-        QC_Profile_Matrix_CPU("F_alpha", mol.nao, scf_ws.d_F);
-        if (scf_ws.unrestricted)
-            QC_Profile_Matrix_CPU("F_beta", mol.nao, scf_ws.d_F_b);
-        printf(
-            "Build_Fock CPU Summary        | total=%.6f s | dft=%.6f s | init=%.6f s | "
-            "pair_density=%.6f s | direct=%.6f s | reduce=%.6f s\n",
-            omp_get_wtime() - build_fock_t0, dft_time, init_time,
-            pair_density_time, direct_time, reduce_time);
-#else
-        printf(
-            "Build_Fock GPU Summary        | total=%.6f s | dft=%.6f s | init=%.6f s | "
-            "pair_density=%.6f s | direct=%.6f s\n",
-            omp_get_wtime() - build_fock_t0, dft_time, init_time,
-            pair_density_time, direct_time);
-#endif
-    }
 }

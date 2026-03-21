@@ -111,7 +111,6 @@ struct QC_SCF_WORKSPACE
     int nao_eff = 0;                  // effective AO count after removing linear deps
     double level_shift = 0.25;
     bool print_iter = false;
-    bool profile_build_fock = false;
     float* d_P_coul = NULL;
 
     // DIIS 循环状态
