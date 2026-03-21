@@ -233,15 +233,11 @@ static __device__ bool QC_Compute_Shell_Quartet_ERI_Buffer(
                     float PQ_val[3] = {(P[0] - Q[0]), (P[1] - Q[1]),
                                        (P[2] - Q[2])};
                     const int L_sum = l[0] + l[1] + l[2] + l[3];
-                    float F_vals[17];
-                    compute_boys_stable(
-                        F_vals,
-                        alpha * (PQ_val[0] * PQ_val[0] +
-                                 PQ_val[1] * PQ_val[1] +
-                                 PQ_val[2] * PQ_val[2]),
-                        L_sum);
-                    compute_hr_tensor(HR, F_vals, alpha, PQ_val, L_sum,
-                                      hr_base);
+                    float t_arg = alpha * (PQ_val[0] * PQ_val[0] +
+                                           PQ_val[1] * PQ_val[1] +
+                                           PQ_val[2] * PQ_val[2]);
+                    compute_hr_tensor(HR, alpha, PQ_val, L_sum, hr_base,
+                                      t_arg);
 
                     float QC_val[3] = {(Q[0] - R[2][0]), (Q[1] - R[2][1]),
                                        (Q[2] - R[2][2])};
@@ -599,6 +595,15 @@ void QUANTUM_CHEMISTRY::Build_Fock()
                              total, scf_ws.d_H_core, dft.d_Vxc_beta,
                              dft.enable_dft, scf_ws.d_F_b);
     }
+    // Initialize double Fock with Hcore (for diag precision)
+#ifndef USE_GPU
+    if (scf_ws.d_F_double)
+        for (int i = 0; i < total; i++)
+            scf_ws.d_F_double[i] = (double)scf_ws.d_F[i];
+    if (scf_ws.d_F_b_double && scf_ws.unrestricted)
+        for (int i = 0; i < total; i++)
+            scf_ws.d_F_b_double[i] = (double)scf_ws.d_F_b[i];
+#endif
     if (scf_ws.profile_build_fock) init_time += omp_get_wtime() - init_t0;
 
 #ifdef USE_GPU
@@ -606,12 +611,12 @@ void QUANTUM_CHEMISTRY::Build_Fock()
     float* d_F_b_build = scf_ws.unrestricted ? scf_ws.d_F_b : (float*)nullptr;
 #else
     const int thread_total = scf_ws.fock_thread_count * total;
-    deviceMemset(scf_ws.d_F_thread, 0, sizeof(float) * thread_total);
+    deviceMemset(scf_ws.d_F_thread, 0, sizeof(double) * thread_total);
     if (scf_ws.unrestricted)
-        deviceMemset(scf_ws.d_F_b_thread, 0, sizeof(float) * thread_total);
-    float* d_F_build = scf_ws.d_F_thread;
-    float* d_F_b_build =
-        scf_ws.unrestricted ? scf_ws.d_F_b_thread : (float*)nullptr;
+        deviceMemset(scf_ws.d_F_b_thread, 0, sizeof(double) * thread_total);
+    double* d_F_build = scf_ws.d_F_thread;
+    double* d_F_b_build =
+        scf_ws.unrestricted ? scf_ws.d_F_b_thread : (double*)nullptr;
 #endif
 
     const double pair_density_t0 =
@@ -699,13 +704,14 @@ void QUANTUM_CHEMISTRY::Build_Fock()
     Launch_Device_Kernel(QC_Reduce_Thread_Fock_Kernel,
                          (total + threads - 1) / threads, threads, 0, 0,
                          total, scf_ws.fock_thread_count, scf_ws.d_F_thread,
-                         scf_ws.d_F);
+                         scf_ws.d_F, scf_ws.d_F_double);
     if (scf_ws.unrestricted)
     {
         Launch_Device_Kernel(QC_Reduce_Thread_Fock_Kernel,
                              (total + threads - 1) / threads, threads, 0, 0,
                              total, scf_ws.fock_thread_count,
-                             scf_ws.d_F_b_thread, scf_ws.d_F_b);
+                             scf_ws.d_F_b_thread, scf_ws.d_F_b,
+                             scf_ws.d_F_b_double);
     }
     if (scf_ws.profile_build_fock) reduce_time += omp_get_wtime() - reduce_t0;
 

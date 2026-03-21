@@ -137,6 +137,44 @@ __device__ void compute_boys(float* F, float t, int max_m)
     }
 }
 
+// Double-precision Boys function. Uses downward recursion for t ≤ 30,
+// upward in double for t > 30. Output stays double for R-tensor seeding.
+__device__ void compute_boys_double(double* F, float t, int max_m)
+{
+    const double td = (double)t;
+    if (td < 1e-15)
+    {
+        for (int m = 0; m <= max_m; m++)
+            F[m] = 1.0 / (2.0 * m + 1.0);
+        return;
+    }
+    const double exp_t = exp(-td);
+    const double st = sqrt(td);
+    const double f0 = 0.5 * 1.7724538509055159 * erf(st) / st;
+    if (td <= 30.0)
+    {
+        double work[64];
+        const int m_top = max_m + 25;
+        work[m_top] = 0.0;
+        for (int m = m_top - 1; m >= 0; m--)
+            work[m] = (2.0 * td * work[m + 1] + exp_t) / (2.0 * m + 1.0);
+        const double scale = f0 / work[0];
+        for (int m = 0; m <= max_m; m++)
+            F[m] = work[m] * scale;
+    }
+    else
+    {
+        F[0] = f0;
+        double prev = f0;
+        for (int m = 0; m < max_m; m++)
+        {
+            double next = ((2.0 * m + 1.0) * prev - exp_t) / (2.0 * td);
+            F[m + 1] = next;
+            prev = next;
+        }
+    }
+}
+
 __device__ void compute_boys_stable(float* F, float t, int max_m)
 {
     if (t < 1e-8f)
@@ -218,7 +256,7 @@ __device__ void compute_md_coeffs(float E[5][5][9], int la_max, int lb_max,
     }
 }
 
-__device__ void compute_r_tensor_1e(float* R, float* F, float alpha,
+__device__ void compute_r_tensor_1e(float* R, double* F, float alpha,
                                     float PC[3], int L_tot)
 {
     int total_size = ONEE_MD_BASE * ONEE_MD_BASE * ONEE_MD_BASE * ONEE_MD_BASE;
@@ -357,10 +395,10 @@ static __global__ void OneE_Kernel(
                                         (Pz - Cz) * (Pz - Cz);
                             float PC[3] = {Px - Cx, Py - Cy, Pz - Cz};
                             int L_tot = li + lj;
-                            float F_vals[ONEE_MD_BASE];
+                            double F_vals[ONEE_MD_BASE];
                             float R_vals[ONEE_MD_BASE * ONEE_MD_BASE *
                                          ONEE_MD_BASE * ONEE_MD_BASE];
-                            compute_boys(F_vals, g * PC2, L_tot);
+                            compute_boys_double(F_vals, g * PC2, L_tot);
                             compute_r_tensor_1e(R_vals, F_vals, g, PC, L_tot);
 
                             double v_sum = 0.0;

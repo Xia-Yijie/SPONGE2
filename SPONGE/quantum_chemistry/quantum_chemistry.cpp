@@ -322,6 +322,11 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         scf_ws.print_iter = (qc_scf_print_iter != 0);
     }
 
+    if (controller->Command_Exist("qc_level_shift"))
+    {
+        scf_ws.level_shift = atof(controller->Command("qc_level_shift"));
+    }
+
     scf_ws.profile_build_fock = false;
     if (controller->Command_Exist("qc_scf_profile_build_fock"))
     {

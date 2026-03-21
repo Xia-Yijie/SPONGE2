@@ -145,15 +145,20 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
     scf_ws.d_F_b_thread = NULL;
 #else
     scf_ws.fock_thread_count = std::max(1, omp_get_max_threads());
-    alloc_zero_float(&scf_ws.d_F_thread, scf_ws.fock_thread_count * nao2);
+    alloc_zero_double(&scf_ws.d_F_thread, scf_ws.fock_thread_count * nao2);
     if (unrestricted)
     {
-        alloc_zero_float(&scf_ws.d_F_b_thread, scf_ws.fock_thread_count * nao2);
+        alloc_zero_double(&scf_ws.d_F_b_thread, scf_ws.fock_thread_count * nao2);
     }
     else
     {
         scf_ws.d_F_b_thread = NULL;
     }
+    alloc_zero_double(&scf_ws.d_F_double, nao2);
+    if (unrestricted)
+        alloc_zero_double(&scf_ws.d_F_b_double, nao2);
+    else
+        scf_ws.d_F_b_double = NULL;
 #endif
 
     scf_ws.lwork = 0;
@@ -176,7 +181,7 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
     scf_ws.d_diis_e_hist_b.clear();
     if (scf_ws.use_diis)
     {
-        alloc_zero_float(&scf_ws.d_diis_err, nao2);
+        alloc_zero_double(&scf_ws.d_diis_err, nao2);
         alloc_zero_float(&scf_ws.d_diis_w1, nao2);
         alloc_zero_float(&scf_ws.d_diis_w2, nao2);
         alloc_zero_float(&scf_ws.d_diis_w3, nao2);
@@ -191,8 +196,8 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
         scf_ws.d_diis_e_hist.assign((int)diis_space, nullptr);
         for (int i = 0; i < diis_space; i++)
         {
-            alloc_zero_float(&scf_ws.d_diis_f_hist[(int)i], nao2);
-            alloc_zero_float(&scf_ws.d_diis_e_hist[(int)i], nao2);
+            alloc_zero_double(&scf_ws.d_diis_f_hist[(int)i], nao2);
+            alloc_zero_double(&scf_ws.d_diis_e_hist[(int)i], nao2);
         }
 
         if (unrestricted)
@@ -201,8 +206,8 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
             scf_ws.d_diis_e_hist_b.assign((int)diis_space, nullptr);
             for (int i = 0; i < diis_space; i++)
             {
-                alloc_zero_float(&scf_ws.d_diis_f_hist_b[(int)i], nao2);
-                alloc_zero_float(&scf_ws.d_diis_e_hist_b[(int)i], nao2);
+                alloc_zero_double(&scf_ws.d_diis_f_hist_b[(int)i], nao2);
+                alloc_zero_double(&scf_ws.d_diis_e_hist_b[(int)i], nao2);
             }
         }
     }

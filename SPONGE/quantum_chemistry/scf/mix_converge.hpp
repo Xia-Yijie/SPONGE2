@@ -18,10 +18,11 @@ bool QUANTUM_CHEMISTRY::Mix_And_Check_Convergence(int iter)
 {
     const int mix_threads = 256;
 
+    const float effective_mix = scf_ws.density_mixing;
     Launch_Device_Kernel(QC_Mix_Density_Kernel,
                          (mol.nao2 + mix_threads - 1) / mix_threads,
                          mix_threads, 0, 0, (int)mol.nao2, iter,
-                         scf_ws.density_mixing, scf_ws.d_P_new, scf_ws.d_P);
+                         effective_mix, scf_ws.d_P_new, scf_ws.d_P);
 
     if (scf_ws.unrestricted)
     {

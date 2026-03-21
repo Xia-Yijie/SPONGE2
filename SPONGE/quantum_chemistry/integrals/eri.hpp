@@ -2,14 +2,17 @@
 
 #include "one_e.hpp"
 
-__device__ void compute_hr_tensor(float* HR, float* F, float alpha, float PQ[3],
-                                  int L_tot, int hr_base)
+__device__ void compute_hr_tensor(float* HR, float alpha, float PQ[3],
+                                  int L_tot, int hr_base, float t_arg)
 {
-    float m2a = -2.0f * alpha;
-    float fac = 1.0f;
+    // Use double Boys + double seeding to avoid (-2α)^n amplification
+    double F_d[17];
+    compute_boys_double(F_d, t_arg, L_tot);
+    double m2a = -2.0 * (double)alpha;
+    double fac = 1.0;
     for (int n = 0; n <= L_tot; n++)
     {
-        HR[HR_IDX_RUNTIME(0, 0, 0, n, hr_base)] = fac * F[n];
+        HR[HR_IDX_RUNTIME(0, 0, 0, n, hr_base)] = (float)(fac * F_d[n]);
         fac *= m2a;
     }
     for (int N = 1; N <= L_tot; N++)
@@ -167,15 +170,11 @@ static __global__ void ERI_Kernel(const int n_tasks, const QC_ERI_TASK* tasks,
                             float PQ_val[3] = {(P[0] - Q[0]), (P[1] - Q[1]),
                                                (P[2] - Q[2])};
                             int L_sum = l[0] + l[1] + l[2] + l[3];
-                            float F_vals[17];
-                            compute_boys_stable(
-                                F_vals,
-                                alpha * (PQ_val[0] * PQ_val[0] +
-                                         PQ_val[1] * PQ_val[1] +
-                                         PQ_val[2] * PQ_val[2]),
-                                L_sum);
-                            compute_hr_tensor(HR, F_vals, alpha, PQ_val, L_sum,
-                                              hr_base);
+                            float t_arg = alpha * (PQ_val[0] * PQ_val[0] +
+                                                   PQ_val[1] * PQ_val[1] +
+                                                   PQ_val[2] * PQ_val[2]);
+                            compute_hr_tensor(HR, alpha, PQ_val, L_sum,
+                                              hr_base, t_arg);
 
                             float QC_val[3] = {(Q[0] - R[2][0]),
                                                (Q[1] - R[2][1]),
