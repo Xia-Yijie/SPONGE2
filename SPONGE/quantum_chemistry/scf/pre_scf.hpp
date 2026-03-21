@@ -136,10 +136,14 @@ void QUANTUM_CHEMISTRY::Compute_Nuclear_Repulsion(const VECTOR box_length)
 {
     deviceMemset(scf_ws.d_nuc_energy_dev, 0, sizeof(double));
     const int threads = 256;
+    // env coordinates are in Bohr; box_length is in Angstrom → convert
+    const VECTOR box_bohr(box_length.x * CONSTANT_ANGSTROM_TO_BOHR,
+                          box_length.y * CONSTANT_ANGSTROM_TO_BOHR,
+                          box_length.z * CONSTANT_ANGSTROM_TO_BOHR);
     Launch_Device_Kernel(QC_Accumulate_Nuclear_Repulsion_Kernel,
                          (mol.natm + threads - 1) / threads, threads, 0, 0,
                          mol.natm, mol.d_Z, mol.d_atm, mol.d_env,
-                         scf_ws.d_nuc_energy_dev, box_length);
+                         scf_ws.d_nuc_energy_dev, box_bohr);
 }
 
 // =========================== 积分预处理 ===========================
