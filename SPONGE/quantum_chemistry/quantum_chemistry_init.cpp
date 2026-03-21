@@ -329,53 +329,33 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
                                          const char* qc_type_file,
                                          const std::string& basis_set_name)
 {
-    using BasisMap = std::map<std::string, std::vector<ShellData>>;
-    struct BasisSpec
-    {
-        BasisMap* basis;
-        void (*init_fn)();
-        bool spherical;
+    static QC_BASIS_SET* all_bases[] = {
+        QC_BASIS_STO_3G_PTR, QC_BASIS_3_21G_PTR,
+        QC_BASIS_631G_PTR, QC_BASIS_631G_STAR_PTR, QC_BASIS_631G_STARSTAR_PTR,
+        QC_BASIS_6311G_PTR, QC_BASIS_6311G_STAR_PTR, QC_BASIS_6311G_STARSTAR_PTR,
+        QC_BASIS_DEF2_SVP_PTR, QC_BASIS_DEF2_TZVP_PTR,
+        QC_BASIS_DEF2_TZVPP_PTR, QC_BASIS_DEF2_QZVP_PTR,
+        QC_BASIS_CC_PVDZ_PTR, QC_BASIS_CC_PVTZ_PTR,
     };
 
-    BasisSpec spec = {nullptr, nullptr, false};
-
-    if (Equals_Ignore_Case(basis_set_name, "6-31g"))
-        spec = {&BASIS_631G, Initialize_Basis_631G, false};
-    else if (Equals_Ignore_Case(basis_set_name, "def2-svp"))
-        spec = {&BASIS_DEF2_SVP, Initialize_Basis_Def2_SVP, true};
-    else if (Equals_Ignore_Case(basis_set_name, "sto-3g"))
-        spec = {&BASIS_STO_3G, Initialize_Basis_Sto3g, false};
-    else if (Equals_Ignore_Case(basis_set_name, "3-21g"))
-        spec = {&BASIS_3_21G, Initialize_Basis_321g, false};
-    else if (Equals_Ignore_Case(basis_set_name, "6-311g"))
-        spec = {&BASIS_6_311G, Initialize_Basis_6311g, false};
-    else if (Equals_Ignore_Case(basis_set_name, "6-31g*"))
-        spec = {&BASIS_6_31GSTAR, Initialize_Basis_631gstar, true};
-    else if (Equals_Ignore_Case(basis_set_name, "6-31g**"))
-        spec = {&BASIS_6_31GSTARSTAR, Initialize_Basis_631gstarstar, true};
-    else if (Equals_Ignore_Case(basis_set_name, "6-311g*"))
-        spec = {&BASIS_6_311GSTAR, Initialize_Basis_6311gstar, true};
-    else if (Equals_Ignore_Case(basis_set_name, "6-311g**"))
-        spec = {&BASIS_6_311GSTARSTAR, Initialize_Basis_6311gstarstar, true};
-    else if (Equals_Ignore_Case(basis_set_name, "def2-tzvp"))
-        spec = {&BASIS_DEF2_TZVP, Initialize_Basis_Def2Tzvp, true};
-    else if (Equals_Ignore_Case(basis_set_name, "def2-tzvpp"))
-        spec = {&BASIS_DEF2_TZVPP, Initialize_Basis_Def2Tzvpp, true};
-    else if (Equals_Ignore_Case(basis_set_name, "def2-qzvp"))
-        spec = {&BASIS_DEF2_QZVP, Initialize_Basis_Def2Qzvp, true};
-    else if (Equals_Ignore_Case(basis_set_name, "cc-pvdz"))
-        spec = {&BASIS_CC_PVDZ, Initialize_Basis_CcPvdz, true};
-    else if (Equals_Ignore_Case(basis_set_name, "cc-pvtz"))
-        spec = {&BASIS_CC_PVTZ, Initialize_Basis_CcPvtz, true};
-    else
+    QC_BASIS_SET* basis = nullptr;
+    for (auto* b : all_bases)
+    {
+        if (Equals_Ignore_Case(basis_set_name, b->name))
+        {
+            basis = b;
+            break;
+        }
+    }
+    if (!basis)
     {
         Throw_QC_Initial_Error(
             controller, spongeErrorValueErrorCommand,
             "Reason:\n    Basis set \"%s\" is not supported.\n",
             basis_set_name.c_str());
     }
-    spec.init_fn();
-    mol.is_spherical = spec.spherical ? 1 : 0;
+    basis->Initialize();
+    mol.is_spherical = basis->spherical ? 1 : 0;
 
     std::vector<std::string> atom_symbols;
     FILE* fp = NULL;
@@ -489,9 +469,9 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
         mol.h_atm.push_back(0);
         mol.h_atm.push_back(0);
 
-        const std::vector<ShellData>* shells_ptr = NULL;
-        auto it_basis = spec.basis->find(sym);
-        if (it_basis != spec.basis->end()) shells_ptr = &(it_basis->second);
+        const std::vector<QC_SHELL_DATA>* shells_ptr = NULL;
+        auto it_basis = basis->data.find(sym);
+        if (it_basis != basis->data.end()) shells_ptr = &(it_basis->second);
 
         if (shells_ptr == NULL)
         {

@@ -1,26 +1,11 @@
 #pragma once
-#include "basis_common.hpp"
+#include "prototype.h"
 
-extern std::map<std::string, std::vector<ShellData>> BASIS_STO_3G;
-extern void Initialize_Basis_Sto3g();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_3_21G;
-extern void Initialize_Basis_321g();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_631G;
-extern void Initialize_Basis_631G();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_6_31GSTAR;
-extern void Initialize_Basis_631gstar();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_6_31GSTARSTAR;
-extern void Initialize_Basis_631gstarstar();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_6_311G;
-extern void Initialize_Basis_6311g();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_6_311GSTAR;
-extern void Initialize_Basis_6311gstar();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_6_311GSTARSTAR;
-extern void Initialize_Basis_6311gstarstar();
+extern QC_BASIS_SET* QC_BASIS_STO_3G_PTR;
+extern QC_BASIS_SET* QC_BASIS_3_21G_PTR;
+extern QC_BASIS_SET* QC_BASIS_631G_PTR;
+extern QC_BASIS_SET* QC_BASIS_631G_STAR_PTR;
+extern QC_BASIS_SET* QC_BASIS_631G_STARSTAR_PTR;
+extern QC_BASIS_SET* QC_BASIS_6311G_PTR;
+extern QC_BASIS_SET* QC_BASIS_6311G_STAR_PTR;
+extern QC_BASIS_SET* QC_BASIS_6311G_STARSTAR_PTR;

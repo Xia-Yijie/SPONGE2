@@ -1,8 +1,5 @@
 #pragma once
-#include "basis_common.hpp"
+#include "prototype.h"
 
-extern std::map<std::string, std::vector<ShellData>> BASIS_CC_PVDZ;
-extern void Initialize_Basis_CcPvdz();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_CC_PVTZ;
-extern void Initialize_Basis_CcPvtz();
+extern QC_BASIS_SET* QC_BASIS_CC_PVDZ_PTR;
+extern QC_BASIS_SET* QC_BASIS_CC_PVTZ_PTR;

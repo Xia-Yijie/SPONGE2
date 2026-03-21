@@ -1,14 +1,7 @@
 #pragma once
-#include "basis_common.hpp"
+#include "prototype.h"
 
-extern std::map<std::string, std::vector<ShellData>> BASIS_DEF2_SVP;
-extern void Initialize_Basis_Def2_SVP();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_DEF2_TZVP;
-extern void Initialize_Basis_Def2Tzvp();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_DEF2_TZVPP;
-extern void Initialize_Basis_Def2Tzvpp();
-
-extern std::map<std::string, std::vector<ShellData>> BASIS_DEF2_QZVP;
-extern void Initialize_Basis_Def2Qzvp();
+extern QC_BASIS_SET* QC_BASIS_DEF2_SVP_PTR;
+extern QC_BASIS_SET* QC_BASIS_DEF2_TZVP_PTR;
+extern QC_BASIS_SET* QC_BASIS_DEF2_TZVPP_PTR;
+extern QC_BASIS_SET* QC_BASIS_DEF2_QZVP_PTR;
