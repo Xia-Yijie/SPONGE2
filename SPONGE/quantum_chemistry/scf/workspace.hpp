@@ -161,6 +161,25 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
         scf_ws.d_F_b_double = NULL;
 #endif
 
+    // Double workspace for diag/DIIS
+    alloc_zero_double(&scf_ws.d_dwork_nao2_1, nao2);
+    alloc_zero_double(&scf_ws.d_dwork_nao2_2, nao2);
+    alloc_zero_double(&scf_ws.d_dwork_nao2_3, nao2);
+    alloc_zero_double(&scf_ws.d_dwork_nao2_4, nao2);
+    alloc_zero_double(&scf_ws.d_dW_double, nao);
+    // Double solver workspace
+    {
+        scf_ws.lwork_double = 0;
+        double* tmp_work = NULL;
+        QC_Diagonalize_Double_Workspace_Size(
+            solver_handle, nao, scf_ws.d_dwork_nao2_1, scf_ws.d_dW_double,
+            &tmp_work, &scf_ws.lwork_double);
+        if (tmp_work) { deviceFree(tmp_work); tmp_work = NULL; }
+        if (scf_ws.lwork_double > 0)
+            Device_Malloc_Safely((void**)&scf_ws.d_solver_work_double,
+                                 sizeof(double) * scf_ws.lwork_double);
+    }
+
     scf_ws.lwork = 0;
     scf_ws.liwork = 0;
     int solver_stat = QC_Diagonalize_Workspace_Size(

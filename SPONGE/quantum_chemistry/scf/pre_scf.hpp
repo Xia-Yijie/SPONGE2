@@ -224,76 +224,37 @@ void QUANTUM_CHEMISTRY::Build_Overlap_X()
 {
     const int nao = mol.nao;
     const int nao2 = mol.nao2;
+    const int threads = 256;
+    const int blocks = (nao2 + threads - 1) / threads;
 
-#ifndef USE_GPU
-    // CPU path: use dsyevd (double) for overlap eigendecomposition
-    // Float ssyevd is not accurate enough for large basis sets (nao>100)
-    std::vector<double> dS(nao2), dW(nao);
-    for (int i = 0; i < nao2; i++)
-        dS[i] = (double)scf_ws.d_S[i];
+    // Promote S (float) to double workspace
+    Launch_Device_Kernel(QC_Float_To_Double_Kernel, blocks, threads, 0, 0,
+                         nao2, scf_ws.d_S, scf_ws.d_dwork_nao2_1);
 
-    // dsyevd workspace query
-    int lw = -1, liw = -1;
-    double wq;
-    lapack_int iwq;
-    LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'L', (lapack_int)nao,
-                        dS.data(), (lapack_int)nao, dW.data(),
-                        &wq, lw, &iwq, liw);
-    lw = (int)wq;
-    liw = iwq;
-    std::vector<double> dwork(lw);
-    std::vector<lapack_int> diwork(liw);
-    LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'L', (lapack_int)nao,
-                        dS.data(), (lapack_int)nao, dW.data(),
-                        dwork.data(), (lapack_int)lw,
-                        diwork.data(), (lapack_int)liw);
-    // dS now contains eigenvectors in col-major layout
-    // dW contains eigenvalues in ascending order
+    // Diagonalize S in double: eigvecs overwrite d_dwork_nao2_1, eigenvals in d_dW_double
+    int info = 0;
+    QC_Diagonalize_Double(solver_handle, nao, scf_ws.d_dwork_nao2_1,
+                          scf_ws.d_dW_double, scf_ws.d_solver_work_double,
+                          scf_ws.lwork_double, &info);
 
-    // Store eigenvalues to float d_W for other uses
-    for (int i = 0; i < nao; i++)
-        scf_ws.d_W[i] = (float)dW[i];
+    // Copy eigenvalues to float d_W
+    Launch_Device_Kernel(QC_Double_To_Float_Kernel, (nao + threads - 1) / threads,
+                         threads, 0, 0, nao, scf_ws.d_dW_double, scf_ws.d_W);
 
-    // Canonical orthogonalization: discard eigenvectors with small eigenvalues
-    // X is nao × nao_eff, stored row-major with stride nao in d_X
-    // Columns k >= nao_eff are set to zero
+    // Count nao_eff on host (need eigenvalues on host for this)
+    std::vector<double> h_W(nao);
+    deviceMemcpy(h_W.data(), scf_ws.d_dW_double, sizeof(double) * nao,
+                 deviceMemcpyDeviceToHost);
     const double lindep_thresh = scf_ws.lindep_threshold;
     int nao_eff = 0;
     for (int k = 0; k < nao; k++)
-        if (dW[k] >= lindep_thresh) nao_eff++;
-    const int n_discarded = nao - nao_eff;
+        if (h_W[k] >= lindep_thresh) nao_eff++;
     scf_ws.nao_eff = nao_eff;
 
-    // Build X[i, col] = U[i, k] / sqrt(W[k]) for kept eigenvectors
-    // col runs 0..nao_eff-1, k runs over kept eigenvalues
-    // U is col-major: U[i,k] = dS[i + k*nao]
-    memset(scf_ws.d_X, 0, sizeof(double) * nao2);
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i < nao; i++)
-    {
-        int col = 0;
-        for (int k = 0; k < nao; k++)
-        {
-            if (dW[k] < lindep_thresh) continue;
-            scf_ws.d_X[i * nao + col] = dS[i + k * nao] / sqrt(dW[k]);
-            col++;
-        }
-    }
-#else
-    // GPU path: keep float ssyevd (unchanged)
-    deviceMemcpy(scf_ws.d_Work, scf_ws.d_S, sizeof(float) * nao2,
-                 deviceMemcpyDeviceToDevice);
-    QC_Diagonalize(solver_handle, mol.nao, scf_ws.d_Work, scf_ws.d_W,
-                   scf_ws.d_solver_work, scf_ws.lwork, scf_ws.d_solver_iwork,
-                   scf_ws.liwork, scf_ws.d_info);
-
-    static __global__ void QC_Build_X_From_EigCol_Kernel_f(const int nao,
-        const float* U_col, const float* W, const float eig_floor, double* X_row);
-    const dim3 block2d(16, 16);
-    const dim3 grid2d((nao + block2d.x - 1) / block2d.x,
-                      (nao + block2d.y - 1) / block2d.y);
-    Launch_Device_Kernel(QC_Build_X_From_EigCol_Kernel_f, grid2d, block2d, 0, 0,
-                         nao, scf_ws.d_Work, scf_ws.d_W,
-                         scf_ws.overlap_eig_floor, scf_ws.d_X);
-#endif
+    // Build X on device
+    deviceMemset(scf_ws.d_X, 0, sizeof(double) * nao2);
+    Launch_Device_Kernel(QC_Build_X_Canonical_Kernel,
+                         (nao + threads - 1) / threads, threads, 0, 0,
+                         nao, nao_eff, scf_ws.d_dwork_nao2_1,
+                         scf_ws.d_dW_double, lindep_thresh, scf_ws.d_X);
 }

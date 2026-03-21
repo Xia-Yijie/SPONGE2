@@ -80,6 +80,15 @@ struct QC_SCF_WORKSPACE
     int lwork = 0;
     int liwork = 0;
 
+    // Double-precision workspace for diag/DIIS
+    double* d_dwork_nao2_1 = NULL;  // nao2 doubles (general purpose)
+    double* d_dwork_nao2_2 = NULL;  // nao2 doubles
+    double* d_dwork_nao2_3 = NULL;  // nao2 doubles
+    double* d_dwork_nao2_4 = NULL;  // nao2 doubles
+    double* d_dW_double = NULL;     // nao doubles (eigenvalues)
+    double* d_solver_work_double = NULL;
+    int lwork_double = 0;
+
     // direct SCF shell-pair density screening buffers
     float* d_pair_density_coul = NULL;
     float* d_pair_density_exx = NULL;

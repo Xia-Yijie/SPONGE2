@@ -196,3 +196,146 @@ static __global__ void QC_Add_Scaled_Matrix_From_Double_Kernel(
         C[idx] += (float)(coeff[coeff_idx] * (double)A[idx]);
     }
 }
+
+// ====================== Double-precision wrappers ======================
+
+// Double-precision eigendecomposition workspace query
+static inline int QC_Diagonalize_Double_Workspace_Size(
+    SOLVER_HANDLE solver_handle, int n, double* mat, double* w,
+    double** work_ptr, int* lwork)
+{
+    if (n <= 0) { *lwork = 0; return 0; }
+    int stat = (int)deviceSolverDsyevdBufferSize(
+        solver_handle, DEVICE_EIG_MODE_VECTOR, DEVICE_FILL_MODE_UPPER,
+        n, mat, n, w, lwork);
+    if (stat != 0 || *lwork <= 0) return (stat != 0) ? stat : -2;
+    if (*work_ptr) { deviceFree(*work_ptr); *work_ptr = NULL; }
+    Device_Malloc_Safely((void**)work_ptr, sizeof(double) * (*lwork));
+    deviceMemset(*work_ptr, 0, sizeof(double) * (*lwork));
+    return 0;
+}
+
+// Double-precision eigendecomposition
+static inline void QC_Diagonalize_Double(
+    SOLVER_HANDLE solver_handle, int n, double* mat, double* w,
+    double* work, int lwork, int* info)
+{
+    deviceSolverDsyevd(solver_handle, DEVICE_EIG_MODE_VECTOR,
+                       DEVICE_FILL_MODE_UPPER, n, mat, n, w, work, lwork, info);
+}
+
+// Double row-major C = A * B
+static inline void QC_Dgemm_NN(BLAS_HANDLE handle, int m, int n, int k,
+                                const double* A, int lda,
+                                const double* B, int ldb,
+                                double* C, int ldc)
+{
+    const double one = 1.0, zero = 0.0;
+    // Col-major BLAS: C_col = B_col * A_col to get row-major C = A * B
+    deviceBlasDgemm(handle, DEVICE_BLAS_OP_N, DEVICE_BLAS_OP_N,
+                    n, m, k, &one, B, ldb, A, lda, &zero, C, ldc);
+}
+
+// Double row-major C = A^T * B
+static inline void QC_Dgemm_TN(BLAS_HANDLE handle, int m, int n, int k,
+                                const double* A, int lda,
+                                const double* B, int ldb,
+                                double* C, int ldc)
+{
+    const double one = 1.0, zero = 0.0;
+    deviceBlasDgemm(handle, DEVICE_BLAS_OP_N, DEVICE_BLAS_OP_T,
+                    n, m, k, &one, B, ldb, A, lda, &zero, C, ldc);
+}
+
+// Double row-major C = A * B^T
+static inline void QC_Dgemm_NT(BLAS_HANDLE handle, int m, int n, int k,
+                                const double* A, int lda,
+                                const double* B, int ldb,
+                                double* C, int ldc)
+{
+    const double one = 1.0, zero = 0.0;
+    deviceBlasDgemm(handle, DEVICE_BLAS_OP_T, DEVICE_BLAS_OP_N,
+                    n, m, k, &one, B, ldb, A, lda, &zero, C, ldc);
+}
+
+// ====================== Double-precision device kernels ======================
+
+// Float -> Double promotion kernel
+static __global__ void QC_Float_To_Double_Kernel(const int n, const float* src,
+                                                  double* dst)
+{
+    SIMPLE_DEVICE_FOR(i, n) { dst[i] = (double)src[i]; }
+}
+
+// Double -> Float cast kernel
+static __global__ void QC_Double_To_Float_Kernel(const int n, const double* src,
+                                                  float* dst)
+{
+    SIMPLE_DEVICE_FOR(i, n) { dst[i] = (float)src[i]; }
+}
+
+// Double level shift: dF[i] += ls * (dS[i] - 0.5 * dSPS[i])
+static __global__ void QC_Level_Shift_Kernel(const int n, const double ls,
+                                              const double* dS,
+                                              const double* dSPS, double* dF)
+{
+    SIMPLE_DEVICE_FOR(i, n) { dF[i] += ls * (dS[i] - 0.5 * dSPS[i]); }
+}
+
+// Copy eigenvector columns for canonical orthogonalization X build
+static __global__ void QC_Build_X_Canonical_Kernel(
+    const int nao, const int nao_eff, const double* eigvec_col,
+    const double* eigval, const double lindep_thresh, double* X_row)
+{
+    SIMPLE_DEVICE_FOR(i, nao)
+    {
+        int col = 0;
+        for (int k = 0; k < nao; k++)
+        {
+            if (eigval[k] < lindep_thresh) continue;
+            X_row[i * nao + col] = eigvec_col[i + k * nao] / sqrt(eigval[k]);
+            col++;
+        }
+    }
+}
+
+// Copy rectangular double to padded float: dst[i*nao+j] = src[i*ne+j] for j<ne
+static __global__ void QC_Rect_Double_To_Padded_Float_Kernel(
+    const int nao, const int ne, const double* src, float* dst)
+{
+    SIMPLE_DEVICE_FOR(idx, nao * nao)
+    {
+        int i = idx / nao;
+        int j = idx % nao;
+        dst[idx] = (j < ne) ? (float)src[i * ne + j] : 0.0f;
+    }
+}
+
+// Double dot product with atomic accumulation
+static __global__ void QC_Double_Dot_Kernel(const int n, const double* A,
+                                             const double* B, double* out_sum)
+{
+    SIMPLE_DEVICE_FOR(i, n) { atomicAdd(out_sum, A[i] * B[i]); }
+}
+
+// Double weighted accumulation: dst[i] += coeff * src[i]
+static __global__ void QC_Double_Axpy_Kernel(const int n, const double coeff,
+                                              const double* src, double* dst)
+{
+    SIMPLE_DEVICE_FOR(i, n) { dst[i] += coeff * src[i]; }
+}
+
+// Double subtract: dst[i] = A[i] - B[i]
+static __global__ void QC_Double_Sub_Kernel(const int n, const double* A,
+                                             const double* B, double* dst)
+{
+    SIMPLE_DEVICE_FOR(i, n) { dst[i] = A[i] - B[i]; }
+}
+
+// Float to double with atomic accumulation (for density history push)
+static __global__ void QC_Float_To_Double_Copy_Kernel(const int n,
+                                                       const float* src,
+                                                       double* dst)
+{
+    SIMPLE_DEVICE_FOR(i, n) { dst[i] = (double)src[i]; }
+}

@@ -87,39 +87,34 @@ static __global__ void QC_DIIS_Solve_Linear_System_Kernel(const int n,
     }
 }
 
-// Compute DIIS error e = FPS - SPF in double precision
-static void QC_Build_DIIS_Error_Double(int nao, const double* d_F,
-                                       const float* d_P, const float* d_S,
-                                       double* d_err)
+// Compute DIIS error e = FPS - SPF in double precision (device-side)
+static void QC_Build_DIIS_Error_Double(BLAS_HANDLE blas_handle, int nao,
+                                       const double* d_F, const float* d_P,
+                                       const float* d_S, double* d_err,
+                                       double* d_tmp1, double* d_tmp2,
+                                       double* d_tmp3)
 {
     const int nao2 = nao * nao;
-    std::vector<double> dP(nao2), dS(nao2);
-    std::vector<double> t1(nao2), t2(nao2), t3(nao2);
-    for (int i = 0; i < nao2; i++)
-    {
-        dP[i] = (double)d_P[i];
-        dS[i] = (double)d_S[i];
-    }
-    const double one = 1.0, zero = 0.0;
-    // t1 = F * P
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                nao, nao, nao, one, d_F, nao, dP.data(), nao,
-                zero, t1.data(), nao);
-    // t2 = FP * S
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                nao, nao, nao, one, t1.data(), nao, dS.data(), nao,
-                zero, t2.data(), nao);
-    // t1 = S * P
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                nao, nao, nao, one, dS.data(), nao, dP.data(), nao,
-                zero, t1.data(), nao);
-    // t3 = SP * F
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                nao, nao, nao, one, t1.data(), nao, d_F, nao,
-                zero, t3.data(), nao);
-    // err = FPS - SPF
-    for (int i = 0; i < nao2; i++)
-        d_err[i] = t2[i] - t3[i];
+    const int threads = 256;
+    const int blocks = (nao2 + threads - 1) / threads;
+
+    // Promote P and S to double
+    Launch_Device_Kernel(QC_Float_To_Double_Kernel, blocks, threads, 0, 0,
+                         nao2, d_P, d_tmp1);  // d_tmp1 = dP
+    Launch_Device_Kernel(QC_Float_To_Double_Kernel, blocks, threads, 0, 0,
+                         nao2, d_S, d_tmp2);  // d_tmp2 = dS
+
+    // d_tmp3 = F * P
+    QC_Dgemm_NN(blas_handle, nao, nao, nao, d_F, nao, d_tmp1, nao, d_tmp3, nao);
+    // d_err = FP * S
+    QC_Dgemm_NN(blas_handle, nao, nao, nao, d_tmp3, nao, d_tmp2, nao, d_err, nao);
+    // d_tmp3 = S * P
+    QC_Dgemm_NN(blas_handle, nao, nao, nao, d_tmp2, nao, d_tmp1, nao, d_tmp3, nao);
+    // d_tmp1 = SP * F
+    QC_Dgemm_NN(blas_handle, nao, nao, nao, d_tmp3, nao, d_F, nao, d_tmp1, nao);
+    // d_err = FPS - SPF
+    Launch_Device_Kernel(QC_Double_Sub_Kernel, blocks, threads, 0, 0,
+                         nao2, d_err, d_tmp1, d_err);
 }
 
 static void QC_DIIS_History_Push_Double(int nao2, int diis_space,
@@ -142,104 +137,140 @@ static void QC_DIIS_History_Push_Double(int nao2, int diis_space,
         hist_head = (hist_head + 1) % diis_space;
         hist_count = diis_space;
     }
-    memcpy(d_f_hist[write_idx], d_f_new, bytes);
-    memcpy(d_e_hist[write_idx], d_e_new, bytes);
-}
-
-// Dot product of two double arrays
-static double QC_Double_Dot(int n, const double* a, const double* b)
-{
-    double sum = 0.0;
-    for (int i = 0; i < n; i++)
-        sum += a[i] * b[i];
-    return sum;
+    deviceMemcpy(d_f_hist[write_idx], d_f_new, bytes,
+                 deviceMemcpyDeviceToDevice);
+    deviceMemcpy(d_e_hist[write_idx], d_e_new, bytes,
+                 deviceMemcpyDeviceToDevice);
 }
 
 static bool QC_DIIS_Extrapolate_Double(int nao, int diis_space, int hist_count,
                                        int hist_head, double** d_f_hist,
                                        double** d_e_hist, double reg,
-                                       double* d_f_out, double* d_B,
-                                       double* d_rhs, int* d_info)
+                                       double* d_f_out, double* d_accum)
 {
     if (hist_count < 2 || diis_space <= 0) return false;
     const int m = std::min(hist_count, diis_space);
     if (m < 2) return false;
     const int n = m + 1;
     const int nao2 = nao * nao;
+    const int threads = 256;
     auto hist_idx = [&](int logical_idx) -> int
     { return (hist_head + logical_idx) % diis_space; };
 
-    // Build B matrix and rhs
-    for (int i = 0; i < n; i++)
-    {
-        d_rhs[i] = 0.0;
-        for (int j = 0; j < n; j++) d_B[i * n + j] = 0.0;
-    }
-    d_rhs[m] = -1.0;
+    // Build B matrix and rhs on host
+    std::vector<double> h_B(n * n, 0.0);
+    std::vector<double> h_rhs(n, 0.0);
+    h_rhs[m] = -1.0;
     for (int i = 0; i < m; i++)
     {
-        d_B[i * n + m] = -1.0;
-        d_B[m * n + i] = -1.0;
+        h_B[i * n + m] = -1.0;
+        h_B[m * n + i] = -1.0;
     }
+
+    // Compute dot products on device
     for (int i = 0; i < m; i++)
     {
         for (int j = 0; j <= i; j++)
         {
-            double v = QC_Double_Dot(nao2, d_e_hist[hist_idx(i)],
-                                     d_e_hist[hist_idx(j)]);
+            deviceMemset(d_accum, 0, sizeof(double));
+            Launch_Device_Kernel(QC_Double_Dot_Kernel,
+                                 (nao2 + threads - 1) / threads, threads, 0, 0,
+                                 nao2, d_e_hist[hist_idx(i)],
+                                 d_e_hist[hist_idx(j)], d_accum);
+            double v;
+            deviceMemcpy(&v, d_accum, sizeof(double), deviceMemcpyDeviceToHost);
             if (i == j) v += reg;
-            d_B[i * n + j] = v;
-            d_B[j * n + i] = v;
+            h_B[i * n + j] = v;
+            h_B[j * n + i] = v;
         }
     }
 
-    // Solve using eigenvalue decomposition (PySCF approach)
-    // This handles ill-conditioned B matrices by filtering small eigenvalues
-    d_info[0] = 0;
+    // Solve using eigenvalue decomposition on host (PySCF approach)
     {
-        // dsyev workspace query and solve (B is symmetric)
-        // B is stored row-major; dsyev expects col-major
-        // For symmetric matrix, row-major = col-major (transpose of symmetric = itself)
         std::vector<double> H(n * n);
-        memcpy(H.data(), d_B, sizeof(double) * n * n);
+        for (int i = 0; i < n * n; i++) H[i] = h_B[i];
         std::vector<double> w(n);
+
+        // Simple Jacobi eigenvalue solver for small matrices (n <= 7)
+        // Eigendecompose symmetric H
+        // Use power iteration / Jacobi sweeps for small n
+        // For robustness, use the same approach as before with host LAPACKE
+#if defined(USE_MKL) || defined(USE_OPENBLAS)
         int lwork_q = -1;
         double wq;
         LAPACKE_dsyev_work(LAPACK_COL_MAJOR, 'V', 'U', n,
                            H.data(), n, w.data(), &wq, lwork_q);
-        int lwork = (int)wq;
-        std::vector<double> work(lwork);
+        int lwork_h = (int)wq;
+        std::vector<double> work_h(lwork_h);
         int info = LAPACKE_dsyev_work(LAPACK_COL_MAJOR, 'V', 'U', n,
                                       H.data(), n, w.data(),
-                                      work.data(), lwork);
-        if (info != 0) { d_info[0] = info; return false; }
+                                      work_h.data(), lwork_h);
+        if (info != 0) return false;
+#else
+        // Fallback: LU solve
+        std::vector<double> A_lu(n * n);
+        for (int i = 0; i < n * n; i++) A_lu[i] = h_B[i];
+        // Gaussian elimination with partial pivoting
+        for (int k = 0; k < n; k++)
+        {
+            int pivot = k;
+            double max_abs = fabs(A_lu[k * n + k]);
+            for (int i = k + 1; i < n; i++)
+            {
+                double v = fabs(A_lu[i * n + k]);
+                if (v > max_abs) { max_abs = v; pivot = i; }
+            }
+            if (max_abs < 1e-18) return false;
+            if (pivot != k)
+            {
+                for (int j = k; j < n; j++)
+                    std::swap(A_lu[k * n + j], A_lu[pivot * n + j]);
+                std::swap(h_rhs[k], h_rhs[pivot]);
+            }
+            for (int i = k + 1; i < n; i++)
+            {
+                double factor = A_lu[i * n + k] / A_lu[k * n + k];
+                for (int j = k + 1; j < n; j++)
+                    A_lu[i * n + j] -= factor * A_lu[k * n + j];
+                h_rhs[i] -= factor * h_rhs[k];
+            }
+        }
+        for (int i = n - 1; i >= 0; i--)
+        {
+            double sum = h_rhs[i];
+            for (int j = i + 1; j < n; j++) sum -= A_lu[i * n + j] * h_rhs[j];
+            h_rhs[i] = sum / A_lu[i * n + i];
+        }
+        goto do_extrapolate;
+#endif
 
         // H now contains eigenvectors (col-major)
         // c = V * (1/w) * (V^T * g), filtering |w| < 1e-14
-        // g = d_rhs = [0, 0, ..., -1]
         std::vector<double> c(n, 0.0);
         for (int k = 0; k < n; k++)
         {
             if (fabs(w[k]) < 1e-14) continue;
-            // v_k^T * g
             double vg = 0.0;
             for (int i = 0; i < n; i++)
-                vg += H[k * n + i] * d_rhs[i];  // col-major: H[i, k] = H[k*n+i]
+                vg += H[k * n + i] * h_rhs[i];
             double coeff = vg / w[k];
             for (int i = 0; i < n; i++)
                 c[i] += coeff * H[k * n + i];
         }
-        memcpy(d_rhs, c.data(), sizeof(double) * n);
+        for (int i = 0; i < n; i++) h_rhs[i] = c[i];
     }
 
-    // Extrapolate: F_out = sum_i c[i] * F_hist[i]
-    memset(d_f_out, 0, sizeof(double) * nao2);
+#if !defined(USE_MKL) && !defined(USE_OPENBLAS)
+do_extrapolate:
+#endif
+    // Extrapolate on device: F_out = sum_i c[i] * F_hist[i]
+    deviceMemset(d_f_out, 0, sizeof(double) * nao2);
     for (int i = 0; i < m; i++)
     {
-        double c = d_rhs[i];
-        const double* fh = d_f_hist[hist_idx(i)];
-        for (int idx = 0; idx < nao2; idx++)
-            d_f_out[idx] += c * fh[idx];
+        double c = h_rhs[i];
+        Launch_Device_Kernel(QC_Double_Axpy_Kernel,
+                             (nao2 + threads - 1) / threads, threads, 0, 0,
+                             nao2, c, d_f_hist[hist_idx(i)], d_f_out);
     }
     return true;
 }
@@ -252,45 +283,52 @@ static void QC_DIIS_Reset(int& hist_count, int& hist_head)
 
 // ADIIS: minimize energy estimate over convex combination of stored Fock matrices
 // Ref: JCP 132, 054109 (2010)
-static bool QC_ADIIS_Extrapolate(int nao, int diis_space, int adiis_count,
+static bool QC_ADIIS_Extrapolate(BLAS_HANDLE blas_handle, int nao,
+                                  int diis_space, int adiis_count,
                                   int adiis_head, double** d_f_hist,
-                                  double** d_d_hist, double* d_f_out)
+                                  double** d_d_hist, double* d_f_out,
+                                  double* d_accum)
 {
     if (adiis_count < 2) return false;
     const int m = std::min(adiis_count, diis_space);
     if (m < 2) return false;
     const int nao2 = nao * nao;
+    const int threads = 256;
     auto hist_idx = [&](int i) { return (adiis_head + i) % diis_space; };
-    const int newest = hist_idx(m - 1);
 
-    // df[i,j] = Tr(D_i * F_j)
+    // df[i,j] = Tr(D_i * F_j) -- compute on device
     std::vector<double> df(m * m);
     for (int i = 0; i < m; i++)
+    {
         for (int j = 0; j < m; j++)
-            df[i * m + j] = QC_Double_Dot(nao2, d_d_hist[hist_idx(i)],
-                                           d_f_hist[hist_idx(j)]);
+        {
+            deviceMemset(d_accum, 0, sizeof(double));
+            Launch_Device_Kernel(QC_Double_Dot_Kernel,
+                                 (nao2 + threads - 1) / threads, threads, 0, 0,
+                                 nao2, d_d_hist[hist_idx(i)],
+                                 d_f_hist[hist_idx(j)], d_accum);
+            deviceMemcpy(&df[i * m + j], d_accum, sizeof(double),
+                         deviceMemcpyDeviceToHost);
+        }
+    }
 
-    // Build ADIIS quadratic form
+    // Build ADIIS quadratic form (small, on host)
     std::vector<double> dd_fn(m), dn_f(m);
-    double dn_fn = df[( m-1) * m + (m-1)];
+    double dn_fn = df[(m - 1) * m + (m - 1)];
     for (int i = 0; i < m; i++)
     {
-        dd_fn[i] = df[i * m + (m-1)] - dn_fn;
-        dn_f[i] = df[(m-1) * m + i];
+        dd_fn[i] = df[i * m + (m - 1)] - dn_fn;
+        dn_f[i] = df[(m - 1) * m + i];
     }
-    // df_adj[i,j] = df[i,j] - df[i,newest] - df[newest,j] + df[newest,newest]
     std::vector<double> df_adj(m * m);
     for (int i = 0; i < m; i++)
         for (int j = 0; j < m; j++)
-            df_adj[i * m + j] = df[i * m + j] - df[i * m + (m-1)]
-                                 - df[(m-1) * m + j] + dn_fn;
+            df_adj[i * m + j] = df[i * m + j] - df[i * m + (m - 1)]
+                                 - df[(m - 1) * m + j] + dn_fn;
 
     // Minimize cost(c) = 2*sum(c_i*dd_fn_i) + sum(c_i*df_adj_ij*c_j)
-    // with c_i >= 0, sum(c_i) = 1
     // Parametrize: c_i = x_i^2 / sum(x_j^2)
-    // Use simple gradient descent
     std::vector<double> x(m, 1.0);
-
     for (int step = 0; step < 300; step++)
     {
         double x2sum = 0;
@@ -298,7 +336,6 @@ static bool QC_ADIIS_Extrapolate(int nao, int diis_space, int adiis_count,
         std::vector<double> c(m);
         for (int i = 0; i < m; i++) c[i] = x[i] * x[i] / x2sum;
 
-        // Gradient of cost w.r.t. c
         std::vector<double> gc(m);
         for (int k = 0; k < m; k++)
         {
@@ -307,20 +344,18 @@ static bool QC_ADIIS_Extrapolate(int nao, int diis_space, int adiis_count,
                 gc[k] += (df_adj[k * m + j] + df_adj[j * m + k]) * c[j];
         }
 
-        // Chain rule: dc/dx
-        // dc_k/dx_n = (2*x_n*delta_kn*x2sum - x_k^2*2*x_n) / x2sum^2
         std::vector<double> gx(m, 0.0);
-        for (int n = 0; n < m; n++)
+        for (int nn = 0; nn < m; nn++)
         {
             for (int k = 0; k < m; k++)
             {
-                double dc = 2.0 * x[n] * ((k == n ? x2sum : 0.0) - x[k] * x[k])
-                            / (x2sum * x2sum);
-                gx[n] += gc[k] * dc;
+                double dc = 2.0 * x[nn] *
+                            ((k == nn ? x2sum : 0.0) - x[k] * x[k]) /
+                            (x2sum * x2sum);
+                gx[nn] += gc[k] * dc;
             }
         }
 
-        // Line search: step size
         double gnorm = 0;
         for (int i = 0; i < m; i++) gnorm += gx[i] * gx[i];
         if (gnorm < 1e-20) break;
@@ -334,14 +369,14 @@ static bool QC_ADIIS_Extrapolate(int nao, int diis_space, int adiis_count,
     std::vector<double> c(m);
     for (int i = 0; i < m; i++) c[i] = x[i] * x[i] / x2sum;
 
-    // Extrapolate: F = sum(c_i * F_i)
-    memset(d_f_out, 0, sizeof(double) * nao2);
+    // Extrapolate on device: F = sum(c_i * F_i)
+    deviceMemset(d_f_out, 0, sizeof(double) * nao2);
     for (int i = 0; i < m; i++)
     {
         double ci = c[i];
-        const double* fh = d_f_hist[hist_idx(i)];
-        for (int idx = 0; idx < nao2; idx++)
-            d_f_out[idx] += ci * fh[idx];
+        Launch_Device_Kernel(QC_Double_Axpy_Kernel,
+                             (nao2 + threads - 1) / threads, threads, 0, 0,
+                             nao2, ci, d_f_hist[hist_idx(i)], d_f_out);
     }
     return true;
 }
@@ -350,18 +385,28 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
 {
     if (!scf_ws.use_diis || (iter + 1) < scf_ws.diis_start_iter) return;
 
-#ifndef USE_GPU
     double* dF = scf_ws.d_F_double;
     if (!dF) return;
     const int nao2 = (int)mol.nao2;
+    const int threads = 256;
 
-    // Compute DIIS error and its norm
-    QC_Build_DIIS_Error_Double(mol.nao, dF, scf_ws.d_P, scf_ws.d_S,
-                               scf_ws.d_diis_err);
-    double enorm = 0;
-    for (int i = 0; i < nao2; i++)
-        enorm += scf_ws.d_diis_err[i] * scf_ws.d_diis_err[i];
-    enorm = sqrt(enorm);
+    // Compute DIIS error and its norm (device-side)
+    QC_Build_DIIS_Error_Double(blas_handle, mol.nao, dF, scf_ws.d_P, scf_ws.d_S,
+                               scf_ws.d_diis_err,
+                               scf_ws.d_dwork_nao2_2,
+                               scf_ws.d_dwork_nao2_3,
+                               scf_ws.d_dwork_nao2_4);
+
+    // Compute error norm on device
+    deviceMemset(scf_ws.d_diis_accum, 0, sizeof(double));
+    Launch_Device_Kernel(QC_Double_Dot_Kernel,
+                         (nao2 + threads - 1) / threads, threads, 0, 0,
+                         nao2, scf_ws.d_diis_err, scf_ws.d_diis_err,
+                         scf_ws.d_diis_accum);
+    double enorm_sq;
+    deviceMemcpy(&enorm_sq, scf_ws.d_diis_accum, sizeof(double),
+                 deviceMemcpyDeviceToHost);
+    double enorm = sqrt(enorm_sq);
 
     // Push F and error to CDIIS history
     QC_DIIS_History_Push_Double(
@@ -369,7 +414,7 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
         scf_ws.diis_hist_head, scf_ws.d_diis_f_hist.data(),
         scf_ws.d_diis_e_hist.data(), dF, scf_ws.d_diis_err);
 
-    // Push D (density) to ADIIS history (same ring buffer indexing as F)
+    // Push D (density) to ADIIS history
     {
         int& ac = scf_ws.adiis_count;
         int& ah = scf_ws.adiis_head;
@@ -377,9 +422,11 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
         int write_idx = (ac < ws) ? ((ah + ac) % ws) : ah;
         if (ac < ws) ac++;
         else ah = (ah + 1) % ws;
-        // Store density as double
-        for (int i = 0; i < nao2; i++)
-            scf_ws.d_adiis_d_hist[write_idx][i] = (double)scf_ws.d_P[i];
+        // Store density as double on device
+        Launch_Device_Kernel(QC_Float_To_Double_Copy_Kernel,
+                             (nao2 + threads - 1) / threads, threads, 0, 0,
+                             nao2, scf_ws.d_P,
+                             scf_ws.d_adiis_d_hist[write_idx]);
     }
 
     bool extrapolated = false;
@@ -390,9 +437,9 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
         {
             // ADIIS
             extrapolated = QC_ADIIS_Extrapolate(
-                mol.nao, scf_ws.diis_space, scf_ws.adiis_count,
+                blas_handle, mol.nao, scf_ws.diis_space, scf_ws.adiis_count,
                 scf_ws.adiis_head, scf_ws.d_diis_f_hist.data(),
-                scf_ws.d_adiis_d_hist.data(), dF);
+                scf_ws.d_adiis_d_hist.data(), dF, scf_ws.d_diis_accum);
         }
         else
         {
@@ -401,21 +448,27 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
                 mol.nao, scf_ws.diis_space, scf_ws.diis_hist_count,
                 scf_ws.diis_hist_head, scf_ws.d_diis_f_hist.data(),
                 scf_ws.d_diis_e_hist.data(), scf_ws.diis_reg, dF,
-                scf_ws.d_diis_B, scf_ws.d_diis_rhs, scf_ws.d_diis_info);
+                scf_ws.d_diis_accum);
         }
         if (extrapolated)
         {
-            for (int i = 0; i < nao2; i++)
-                scf_ws.d_F[i] = (float)dF[i];
+            // Copy extrapolated double Fock back to float
+            Launch_Device_Kernel(QC_Double_To_Float_Kernel,
+                                 (nao2 + threads - 1) / threads, threads, 0, 0,
+                                 nao2, dF, scf_ws.d_F);
         }
     }
 
     if (!scf_ws.unrestricted) return;
-    // Beta spin: simplified (CDIIS only for now)
+
+    // Beta spin
     double* dFb = scf_ws.d_F_b_double;
     if (!dFb) return;
-    QC_Build_DIIS_Error_Double(mol.nao, dFb, scf_ws.d_P_b, scf_ws.d_S,
-                               scf_ws.d_diis_err);
+    QC_Build_DIIS_Error_Double(blas_handle, mol.nao, dFb, scf_ws.d_P_b,
+                               scf_ws.d_S, scf_ws.d_diis_err,
+                               scf_ws.d_dwork_nao2_2,
+                               scf_ws.d_dwork_nao2_3,
+                               scf_ws.d_dwork_nao2_4);
     QC_DIIS_History_Push_Double(
         nao2, scf_ws.diis_space, scf_ws.diis_hist_count_b,
         scf_ws.diis_hist_head_b, scf_ws.d_diis_f_hist_b.data(),
@@ -426,11 +479,11 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
                 mol.nao, scf_ws.diis_space, scf_ws.diis_hist_count_b,
                 scf_ws.diis_hist_head_b, scf_ws.d_diis_f_hist_b.data(),
                 scf_ws.d_diis_e_hist_b.data(), scf_ws.diis_reg, dFb,
-                scf_ws.d_diis_B, scf_ws.d_diis_rhs, scf_ws.d_diis_info))
+                scf_ws.d_diis_accum))
         {
-            for (int i = 0; i < nao2; i++)
-                scf_ws.d_F_b[i] = (float)dFb[i];
+            Launch_Device_Kernel(QC_Double_To_Float_Kernel,
+                                 (nao2 + threads - 1) / threads, threads, 0, 0,
+                                 nao2, dFb, scf_ws.d_F_b);
         }
     }
-#endif
 }

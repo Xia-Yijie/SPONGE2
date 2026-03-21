@@ -4,179 +4,98 @@ void QUANTUM_CHEMISTRY::Diagonalize_And_Build_Density()
 {
     const int nao = mol.nao;
     const int nao2 = mol.nao2;
+    const int ne = scf_ws.nao_eff > 0 ? scf_ws.nao_eff : nao;
+    const int threads = 256;
 
-#ifndef USE_GPU
-    // CPU path: canonical orthogonalization with rectangular X (nao × nao_eff)
-    // X is stored row-major in d_X with stride nao, columns 0..nao_eff-1
+    // --- Alpha spin ---
+    // dF = double Fock (from d_F_double or promoted d_F)
+    double* dF = scf_ws.d_dwork_nao2_1;
+    if (scf_ws.d_F_double)
+        deviceMemcpy(dF, scf_ws.d_F_double, sizeof(double) * nao2,
+                     deviceMemcpyDeviceToDevice);
+    else
+        Launch_Device_Kernel(QC_Float_To_Double_Kernel,
+                             (nao2 + threads - 1) / threads, threads, 0, 0,
+                             nao2, scf_ws.d_F, dF);
+
+    // Level shift: dF += ls * (S - 0.5 * SPS)
+    const double ls = scf_ws.level_shift;
+    if (ls > 0.0)
     {
-        const int ne = scf_ws.nao_eff > 0 ? scf_ws.nao_eff : nao;
-        const double* dX = scf_ws.d_X;  // nao × ne, stride nao
-
-        // Use d_F_double (DIIS extrapolates in double)
-        std::vector<double> dF(nao2);
-        if (scf_ws.d_F_double)
-            for (int i = 0; i < nao2; i++) dF[i] = scf_ws.d_F_double[i];
-        else
-            for (int i = 0; i < nao2; i++) dF[i] = (double)scf_ws.d_F[i];
-
-        // Level shift: F += shift * (S - 0.5 * SPS)
-        const double ls = scf_ws.level_shift;
-        if (ls > 0.0)
-        {
-            std::vector<double> dS(nao2), dP(nao2), dSP(nao2), dSPS(nao2);
-            for (int i = 0; i < nao2; i++)
-            {
-                dS[i] = (double)scf_ws.d_S[i];
-                dP[i] = (double)scf_ws.d_P[i];
-            }
-            cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                        nao, nao, nao, 1.0, dS.data(), nao, dP.data(), nao,
-                        0.0, dSP.data(), nao);
-            cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                        nao, nao, nao, 1.0, dSP.data(), nao, dS.data(), nao,
-                        0.0, dSPS.data(), nao);
-            for (int i = 0; i < nao2; i++)
-                dF[i] += ls * (dS[i] - 0.5 * dSPS[i]);
-        }
-
-        // Tmp = F * X: (nao×nao) @ (nao×ne) → nao×ne, stored with stride ne
-        std::vector<double> dTmp(nao * ne);
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                    nao, ne, nao, 1.0, dF.data(), nao, dX, nao,
-                    0.0, dTmp.data(), ne);
-        // Fp = X^T * Tmp: (ne×nao) @ (nao×ne) → ne×ne
-        std::vector<double> dFp(ne * ne);
-        cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
-                    ne, ne, nao, 1.0, dX, nao, dTmp.data(), ne,
-                    0.0, dFp.data(), ne);
-
-        // Diagonalize Fp (ne × ne) using dsyevd
-        std::vector<double> dW(ne);
-        {
-            int lw = -1, liw = -1;
-            double wq; lapack_int iwq;
-            LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'L', (lapack_int)ne,
-                                dFp.data(), (lapack_int)ne, dW.data(),
-                                &wq, lw, &iwq, liw);
-            lw = (int)wq; liw = iwq;
-            std::vector<double> dwork(lw);
-            std::vector<lapack_int> diwork(liw);
-            LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'L', (lapack_int)ne,
-                                dFp.data(), (lapack_int)ne, dW.data(),
-                                dwork.data(), (lapack_int)lw,
-                                diwork.data(), (lapack_int)liw);
-        }
-        // dFp now holds eigenvectors in col-major (ne × ne)
-        for (int i = 0; i < nao && i < ne; i++)
-            scf_ws.d_W[i] = (float)dW[i];
-
-        // C = X * eigvec: (nao×ne) @ (ne×ne) → nao×ne
-        // eigvec in col-major → viewed as row-major = transposed
-        // C_row = X_row @ eigvec_colmaj^T
-        std::vector<double> dC(nao * ne);
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
-                    nao, ne, ne, 1.0, dX, nao, dFp.data(), ne,
-                    0.0, dC.data(), ne);
-
-        // Copy to d_C (nao × nao, float, row-major with stride nao)
-        // Only first ne columns are meaningful
-        memset(scf_ws.d_C, 0, sizeof(float) * nao2);
-        for (int i = 0; i < nao; i++)
-            for (int j = 0; j < ne; j++)
-                scf_ws.d_C[i * nao + j] = (float)dC[i * ne + j];
+        double* dS = scf_ws.d_dwork_nao2_2;
+        double* dP = scf_ws.d_dwork_nao2_3;
+        double* dSP = scf_ws.d_dwork_nao2_4;  // reuse as temp
+        Launch_Device_Kernel(QC_Float_To_Double_Kernel,
+                             (nao2 + threads - 1) / threads, threads, 0, 0,
+                             nao2, scf_ws.d_S, dS);
+        Launch_Device_Kernel(QC_Float_To_Double_Kernel,
+                             (nao2 + threads - 1) / threads, threads, 0, 0,
+                             nao2, scf_ws.d_P, dP);
+        // SP = S * P
+        QC_Dgemm_NN(blas_handle, nao, nao, nao, dS, nao, dP, nao, dSP, nao);
+        // SPS = SP * S (reuse dP as output)
+        QC_Dgemm_NN(blas_handle, nao, nao, nao, dSP, nao, dS, nao, dP, nao);
+        // dF += ls * (dS - 0.5 * dP)  where dP now holds SPS
+        Launch_Device_Kernel(QC_Level_Shift_Kernel,
+                             (nao2 + threads - 1) / threads, threads, 0, 0,
+                             nao2, ls, dS, dP, dF);
     }
 
-    // P_new = occ_factor * C_occ * C_occ^T
+    // Tmp = F * X: (nao x nao) @ (nao x ne, stride nao) -> nao x ne, stride ne
+    double* dTmp = scf_ws.d_dwork_nao2_2;  // nao*ne <= nao2
+    QC_Dgemm_NN(blas_handle, nao, ne, nao, dF, nao, scf_ws.d_X, nao, dTmp, ne);
+
+    // Fp = X^T * Tmp: (ne x nao, X stride=nao) @ (nao x ne, Tmp stride=ne) -> ne x ne
+    double* dFp = scf_ws.d_dwork_nao2_3;  // ne*ne <= nao2
+    QC_Dgemm_TN(blas_handle, ne, ne, nao, scf_ws.d_X, nao, dTmp, ne, dFp, ne);
+
+    // Diag Fp (ne x ne)
+    double* dW = scf_ws.d_dW_double;
+    int info = 0;
+    QC_Diagonalize_Double(solver_handle, ne, dFp, dW,
+                          scf_ws.d_solver_work_double, scf_ws.lwork_double,
+                          &info);
+
+    // Store eigenvalues
+    Launch_Device_Kernel(QC_Double_To_Float_Kernel, (nao + threads - 1) / threads,
+                         threads, 0, 0, ne, dW, scf_ws.d_W);
+
+    // C = X * eigvec: (nao x ne, stride nao) @ (ne x ne col-major)
+    // eigvec is in dFp, col-major. Viewed as row-major it's transposed.
+    double* dC = dTmp;  // reuse, nao*ne
+    QC_Dgemm_NT(blas_handle, nao, ne, ne, scf_ws.d_X, nao, dFp, ne, dC, ne);
+
+    // Copy to float d_C (nao x nao, padded)
+    Launch_Device_Kernel(QC_Rect_Double_To_Padded_Float_Kernel,
+                         (nao2 + threads - 1) / threads, threads, 0, 0,
+                         nao, ne, dC, scf_ws.d_C);
+
+    // P_new = occ * C_occ * C_occ^T
     QC_Build_Density_Blas(blas_handle, nao, scf_ws.n_alpha,
                           scf_ws.occ_factor, scf_ws.d_C, scf_ws.d_P_new);
 
     if (!scf_ws.unrestricted) return;
 
-    // Beta spin: same pipeline
-    {
-        const int ne = scf_ws.nao_eff > 0 ? scf_ws.nao_eff : nao;
-        const double* dX = scf_ws.d_X;
-        std::vector<double> dF(nao2);
-        if (scf_ws.d_F_b_double)
-            for (int i = 0; i < nao2; i++) dF[i] = scf_ws.d_F_b_double[i];
-        else
-            for (int i = 0; i < nao2; i++) dF[i] = (double)scf_ws.d_F_b[i];
+    // --- Beta spin (same pipeline) ---
+    if (scf_ws.d_F_b_double)
+        deviceMemcpy(dF, scf_ws.d_F_b_double, sizeof(double) * nao2,
+                     deviceMemcpyDeviceToDevice);
+    else
+        Launch_Device_Kernel(QC_Float_To_Double_Kernel,
+                             (nao2 + threads - 1) / threads, threads, 0, 0,
+                             nao2, scf_ws.d_F_b, dF);
 
-        std::vector<double> dTmp(nao * ne);
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                    nao, ne, nao, 1.0, dF.data(), nao, dX, nao,
-                    0.0, dTmp.data(), ne);
-        std::vector<double> dFp(ne * ne);
-        cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
-                    ne, ne, nao, 1.0, dX, nao, dTmp.data(), ne,
-                    0.0, dFp.data(), ne);
-        std::vector<double> dW(ne);
-        {
-            int lw = -1, liw = -1;
-            double wq; lapack_int iwq;
-            LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'L', (lapack_int)ne,
-                                dFp.data(), (lapack_int)ne, dW.data(),
-                                &wq, lw, &iwq, liw);
-            lw = (int)wq; liw = iwq;
-            std::vector<double> dwork(lw);
-            std::vector<lapack_int> diwork(liw);
-            LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, 'V', 'L', (lapack_int)ne,
-                                dFp.data(), (lapack_int)ne, dW.data(),
-                                dwork.data(), (lapack_int)lw,
-                                diwork.data(), (lapack_int)liw);
-        }
-        for (int i = 0; i < nao && i < ne; i++)
-            scf_ws.d_W[i] = (float)dW[i];
-        std::vector<double> dC(nao * ne);
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
-                    nao, ne, ne, 1.0, dX, nao, dFp.data(), ne,
-                    0.0, dC.data(), ne);
-        memset(scf_ws.d_C_b, 0, sizeof(float) * nao2);
-        for (int i = 0; i < nao; i++)
-            for (int j = 0; j < ne; j++)
-                scf_ws.d_C_b[i * nao + j] = (float)dC[i * ne + j];
-    }
+    QC_Dgemm_NN(blas_handle, nao, ne, nao, dF, nao, scf_ws.d_X, nao, dTmp, ne);
+    QC_Dgemm_TN(blas_handle, ne, ne, nao, scf_ws.d_X, nao, dTmp, ne, dFp, ne);
+    QC_Diagonalize_Double(solver_handle, ne, dFp, dW,
+                          scf_ws.d_solver_work_double, scf_ws.lwork_double,
+                          &info);
+    Launch_Device_Kernel(QC_Double_To_Float_Kernel, (nao + threads - 1) / threads,
+                         threads, 0, 0, ne, dW, scf_ws.d_W);
+    QC_Dgemm_NT(blas_handle, nao, ne, ne, scf_ws.d_X, nao, dFp, ne, dC, ne);
+    Launch_Device_Kernel(QC_Rect_Double_To_Padded_Float_Kernel,
+                         (nao2 + threads - 1) / threads, threads, 0, 0,
+                         nao, ne, dC, scf_ws.d_C_b);
     QC_Build_Density_Blas(blas_handle, nao, scf_ws.n_beta, 1.0f,
                           scf_ws.d_C_b, scf_ws.d_P_b_new);
-
-#else
-    // GPU path: keep original sgemm
-    QC_MatMul_RowRow_Blas(blas_handle, mol.nao, mol.nao, mol.nao, scf_ws.d_F,
-                          scf_ws.d_X, scf_ws.d_Tmp);
-    QC_MatMul_RowRow_Blas(blas_handle, mol.nao, mol.nao, mol.nao, scf_ws.d_X,
-                          scf_ws.d_Tmp, scf_ws.d_Fp);
-
-    deviceMemcpy(scf_ws.d_Work, scf_ws.d_Fp, sizeof(float) * mol.nao2,
-                 deviceMemcpyDeviceToDevice);
-    QC_Diagonalize(solver_handle, mol.nao, scf_ws.d_Work, scf_ws.d_W,
-                   scf_ws.d_solver_work, scf_ws.lwork, scf_ws.d_solver_iwork,
-                   scf_ws.liwork, scf_ws.d_info);
-    deviceMemcpy(scf_ws.d_Fp, scf_ws.d_Work, sizeof(float) * mol.nao2,
-                 deviceMemcpyDeviceToDevice);
-
-    QC_MatMul_RowCol_Blas(blas_handle, mol.nao, mol.nao, mol.nao, scf_ws.d_X,
-                          scf_ws.d_Fp, scf_ws.d_C);
-    QC_Build_Density_Blas(blas_handle, mol.nao, scf_ws.n_alpha,
-                          scf_ws.occ_factor, scf_ws.d_C, scf_ws.d_P_new);
-
-    if (!scf_ws.unrestricted) return;
-
-    QC_MatMul_RowRow_Blas(blas_handle, mol.nao, mol.nao, mol.nao, scf_ws.d_F_b,
-                          scf_ws.d_X, scf_ws.d_Tmp);
-    QC_MatMul_RowRow_Blas(blas_handle, mol.nao, mol.nao, mol.nao, scf_ws.d_X,
-                          scf_ws.d_Tmp, scf_ws.d_Fp_b);
-
-    deviceMemcpy(scf_ws.d_Work, scf_ws.d_Fp_b, sizeof(float) * mol.nao2,
-                 deviceMemcpyDeviceToDevice);
-    QC_Diagonalize(solver_handle, mol.nao, scf_ws.d_Work, scf_ws.d_W,
-                   scf_ws.d_solver_work, scf_ws.lwork, scf_ws.d_solver_iwork,
-                   scf_ws.liwork, scf_ws.d_info);
-    deviceMemcpy(scf_ws.d_Fp_b, scf_ws.d_Work, sizeof(float) * mol.nao2,
-                 deviceMemcpyDeviceToDevice);
-
-    QC_MatMul_RowCol_Blas(blas_handle, mol.nao, mol.nao, mol.nao, scf_ws.d_X,
-                          scf_ws.d_Fp_b, scf_ws.d_C_b);
-    QC_Build_Density_Blas(blas_handle, mol.nao, scf_ws.n_beta, 1.0f,
-                          scf_ws.d_C_b, scf_ws.d_P_b_new);
-#endif
 }
