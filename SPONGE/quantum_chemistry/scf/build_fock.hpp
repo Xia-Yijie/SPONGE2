@@ -18,8 +18,7 @@ static __device__ __forceinline__ int QC_Shell_Pair_Index(const int a,
     return (a >= b) ? (a * (a + 1) / 2 + b) : (b * (b + 1) / 2 + a);
 }
 
-static __device__ __forceinline__ int QC_AO_Pair_Index(const int a,
-                                                       const int b)
+static __device__ __forceinline__ int QC_AO_Pair_Index(const int a, const int b)
 {
     return (a >= b) ? (a * (a + 1) / 2 + b) : (b * (b + 1) / 2 + a);
 }
@@ -42,13 +41,10 @@ static __device__ __forceinline__ float QC_Max4(const float a, const float b,
     return fmaxf(fmaxf(a, b), fmaxf(c, d));
 }
 
-static __device__ void QC_Cart2Sph_Shell_ERI(const float* U_row_nc_ns,
-                                             const int nao_s,
-                                             const int* off_cart,
-                                             const int* off_sph,
-                                             const int* dims_cart,
-                                             const int* dims_sph, float* buf0,
-                                             float* buf1)
+static __device__ void QC_Cart2Sph_Shell_ERI(
+    const float* U_row_nc_ns, const int nao_s, const int* off_cart,
+    const int* off_sph, const int* dims_cart, const int* dims_sph, float* buf0,
+    float* buf1)
 {
     const int nc0 = dims_cart[0], nc1 = dims_cart[1], nc2 = dims_cart[2],
               nc3 = dims_cart[3];
@@ -63,11 +59,10 @@ static __device__ void QC_Cart2Sph_Shell_ERI(const float* U_row_nc_ns,
                     double sum = 0.0;
                     for (int a = 0; a < nc0; a++)
                     {
-                        sum +=
-                            (double)U_row_nc_ns[(off_cart[0] + a) * nao_s +
-                                                (off_sph[0] + p)] *
-                            (double)buf0[QC_Shell_Buffer_Index(a, b, c, d, nc1,
-                                                               nc2, nc3)];
+                        sum += (double)U_row_nc_ns[(off_cart[0] + a) * nao_s +
+                                                   (off_sph[0] + p)] *
+                               (double)buf0[QC_Shell_Buffer_Index(
+                                   a, b, c, d, nc1, nc2, nc3)];
                     }
                     buf1[QC_Shell_Buffer_Index(p, b, c, d, nc1, nc2, nc3)] =
                         (float)sum;
@@ -81,11 +76,10 @@ static __device__ void QC_Cart2Sph_Shell_ERI(const float* U_row_nc_ns,
                     double sum = 0.0;
                     for (int b = 0; b < nc1; b++)
                     {
-                        sum +=
-                            (double)U_row_nc_ns[(off_cart[1] + b) * nao_s +
-                                                (off_sph[1] + q)] *
-                            (double)buf1[QC_Shell_Buffer_Index(p, b, c, d, nc1,
-                                                               nc2, nc3)];
+                        sum += (double)U_row_nc_ns[(off_cart[1] + b) * nao_s +
+                                                   (off_sph[1] + q)] *
+                               (double)buf1[QC_Shell_Buffer_Index(
+                                   p, b, c, d, nc1, nc2, nc3)];
                     }
                     buf0[QC_Shell_Buffer_Index(p, q, c, d, ns1, nc2, nc3)] =
                         (float)sum;
@@ -99,11 +93,10 @@ static __device__ void QC_Cart2Sph_Shell_ERI(const float* U_row_nc_ns,
                     double sum = 0.0;
                     for (int c = 0; c < nc2; c++)
                     {
-                        sum +=
-                            (double)U_row_nc_ns[(off_cart[2] + c) * nao_s +
-                                                (off_sph[2] + r)] *
-                            (double)buf0[QC_Shell_Buffer_Index(p, q, c, d, ns1,
-                                                               nc2, nc3)];
+                        sum += (double)U_row_nc_ns[(off_cart[2] + c) * nao_s +
+                                                   (off_sph[2] + r)] *
+                               (double)buf0[QC_Shell_Buffer_Index(
+                                   p, q, c, d, ns1, nc2, nc3)];
                     }
                     buf1[QC_Shell_Buffer_Index(p, q, r, d, ns1, ns2, nc3)] =
                         (float)sum;
@@ -117,11 +110,10 @@ static __device__ void QC_Cart2Sph_Shell_ERI(const float* U_row_nc_ns,
                     double sum = 0.0;
                     for (int d = 0; d < nc3; d++)
                     {
-                        sum +=
-                            (double)U_row_nc_ns[(off_cart[3] + d) * nao_s +
-                                                (off_sph[3] + s)] *
-                            (double)buf1[QC_Shell_Buffer_Index(p, q, r, d, ns1,
-                                                               ns2, nc3)];
+                        sum += (double)U_row_nc_ns[(off_cart[3] + d) * nao_s +
+                                                   (off_sph[3] + s)] *
+                               (double)buf1[QC_Shell_Buffer_Index(
+                                   p, q, r, d, ns1, ns2, nc3)];
                     }
                     buf0[QC_Shell_Buffer_Index(p, q, r, s, ns1, ns2, ns3)] =
                         (float)sum;
@@ -233,11 +225,10 @@ static __device__ bool QC_Compute_Shell_Quartet_ERI_Buffer(
                     float PQ_val[3] = {(P[0] - Q[0]), (P[1] - Q[1]),
                                        (P[2] - Q[2])};
                     const int L_sum = l[0] + l[1] + l[2] + l[3];
-                    float t_arg = alpha * (PQ_val[0] * PQ_val[0] +
-                                           PQ_val[1] * PQ_val[1] +
-                                           PQ_val[2] * PQ_val[2]);
-                    compute_hr_tensor(HR, alpha, PQ_val, L_sum, hr_base,
-                                      t_arg);
+                    float t_arg =
+                        alpha * (PQ_val[0] * PQ_val[0] + PQ_val[1] * PQ_val[1] +
+                                 PQ_val[2] * PQ_val[2]);
+                    compute_hr_tensor(HR, alpha, PQ_val, L_sum, hr_base, t_arg);
 
                     float QC_val[3] = {(Q[0] - R[2][0]), (Q[1] - R[2][1]),
                                        (Q[2] - R[2][2])};
@@ -270,25 +261,21 @@ static __device__ bool QC_Compute_Shell_Quartet_ERI_Buffer(
                                     {
                                         auto ex = E_bra[0][ix][jx][mux];
                                         if (ex == 0.0f) continue;
-                                        for (int muy = 0; muy <= iy + jy;
-                                             muy++)
+                                        for (int muy = 0; muy <= iy + jy; muy++)
                                         {
                                             auto ey = E_bra[1][iy][jy][muy];
                                             if (ey == 0.0f) continue;
                                             for (int muz = 0; muz <= iz + jz;
                                                  muz++)
                                             {
-                                                auto ez =
-                                                    E_bra[2][iz][jz][muz];
+                                                auto ez = E_bra[2][iz][jz][muz];
                                                 auto e_bra_val = ex * ey * ez;
-                                                if (e_bra_val == 0.0f)
-                                                    continue;
+                                                if (e_bra_val == 0.0f) continue;
                                                 for (int nux = 0;
                                                      nux <= kx + lx_l; nux++)
                                                 {
                                                     auto dx =
-                                                        E_ket[0][kx][lx_l]
-                                                                [nux];
+                                                        E_ket[0][kx][lx_l][nux];
                                                     if (dx == 0.0f) continue;
                                                     for (int nuy = 0;
                                                          nuy <= ky + ly_l;
@@ -296,7 +283,7 @@ static __device__ bool QC_Compute_Shell_Quartet_ERI_Buffer(
                                                     {
                                                         auto dy =
                                                             E_ket[1][ky][ly_l]
-                                                                    [nuy];
+                                                                 [nuy];
                                                         if (dy == 0.0f)
                                                             continue;
                                                         for (int nuz = 0;
@@ -313,7 +300,8 @@ static __device__ bool QC_Compute_Shell_Quartet_ERI_Buffer(
                                                             float sign_val =
                                                                 ((nux + nuy +
                                                                   nuz) %
-                                                                     2 == 0)
+                                                                     2 ==
+                                                                 0)
                                                                     ? 1.0f
                                                                     : -1.0f;
                                                             val +=
@@ -361,9 +349,8 @@ static __device__ bool QC_Compute_Shell_Quartet_ERI_Buffer(
                 for (int l_idx = 0; l_idx < dims_eff[3]; l_idx++)
                 {
                     const float nl = norms[off_eff[3] + l_idx];
-                    const int idx =
-                        QC_Shell_Buffer_Index(i, j, k, l_idx, dims_eff[1],
-                                              dims_eff[2], dims_eff[3]);
+                    const int idx = QC_Shell_Buffer_Index(
+                        i, j, k, l_idx, dims_eff[1], dims_eff[2], dims_eff[3]);
                     shell_eri[idx] *= ni * nj * nk * nl;
                 }
             }
@@ -532,7 +519,6 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_Unique_Quartet(
 }
 
 #include "build_fock_cpu.hpp"
-
 #include "build_fock_gpu.hpp"
 
 void QUANTUM_CHEMISTRY::Build_Fock()
@@ -542,10 +528,9 @@ void QUANTUM_CHEMISTRY::Build_Fock()
 
     if (dft.enable_dft) Build_DFT_VXC();
 
-    Launch_Device_Kernel(QC_Init_Fock_Kernel,
-                         (total + threads - 1) / threads, threads, 0, 0,
-                         total, scf_ws.d_H_core, dft.d_Vxc, dft.enable_dft,
-                         scf_ws.d_F);
+    Launch_Device_Kernel(QC_Init_Fock_Kernel, (total + threads - 1) / threads,
+                         threads, 0, 0, total, scf_ws.d_H_core, dft.d_Vxc,
+                         dft.enable_dft, scf_ws.d_F);
     if (scf_ws.unrestricted)
     {
         Launch_Device_Kernel(QC_Init_Fock_Kernel,
@@ -600,10 +585,10 @@ void QUANTUM_CHEMISTRY::Build_Fock()
         Launch_Device_Kernel(
             QC_Build_Fock_Direct_Kernel,
             (current_chunk + threads - 1) / threads, threads, 0, 0,
-            current_chunk, eri_tasks_ptr + i, mol.d_atm, mol.d_bas,
-            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
-            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+            current_chunk, eri_tasks_ptr + i, mol.d_atm, mol.d_bas, mol.d_env,
+            mol.d_ao_offsets, mol.d_ao_offsets_sph, scf_ws.d_norms,
+            task_ctx.d_shell_pair_bounds, scf_ws.d_pair_density_coul,
+            scf_ws.d_pair_density_exx,
             scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
                                 : (const float*)nullptr,
             task_ctx.eri_shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
@@ -621,26 +606,24 @@ void QUANTUM_CHEMISTRY::Build_Fock()
         scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
                             : (const float*)nullptr,
         task_ctx.eri_shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-        scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-        exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph, mol.is_spherical,
+        scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr, exx_scale_a,
+        exx_scale_b, mol.nao, mol.nao_sph, mol.is_spherical,
         cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build, d_hr_pool,
-        task_ctx.eri_hr_base, task_ctx.eri_hr_size,
-        task_ctx.eri_shell_buf_size, task_ctx.direct_eri_prim_screen_tol,
-        scf_ws.fock_thread_count);
+        task_ctx.eri_hr_base, task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+        task_ctx.direct_eri_prim_screen_tol, scf_ws.fock_thread_count);
 #endif
 
 #ifndef USE_GPU
     Launch_Device_Kernel(QC_Reduce_Thread_Fock_Kernel,
-                         (total + threads - 1) / threads, threads, 0, 0,
-                         total, scf_ws.fock_thread_count, scf_ws.d_F_thread,
+                         (total + threads - 1) / threads, threads, 0, 0, total,
+                         scf_ws.fock_thread_count, scf_ws.d_F_thread,
                          scf_ws.d_F, scf_ws.d_F_double);
     if (scf_ws.unrestricted)
     {
-        Launch_Device_Kernel(QC_Reduce_Thread_Fock_Kernel,
-                             (total + threads - 1) / threads, threads, 0, 0,
-                             total, scf_ws.fock_thread_count,
-                             scf_ws.d_F_b_thread, scf_ws.d_F_b,
-                             scf_ws.d_F_b_double);
+        Launch_Device_Kernel(
+            QC_Reduce_Thread_Fock_Kernel, (total + threads - 1) / threads,
+            threads, 0, 0, total, scf_ws.fock_thread_count, scf_ws.d_F_b_thread,
+            scf_ws.d_F_b, scf_ws.d_F_b_double);
     }
 #endif
 }

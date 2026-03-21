@@ -214,7 +214,6 @@ void QUANTUM_CHEMISTRY::Prepare_Integrals()
             task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
             task_ctx.eri_prim_screen_tol);
     }
-
 }
 
 // ========================= 重叠正交化矩阵 =========================
@@ -228,7 +227,8 @@ void QUANTUM_CHEMISTRY::Build_Overlap_X()
     // Promote S (float) to double workspace
     QC_Float_To_Double(nao2, scf_ws.d_S, scf_ws.d_dwork_nao2_1);
 
-    // Diagonalize S in double: eigvecs overwrite d_dwork_nao2_1, eigenvals in d_dW_double
+    // Diagonalize S in double: eigvecs overwrite d_dwork_nao2_1, eigenvals in
+    // d_dW_double
     int info = 0;
     QC_Diagonalize_Double(solver_handle, nao, scf_ws.d_dwork_nao2_1,
                           scf_ws.d_dW_double, scf_ws.d_solver_work_double,

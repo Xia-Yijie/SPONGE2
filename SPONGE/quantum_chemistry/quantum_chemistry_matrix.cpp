@@ -1,5 +1,4 @@
-#include "quantum_chemistry.h"
-
+﻿#include "quantum_chemistry.h"
 #include "structure/matrix.h"
 
 // ====================== Float BLAS/Solver wrappers ======================
@@ -153,12 +152,20 @@ int QC_Diagonalize_Double_Workspace_Size(SOLVER_HANDLE solver_handle, int n,
                                          double* mat, double* w,
                                          double** work_ptr, int* lwork)
 {
-    if (n <= 0) { *lwork = 0; return 0; }
+    if (n <= 0)
+    {
+        *lwork = 0;
+        return 0;
+    }
     int stat = (int)deviceSolverDsyevdBufferSize(
-        solver_handle, DEVICE_EIG_MODE_VECTOR, DEVICE_FILL_MODE_UPPER,
-        n, mat, n, w, lwork);
+        solver_handle, DEVICE_EIG_MODE_VECTOR, DEVICE_FILL_MODE_UPPER, n, mat,
+        n, w, lwork);
     if (stat != 0 || *lwork <= 0) return (stat != 0) ? stat : -2;
-    if (*work_ptr) { deviceFree(*work_ptr); *work_ptr = NULL; }
+    if (*work_ptr)
+    {
+        deviceFree(*work_ptr);
+        *work_ptr = NULL;
+    }
     Device_Malloc_Safely((void**)work_ptr, sizeof(double) * (*lwork));
     deviceMemset(*work_ptr, 0, sizeof(double) * (*lwork));
     return 0;
@@ -172,27 +179,27 @@ void QC_Diagonalize_Double(SOLVER_HANDLE solver_handle, int n, double* mat,
 }
 
 void QC_Dgemm_NN(BLAS_HANDLE handle, int m, int n, int k, const double* A,
-                  int lda, const double* B, int ldb, double* C, int ldc)
+                 int lda, const double* B, int ldb, double* C, int ldc)
 {
     const double one = 1.0, zero = 0.0;
-    deviceBlasDgemm(handle, DEVICE_BLAS_OP_N, DEVICE_BLAS_OP_N,
-                    n, m, k, &one, B, ldb, A, lda, &zero, C, ldc);
+    deviceBlasDgemm(handle, DEVICE_BLAS_OP_N, DEVICE_BLAS_OP_N, n, m, k, &one,
+                    B, ldb, A, lda, &zero, C, ldc);
 }
 
 void QC_Dgemm_TN(BLAS_HANDLE handle, int m, int n, int k, const double* A,
-                  int lda, const double* B, int ldb, double* C, int ldc)
+                 int lda, const double* B, int ldb, double* C, int ldc)
 {
     const double one = 1.0, zero = 0.0;
-    deviceBlasDgemm(handle, DEVICE_BLAS_OP_N, DEVICE_BLAS_OP_T,
-                    n, m, k, &one, B, ldb, A, lda, &zero, C, ldc);
+    deviceBlasDgemm(handle, DEVICE_BLAS_OP_N, DEVICE_BLAS_OP_T, n, m, k, &one,
+                    B, ldb, A, lda, &zero, C, ldc);
 }
 
 void QC_Dgemm_NT(BLAS_HANDLE handle, int m, int n, int k, const double* A,
-                  int lda, const double* B, int ldb, double* C, int ldc)
+                 int lda, const double* B, int ldb, double* C, int ldc)
 {
     const double one = 1.0, zero = 0.0;
-    deviceBlasDgemm(handle, DEVICE_BLAS_OP_T, DEVICE_BLAS_OP_N,
-                    n, m, k, &one, B, ldb, A, lda, &zero, C, ldc);
+    deviceBlasDgemm(handle, DEVICE_BLAS_OP_T, DEVICE_BLAS_OP_N, n, m, k, &one,
+                    B, ldb, A, lda, &zero, C, ldc);
 }
 
 // ====================== Device kernels + host wrappers ======================
@@ -215,8 +222,8 @@ void QC_Elec_Energy_Accumulate(int nao2, const float* P, const float* H_core,
 {
     const int threads = 256;
     Launch_Device_Kernel(QC_Elec_Energy_Accumulate_Kernel,
-                         (nao2 + threads - 1) / threads, threads, 0, 0,
-                         nao2, P, H_core, F, out_sum);
+                         (nao2 + threads - 1) / threads, threads, 0, 0, nao2, P,
+                         H_core, F, out_sum);
 }
 
 static __global__ void QC_Mat_Dot_Accumulate_Kernel(const int nao2,
@@ -235,8 +242,8 @@ void QC_Mat_Dot_Accumulate(int nao2, const float* A, const float* B,
 {
     const int threads = 256;
     Launch_Device_Kernel(QC_Mat_Dot_Accumulate_Kernel,
-                         (nao2 + threads - 1) / threads, threads, 0, 0,
-                         nao2, A, B, out_sum);
+                         (nao2 + threads - 1) / threads, threads, 0, 0, nao2, A,
+                         B, out_sum);
 }
 
 static __global__ void QC_Add_Matrix_Kernel(const int n, const float* A,
@@ -248,9 +255,8 @@ static __global__ void QC_Add_Matrix_Kernel(const int n, const float* A,
 void QC_Add_Matrix(int n, const float* A, const float* B, float* C)
 {
     const int threads = 256;
-    Launch_Device_Kernel(QC_Add_Matrix_Kernel,
-                         (n + threads - 1) / threads, threads, 0, 0,
-                         n, A, B, C);
+    Launch_Device_Kernel(QC_Add_Matrix_Kernel, (n + threads - 1) / threads,
+                         threads, 0, 0, n, A, B, C);
 }
 
 static __global__ void QC_Sub_Matrix_Kernel(const int n, const float* A,
@@ -262,13 +268,12 @@ static __global__ void QC_Sub_Matrix_Kernel(const int n, const float* A,
 void QC_Sub_Matrix(int n, const float* A, const float* B, float* C)
 {
     const int threads = 256;
-    Launch_Device_Kernel(QC_Sub_Matrix_Kernel,
-                         (n + threads - 1) / threads, threads, 0, 0,
-                         n, A, B, C);
+    Launch_Device_Kernel(QC_Sub_Matrix_Kernel, (n + threads - 1) / threads,
+                         threads, 0, 0, n, A, B, C);
 }
 
 static __global__ void QC_Float_To_Double_Kernel(const int n, const float* src,
-                                                  double* dst)
+                                                 double* dst)
 {
     SIMPLE_DEVICE_FOR(i, n) { dst[i] = (double)src[i]; }
 }
@@ -276,13 +281,12 @@ static __global__ void QC_Float_To_Double_Kernel(const int n, const float* src,
 void QC_Float_To_Double(int n, const float* src, double* dst)
 {
     const int threads = 256;
-    Launch_Device_Kernel(QC_Float_To_Double_Kernel,
-                         (n + threads - 1) / threads, threads, 0, 0,
-                         n, src, dst);
+    Launch_Device_Kernel(QC_Float_To_Double_Kernel, (n + threads - 1) / threads,
+                         threads, 0, 0, n, src, dst);
 }
 
 static __global__ void QC_Double_To_Float_Kernel(const int n, const double* src,
-                                                  float* dst)
+                                                 float* dst)
 {
     SIMPLE_DEVICE_FOR(i, n) { dst[i] = (float)src[i]; }
 }
@@ -290,14 +294,13 @@ static __global__ void QC_Double_To_Float_Kernel(const int n, const double* src,
 void QC_Double_To_Float(int n, const double* src, float* dst)
 {
     const int threads = 256;
-    Launch_Device_Kernel(QC_Double_To_Float_Kernel,
-                         (n + threads - 1) / threads, threads, 0, 0,
-                         n, src, dst);
+    Launch_Device_Kernel(QC_Double_To_Float_Kernel, (n + threads - 1) / threads,
+                         threads, 0, 0, n, src, dst);
 }
 
 static __global__ void QC_Float_To_Double_Copy_Kernel(const int n,
-                                                       const float* src,
-                                                       double* dst)
+                                                      const float* src,
+                                                      double* dst)
 {
     SIMPLE_DEVICE_FOR(i, n) { dst[i] = (double)src[i]; }
 }
@@ -306,13 +309,13 @@ void QC_Float_To_Double_Copy(int n, const float* src, double* dst)
 {
     const int threads = 256;
     Launch_Device_Kernel(QC_Float_To_Double_Copy_Kernel,
-                         (n + threads - 1) / threads, threads, 0, 0,
-                         n, src, dst);
+                         (n + threads - 1) / threads, threads, 0, 0, n, src,
+                         dst);
 }
 
 static __global__ void QC_Level_Shift_Kernel(const int n, const double ls,
-                                              const double* dS,
-                                              const double* dSPS, double* dF)
+                                             const double* dS,
+                                             const double* dSPS, double* dF)
 {
     SIMPLE_DEVICE_FOR(i, n) { dF[i] += ls * (dS[i] - 0.5 * dSPS[i]); }
 }
@@ -321,9 +324,8 @@ void QC_Level_Shift(int n, double ls, const double* dS, const double* dSPS,
                     double* dF)
 {
     const int threads = 256;
-    Launch_Device_Kernel(QC_Level_Shift_Kernel,
-                         (n + threads - 1) / threads, threads, 0, 0,
-                         n, ls, dS, dSPS, dF);
+    Launch_Device_Kernel(QC_Level_Shift_Kernel, (n + threads - 1) / threads,
+                         threads, 0, 0, n, ls, dS, dSPS, dF);
 }
 
 static __global__ void QC_Build_X_Canonical_Kernel(
@@ -348,13 +350,14 @@ void QC_Build_X_Canonical(int nao, int nao_eff, const double* eigvec_col,
 {
     const int threads = 256;
     Launch_Device_Kernel(QC_Build_X_Canonical_Kernel,
-                         (nao + threads - 1) / threads, threads, 0, 0,
-                         nao, nao_eff, eigvec_col, eigval, lindep_thresh,
-                         X_row);
+                         (nao + threads - 1) / threads, threads, 0, 0, nao,
+                         nao_eff, eigvec_col, eigval, lindep_thresh, X_row);
 }
 
-static __global__ void QC_Rect_Double_To_Padded_Float_Kernel(
-    const int nao, const int ne, const double* src, float* dst)
+static __global__ void QC_Rect_Double_To_Padded_Float_Kernel(const int nao,
+                                                             const int ne,
+                                                             const double* src,
+                                                             float* dst)
 {
     SIMPLE_DEVICE_FOR(idx, nao * nao)
     {
@@ -370,12 +373,12 @@ void QC_Rect_Double_To_Padded_Float(int nao, int ne, const double* src,
     const int nao2 = nao * nao;
     const int threads = 256;
     Launch_Device_Kernel(QC_Rect_Double_To_Padded_Float_Kernel,
-                         (nao2 + threads - 1) / threads, threads, 0, 0,
-                         nao, ne, src, dst);
+                         (nao2 + threads - 1) / threads, threads, 0, 0, nao, ne,
+                         src, dst);
 }
 
 static __global__ void QC_Double_Dot_Kernel(const int n, const double* A,
-                                             const double* B, double* out_sum)
+                                            const double* B, double* out_sum)
 {
     SIMPLE_DEVICE_FOR(i, n) { atomicAdd(out_sum, A[i] * B[i]); }
 }
@@ -383,13 +386,12 @@ static __global__ void QC_Double_Dot_Kernel(const int n, const double* A,
 void QC_Double_Dot(int n, const double* A, const double* B, double* out_sum)
 {
     const int threads = 256;
-    Launch_Device_Kernel(QC_Double_Dot_Kernel,
-                         (n + threads - 1) / threads, threads, 0, 0,
-                         n, A, B, out_sum);
+    Launch_Device_Kernel(QC_Double_Dot_Kernel, (n + threads - 1) / threads,
+                         threads, 0, 0, n, A, B, out_sum);
 }
 
 static __global__ void QC_Double_Axpy_Kernel(const int n, const double coeff,
-                                              const double* src, double* dst)
+                                             const double* src, double* dst)
 {
     SIMPLE_DEVICE_FOR(i, n) { dst[i] += coeff * src[i]; }
 }
@@ -397,13 +399,12 @@ static __global__ void QC_Double_Axpy_Kernel(const int n, const double coeff,
 void QC_Double_Axpy(int n, double coeff, const double* src, double* dst)
 {
     const int threads = 256;
-    Launch_Device_Kernel(QC_Double_Axpy_Kernel,
-                         (n + threads - 1) / threads, threads, 0, 0,
-                         n, coeff, src, dst);
+    Launch_Device_Kernel(QC_Double_Axpy_Kernel, (n + threads - 1) / threads,
+                         threads, 0, 0, n, coeff, src, dst);
 }
 
 static __global__ void QC_Double_Sub_Kernel(const int n, const double* A,
-                                             const double* B, double* dst)
+                                            const double* B, double* dst)
 {
     SIMPLE_DEVICE_FOR(i, n) { dst[i] = A[i] - B[i]; }
 }
@@ -411,9 +412,8 @@ static __global__ void QC_Double_Sub_Kernel(const int n, const double* A,
 void QC_Double_Sub(int n, const double* A, const double* B, double* dst)
 {
     const int threads = 256;
-    Launch_Device_Kernel(QC_Double_Sub_Kernel,
-                         (n + threads - 1) / threads, threads, 0, 0,
-                         n, A, B, dst);
+    Launch_Device_Kernel(QC_Double_Sub_Kernel, (n + threads - 1) / threads,
+                         threads, 0, 0, n, A, B, dst);
 }
 
 // ====================== Cart2Sph code ======================

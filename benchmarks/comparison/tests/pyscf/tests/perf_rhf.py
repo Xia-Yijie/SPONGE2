@@ -9,8 +9,16 @@ from benchmarks.utils import Outputer
 PERF_RHF_TOL_HA = 1.0e-3
 
 PERF_RHF_CASES = [
-    ("benzene", "def2-qzvp", ["-qc_level_shift", "1.0", "-qc_diis_damp", "1.0"]),
-    ("ace_ala4_nme", "def2-svp", ["-qc_level_shift", "1.0", "-qc_diis_damp", "1.0"]),
+    (
+        "benzene",
+        "def2-qzvp",
+        ["-qc_level_shift", "1.0", "-qc_diis_damp", "1.0"],
+    ),
+    (
+        "ace_ala4_nme",
+        "def2-svp",
+        ["-qc_level_shift", "1.0", "-qc_diis_damp", "1.0"],
+    ),
 ]
 
 

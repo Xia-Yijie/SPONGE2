@@ -69,7 +69,7 @@ __forceinline__ static void QC_Get_Lxyz_Host(int l, int idx, int& lx, int& ly,
 }
 
 static __device__ void get_overlap1d_arr(int l1, int l2, float PA, float PB,
-                                  float gamma, float res[6][6])
+                                         float gamma, float res[6][6])
 {
     res[0][0] = sqrtf(CONSTANT_Pi / gamma);
     for (int i = 0; i <= l1; i++)
@@ -95,15 +95,16 @@ static __device__ void get_overlap1d_arr(int l1, int l2, float PA, float PB,
 }
 
 static __device__ float get_overlap1d_val(int l1, int l2, float PA, float PB,
-                                   float gamma)
+                                          float gamma)
 {
     float res[6][6];
     get_overlap1d_arr(l1, l2, PA, PB, gamma, res);
     return res[l1][l2];
 }
 
-static __device__ float get_kin1d(int l1, int l2, float PA, float PB, float gamma,
-                           float alpha, float beta, float res[6][6])
+static __device__ float get_kin1d(int l1, int l2, float PA, float PB,
+                                  float gamma, float alpha, float beta,
+                                  float res[6][6])
 {
     get_overlap1d_arr(l1 + 1, l2 + 1, PA, PB, gamma, res);
     float t = 2.0f * alpha * beta * res[l1 + 1][l2 + 1];
@@ -144,8 +145,7 @@ static __device__ void compute_boys_double(double* F, float t, int max_m)
     const double td = (double)t;
     if (td < 1e-15)
     {
-        for (int m = 0; m <= max_m; m++)
-            F[m] = 1.0 / (2.0 * m + 1.0);
+        for (int m = 0; m <= max_m; m++) F[m] = 1.0 / (2.0 * m + 1.0);
         return;
     }
     const double exp_t = exp(-td);
@@ -159,8 +159,7 @@ static __device__ void compute_boys_double(double* F, float t, int max_m)
         for (int m = m_top - 1; m >= 0; m--)
             work[m] = (2.0 * td * work[m + 1] + exp_t) / (2.0 * m + 1.0);
         const double scale = f0 / work[0];
-        for (int m = 0; m <= max_m; m++)
-            F[m] = work[m] * scale;
+        for (int m = 0; m <= max_m; m++) F[m] = work[m] * scale;
     }
     else
     {
@@ -216,8 +215,9 @@ static __device__ void compute_boys_stable(float* F, float t, int max_m)
     }
 }
 
-static __device__ void compute_md_coeffs(float E[5][5][9], int la_max, int lb_max,
-                                  float PA, float PB, float one_over_2p)
+static __device__ void compute_md_coeffs(float E[5][5][9], int la_max,
+                                         int lb_max, float PA, float PB,
+                                         float one_over_2p)
 {
     for (int i = 0; i < 5; i++)
         for (int j = 0; j < 5; j++)
@@ -257,7 +257,7 @@ static __device__ void compute_md_coeffs(float E[5][5][9], int la_max, int lb_ma
 }
 
 static __device__ void compute_r_tensor_1e(float* R, double* F, float alpha,
-                                    float PC[3], int L_tot)
+                                           float PC[3], int L_tot)
 {
     int total_size = ONEE_MD_BASE * ONEE_MD_BASE * ONEE_MD_BASE * ONEE_MD_BASE;
     for (int i = 0; i < total_size; i++) R[i] = 0.0f;

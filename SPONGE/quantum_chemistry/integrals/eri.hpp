@@ -3,7 +3,7 @@
 #include "one_e.hpp"
 
 static __device__ void compute_hr_tensor(float* HR, float alpha, float PQ[3],
-                                  int L_tot, int hr_base, float t_arg)
+                                         int L_tot, int hr_base, float t_arg)
 {
     // Use double Boys + double seeding to avoid (-2α)^n amplification
     double F_d[17];
@@ -173,8 +173,8 @@ static __global__ void ERI_Kernel(const int n_tasks, const QC_ERI_TASK* tasks,
                             float t_arg = alpha * (PQ_val[0] * PQ_val[0] +
                                                    PQ_val[1] * PQ_val[1] +
                                                    PQ_val[2] * PQ_val[2]);
-                            compute_hr_tensor(HR, alpha, PQ_val, L_sum,
-                                              hr_base, t_arg);
+                            compute_hr_tensor(HR, alpha, PQ_val, L_sum, hr_base,
+                                              t_arg);
 
                             float QC_val[3] = {(Q[0] - R[2][0]),
                                                (Q[1] - R[2][1]),

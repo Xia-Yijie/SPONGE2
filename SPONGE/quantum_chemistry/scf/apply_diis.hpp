@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 static __global__ void QC_DIIS_Init_System_Kernel(const int n, const int m,
                                                   double* B, double* rhs)
@@ -103,9 +103,11 @@ static void QC_Build_DIIS_Error_Double(BLAS_HANDLE blas_handle, int nao,
     // d_tmp3 = F * P
     QC_Dgemm_NN(blas_handle, nao, nao, nao, d_F, nao, d_tmp1, nao, d_tmp3, nao);
     // d_err = FP * S
-    QC_Dgemm_NN(blas_handle, nao, nao, nao, d_tmp3, nao, d_tmp2, nao, d_err, nao);
+    QC_Dgemm_NN(blas_handle, nao, nao, nao, d_tmp3, nao, d_tmp2, nao, d_err,
+                nao);
     // d_tmp3 = S * P
-    QC_Dgemm_NN(blas_handle, nao, nao, nao, d_tmp2, nao, d_tmp1, nao, d_tmp3, nao);
+    QC_Dgemm_NN(blas_handle, nao, nao, nao, d_tmp2, nao, d_tmp1, nao, d_tmp3,
+                nao);
     // d_tmp1 = SP * F
     QC_Dgemm_NN(blas_handle, nao, nao, nao, d_tmp3, nao, d_F, nao, d_tmp1, nao);
     // d_err = FPS - SPF
@@ -167,8 +169,8 @@ static bool QC_DIIS_Extrapolate_Double(int nao, int diis_space, int hist_count,
         for (int j = 0; j <= i; j++)
         {
             deviceMemset(d_accum, 0, sizeof(double));
-            QC_Double_Dot(nao2, d_e_hist[hist_idx(i)],
-                         d_e_hist[hist_idx(j)], d_accum);
+            QC_Double_Dot(nao2, d_e_hist[hist_idx(i)], d_e_hist[hist_idx(j)],
+                          d_accum);
             double v;
             deviceMemcpy(&v, d_accum, sizeof(double), deviceMemcpyDeviceToHost);
             if (i == j) v += reg;
@@ -190,13 +192,12 @@ static bool QC_DIIS_Extrapolate_Double(int nao, int diis_space, int hist_count,
 #if defined(USE_MKL) || defined(USE_OPENBLAS)
         int lwork_q = -1;
         double wq;
-        LAPACKE_dsyev_work(LAPACK_COL_MAJOR, 'V', 'U', n,
-                           H.data(), n, w.data(), &wq, lwork_q);
+        LAPACKE_dsyev_work(LAPACK_COL_MAJOR, 'V', 'U', n, H.data(), n, w.data(),
+                           &wq, lwork_q);
         int lwork_h = (int)wq;
         std::vector<double> work_h(lwork_h);
-        int info = LAPACKE_dsyev_work(LAPACK_COL_MAJOR, 'V', 'U', n,
-                                      H.data(), n, w.data(),
-                                      work_h.data(), lwork_h);
+        int info = LAPACKE_dsyev_work(LAPACK_COL_MAJOR, 'V', 'U', n, H.data(),
+                                      n, w.data(), work_h.data(), lwork_h);
         if (info != 0) return false;
 #else
         // Fallback: LU solve
@@ -210,7 +211,11 @@ static bool QC_DIIS_Extrapolate_Double(int nao, int diis_space, int hist_count,
             for (int i = k + 1; i < n; i++)
             {
                 double v = fabs(A_lu[i * n + k]);
-                if (v > max_abs) { max_abs = v; pivot = i; }
+                if (v > max_abs)
+                {
+                    max_abs = v;
+                    pivot = i;
+                }
             }
             if (max_abs < 1e-18) return false;
             if (pivot != k)
@@ -243,11 +248,9 @@ static bool QC_DIIS_Extrapolate_Double(int nao, int diis_space, int hist_count,
         {
             if (fabs(w[k]) < 1e-14) continue;
             double vg = 0.0;
-            for (int i = 0; i < n; i++)
-                vg += H[k * n + i] * h_rhs[i];
+            for (int i = 0; i < n; i++) vg += H[k * n + i] * h_rhs[i];
             double coeff = vg / w[k];
-            for (int i = 0; i < n; i++)
-                c[i] += coeff * H[k * n + i];
+            for (int i = 0; i < n; i++) c[i] += coeff * H[k * n + i];
         }
         for (int i = 0; i < n; i++) h_rhs[i] = c[i];
     }
@@ -271,13 +274,13 @@ static void QC_DIIS_Reset(int& hist_count, int& hist_head)
     hist_head = 0;
 }
 
-// ADIIS: minimize energy estimate over convex combination of stored Fock matrices
-// Ref: JCP 132, 054109 (2010)
+// ADIIS: minimize energy estimate over convex combination of stored Fock
+// matrices Ref: JCP 132, 054109 (2010)
 static bool QC_ADIIS_Extrapolate(BLAS_HANDLE blas_handle, int nao,
-                                  int diis_space, int adiis_count,
-                                  int adiis_head, double** d_f_hist,
-                                  double** d_d_hist, double* d_f_out,
-                                  double* d_accum)
+                                 int diis_space, int adiis_count,
+                                 int adiis_head, double** d_f_hist,
+                                 double** d_d_hist, double* d_f_out,
+                                 double* d_accum)
 {
     if (adiis_count < 2) return false;
     const int m = std::min(adiis_count, diis_space);
@@ -292,8 +295,8 @@ static bool QC_ADIIS_Extrapolate(BLAS_HANDLE blas_handle, int nao,
         for (int j = 0; j < m; j++)
         {
             deviceMemset(d_accum, 0, sizeof(double));
-            QC_Double_Dot(nao2, d_d_hist[hist_idx(i)],
-                         d_f_hist[hist_idx(j)], d_accum);
+            QC_Double_Dot(nao2, d_d_hist[hist_idx(i)], d_f_hist[hist_idx(j)],
+                          d_accum);
             deviceMemcpy(&df[i * m + j], d_accum, sizeof(double),
                          deviceMemcpyDeviceToHost);
         }
@@ -310,8 +313,8 @@ static bool QC_ADIIS_Extrapolate(BLAS_HANDLE blas_handle, int nao,
     std::vector<double> df_adj(m * m);
     for (int i = 0; i < m; i++)
         for (int j = 0; j < m; j++)
-            df_adj[i * m + j] = df[i * m + j] - df[i * m + (m - 1)]
-                                 - df[(m - 1) * m + j] + dn_fn;
+            df_adj[i * m + j] = df[i * m + j] - df[i * m + (m - 1)] -
+                                df[(m - 1) * m + j] + dn_fn;
 
     // Minimize cost(c) = 2*sum(c_i*dd_fn_i) + sum(c_i*df_adj_ij*c_j)
     // Parametrize: c_i = x_i^2 / sum(x_j^2)
@@ -376,10 +379,8 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
 
     // Compute DIIS error and its norm (device-side)
     QC_Build_DIIS_Error_Double(blas_handle, mol.nao, dF, scf_ws.d_P, scf_ws.d_S,
-                               scf_ws.d_diis_err,
-                               scf_ws.d_dwork_nao2_2,
-                               scf_ws.d_dwork_nao2_3,
-                               scf_ws.d_dwork_nao2_4);
+                               scf_ws.d_diis_err, scf_ws.d_dwork_nao2_2,
+                               scf_ws.d_dwork_nao2_3, scf_ws.d_dwork_nao2_4);
 
     // Compute error norm on device
     deviceMemset(scf_ws.d_diis_accum, 0, sizeof(double));
@@ -392,9 +393,9 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
 
     // Push F and error to CDIIS history
     QC_DIIS_History_Push_Double(
-        nao2, scf_ws.diis_space, scf_ws.diis_hist_count,
-        scf_ws.diis_hist_head, scf_ws.d_diis_f_hist.data(),
-        scf_ws.d_diis_e_hist.data(), dF, scf_ws.d_diis_err);
+        nao2, scf_ws.diis_space, scf_ws.diis_hist_count, scf_ws.diis_hist_head,
+        scf_ws.d_diis_f_hist.data(), scf_ws.d_diis_e_hist.data(), dF,
+        scf_ws.d_diis_err);
 
     // Push D (density) to ADIIS history
     {
@@ -402,8 +403,10 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
         int& ah = scf_ws.adiis_head;
         int ws = scf_ws.diis_space;
         int write_idx = (ac < ws) ? ((ah + ac) % ws) : ah;
-        if (ac < ws) ac++;
-        else ah = (ah + 1) % ws;
+        if (ac < ws)
+            ac++;
+        else
+            ah = (ah + 1) % ws;
         // Store density as double on device
         QC_Float_To_Double_Copy(nao2, scf_ws.d_P,
                                 scf_ws.d_adiis_d_hist[write_idx]);
@@ -442,11 +445,9 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
     // Beta spin
     double* dFb = scf_ws.d_F_b_double;
     if (!dFb) return;
-    QC_Build_DIIS_Error_Double(blas_handle, mol.nao, dFb, scf_ws.d_P_b,
-                               scf_ws.d_S, scf_ws.d_diis_err,
-                               scf_ws.d_dwork_nao2_2,
-                               scf_ws.d_dwork_nao2_3,
-                               scf_ws.d_dwork_nao2_4);
+    QC_Build_DIIS_Error_Double(
+        blas_handle, mol.nao, dFb, scf_ws.d_P_b, scf_ws.d_S, scf_ws.d_diis_err,
+        scf_ws.d_dwork_nao2_2, scf_ws.d_dwork_nao2_3, scf_ws.d_dwork_nao2_4);
     QC_DIIS_History_Push_Double(
         nao2, scf_ws.diis_space, scf_ws.diis_hist_count_b,
         scf_ws.diis_hist_head_b, scf_ws.d_diis_f_hist_b.data(),

@@ -1,4 +1,4 @@
-#ifndef QC_STRUCTURE_MATRIX_H
+﻿#ifndef QC_STRUCTURE_MATRIX_H
 #define QC_STRUCTURE_MATRIX_H
 
 #include "../../common.h"
@@ -34,13 +34,13 @@ void QC_Diagonalize_Double(SOLVER_HANDLE solver_handle, int n, double* mat,
                            double* w, double* work, int lwork, int* info);
 
 void QC_Dgemm_NN(BLAS_HANDLE handle, int m, int n, int k, const double* A,
-                  int lda, const double* B, int ldb, double* C, int ldc);
+                 int lda, const double* B, int ldb, double* C, int ldc);
 
 void QC_Dgemm_TN(BLAS_HANDLE handle, int m, int n, int k, const double* A,
-                  int lda, const double* B, int ldb, double* C, int ldc);
+                 int lda, const double* B, int ldb, double* C, int ldc);
 
 void QC_Dgemm_NT(BLAS_HANDLE handle, int m, int n, int k, const double* A,
-                  int lda, const double* B, int ldb, double* C, int ldc);
+                 int lda, const double* B, int ldb, double* C, int ldc);
 
 // ====================== Matrix utility functions ======================
 

@@ -21,8 +21,8 @@ bool QUANTUM_CHEMISTRY::Mix_And_Check_Convergence(int iter, int md_step)
     const float effective_mix = scf_ws.density_mixing;
     Launch_Device_Kernel(QC_Mix_Density_Kernel,
                          (mol.nao2 + mix_threads - 1) / mix_threads,
-                         mix_threads, 0, 0, (int)mol.nao2, iter,
-                         effective_mix, scf_ws.d_P_new, scf_ws.d_P);
+                         mix_threads, 0, 0, (int)mol.nao2, iter, effective_mix,
+                         scf_ws.d_P_new, scf_ws.d_P);
 
     if (scf_ws.unrestricted)
     {
@@ -33,7 +33,8 @@ bool QUANTUM_CHEMISTRY::Mix_And_Check_Convergence(int iter, int md_step)
         QC_Add_Matrix((int)mol.nao2, scf_ws.d_P, scf_ws.d_P_b, scf_ws.d_Ptot);
     }
 
-    if (scf_ws.print_iter && scf_output_file != NULL && CONTROLLER::MPI_rank == 0)
+    if (scf_ws.print_iter && scf_output_file != NULL &&
+        CONTROLLER::MPI_rank == 0)
     {
         double h_energy = 0.0;
         double h_delta_e = 0.0;

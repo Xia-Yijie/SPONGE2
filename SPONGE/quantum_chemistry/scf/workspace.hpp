@@ -148,7 +148,8 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
     alloc_zero_double(&scf_ws.d_F_thread, scf_ws.fock_thread_count * nao2);
     if (unrestricted)
     {
-        alloc_zero_double(&scf_ws.d_F_b_thread, scf_ws.fock_thread_count * nao2);
+        alloc_zero_double(&scf_ws.d_F_b_thread,
+                          scf_ws.fock_thread_count * nao2);
     }
     else
     {
@@ -174,7 +175,11 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
         QC_Diagonalize_Double_Workspace_Size(
             solver_handle, nao, scf_ws.d_dwork_nao2_1, scf_ws.d_dW_double,
             &tmp_work, &scf_ws.lwork_double);
-        if (tmp_work) { deviceFree(tmp_work); tmp_work = NULL; }
+        if (tmp_work)
+        {
+            deviceFree(tmp_work);
+            tmp_work = NULL;
+        }
         if (scf_ws.lwork_double > 0)
             Device_Malloc_Safely((void**)&scf_ws.d_solver_work_double,
                                  sizeof(double) * scf_ws.lwork_double);

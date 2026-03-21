@@ -50,12 +50,7 @@ def get_repo_root() -> Path:
 def build_reference_entries(statics_path: Path):
     repo_root = get_repo_root()
     tests_dir = (
-        repo_root
-        / "benchmarks"
-        / "comparison"
-        / "tests"
-        / "pyscf"
-        / "tests"
+        repo_root / "benchmarks" / "comparison" / "tests" / "pyscf" / "tests"
     )
     sys.path.insert(0, str(repo_root))
     sys.path.insert(0, str(tests_dir))

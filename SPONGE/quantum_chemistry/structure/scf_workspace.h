@@ -59,8 +59,8 @@ struct QC_SCF_WORKSPACE
 
     // DIIS 误差与历史向量缓冲（double 精度）
     double* d_diis_err = NULL;
-    float *d_diis_w1 = NULL, *d_diis_w2 = NULL,
-          *d_diis_w3 = NULL, *d_diis_w4 = NULL;
+    float *d_diis_w1 = NULL, *d_diis_w2 = NULL, *d_diis_w3 = NULL,
+          *d_diis_w4 = NULL;
     std::vector<double*> d_diis_f_hist;
     std::vector<double*> d_diis_e_hist;
     std::vector<double*> d_diis_f_hist_b;
@@ -74,8 +74,8 @@ struct QC_SCF_WORKSPACE
 
     // 能量累计、收敛状态与线性求解信息
     double *d_e = NULL, *d_e_b = NULL, *d_pvxc = NULL, *d_prev_energy = NULL,
-           *d_delta_e = NULL, *d_density_residual = NULL,
-           *d_diis_accum = NULL, *d_diis_B = NULL, *d_diis_rhs = NULL;
+           *d_delta_e = NULL, *d_density_residual = NULL, *d_diis_accum = NULL,
+           *d_diis_B = NULL, *d_diis_rhs = NULL;
     int *d_converged = NULL, *d_diis_info = NULL, *d_info = NULL;
     int lwork = 0;
     int liwork = 0;
@@ -94,12 +94,14 @@ struct QC_SCF_WORKSPACE
     float* d_pair_density_exx = NULL;
     float* d_pair_density_exx_b = NULL;
 
-    // CPU direct SCF thread-private Fock accumulation buffers (double for precision)
+    // CPU direct SCF thread-private Fock accumulation buffers (double for
+    // precision)
     int fock_thread_count = 1;
     double* d_F_thread = NULL;
     double* d_F_b_thread = NULL;
 
-    // Double-precision Fock for diag step (avoids float truncation before X^T*F*X)
+    // Double-precision Fock for diag step (avoids float truncation before
+    // X^T*F*X)
     double* d_F_double = NULL;
     double* d_F_b_double = NULL;
 
@@ -116,8 +118,8 @@ struct QC_SCF_WORKSPACE
     double diis_reg = 1e-10;
     double energy_tol = 1e-6;
     float overlap_eig_floor = 1e-10f;
-    double lindep_threshold = 1e-6;   // canonical orthogonalization threshold
-    int nao_eff = 0;                  // effective AO count after removing linear deps
+    double lindep_threshold = 1e-6;  // canonical orthogonalization threshold
+    int nao_eff = 0;  // effective AO count after removing linear deps
     double level_shift = 0.25;
     bool print_iter = false;
     float* d_P_coul = NULL;

@@ -1,6 +1,5 @@
+﻿#include "basis/basis.h"
 #include "quantum_chemistry.h"
-
-#include "basis/basis.h"
 
 static inline bool Equals_Ignore_Case(const std::string& lhs, const char* rhs)
 {
@@ -119,10 +118,10 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
             atof(controller->Command("qc_direct_eri_prim_screen_tol"));
         if (task_ctx.direct_eri_prim_screen_tol < 0.0f)
         {
-            Throw_QC_Initial_Error(
-                controller, spongeErrorValueErrorCommand,
-                "Reason:\n    qc_direct_eri_prim_screen_tol must be >= 0, got %g\n",
-                (double)task_ctx.direct_eri_prim_screen_tol);
+            Throw_QC_Initial_Error(controller, spongeErrorValueErrorCommand,
+                                   "Reason:\n    qc_direct_eri_prim_screen_tol "
+                                   "must be >= 0, got %g\n",
+                                   (double)task_ctx.direct_eri_prim_screen_tol);
         }
     }
 
@@ -330,12 +329,13 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
                                          const std::string& basis_set_name)
 {
     static QC_BASIS_SET* all_bases[] = {
-        QC_BASIS_STO_3G_PTR, QC_BASIS_3_21G_PTR,
-        QC_BASIS_631G_PTR, QC_BASIS_631G_STAR_PTR, QC_BASIS_631G_STARSTAR_PTR,
-        QC_BASIS_6311G_PTR, QC_BASIS_6311G_STAR_PTR, QC_BASIS_6311G_STARSTAR_PTR,
-        QC_BASIS_DEF2_SVP_PTR, QC_BASIS_DEF2_TZVP_PTR,
-        QC_BASIS_DEF2_TZVPP_PTR, QC_BASIS_DEF2_QZVP_PTR,
-        QC_BASIS_CC_PVDZ_PTR, QC_BASIS_CC_PVTZ_PTR,
+        QC_BASIS_STO_3G_PTR,        QC_BASIS_3_21G_PTR,
+        QC_BASIS_631G_PTR,          QC_BASIS_631G_STAR_PTR,
+        QC_BASIS_631G_STARSTAR_PTR, QC_BASIS_6311G_PTR,
+        QC_BASIS_6311G_STAR_PTR,    QC_BASIS_6311G_STARSTAR_PTR,
+        QC_BASIS_DEF2_SVP_PTR,      QC_BASIS_DEF2_TZVP_PTR,
+        QC_BASIS_DEF2_TZVPP_PTR,    QC_BASIS_DEF2_QZVP_PTR,
+        QC_BASIS_CC_PVDZ_PTR,       QC_BASIS_CC_PVTZ_PTR,
     };
 
     QC_BASIS_SET* basis = nullptr;

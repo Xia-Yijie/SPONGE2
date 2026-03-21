@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <map>
 #include <string>
@@ -19,7 +19,7 @@ struct QC_BASIS_SET
     virtual ~QC_BASIS_SET() = default;
     virtual void Initialize() = 0;
 
-    const char* name = "";      // e.g. "6-31g", "def2-qzvp"
-    bool spherical = false;     // whether basis uses spherical harmonics
+    const char* name = "";   // e.g. "6-31g", "def2-qzvp"
+    bool spherical = false;  // whether basis uses spherical harmonics
     QC_BASIS_MAP data;
 };

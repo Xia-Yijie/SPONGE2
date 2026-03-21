@@ -6,9 +6,9 @@
 #include "structure/cart2sph.h"
 #include "structure/dft.h"
 #include "structure/integral_tasks.h"
+#include "structure/matrix.h"
 #include "structure/method.h"
 #include "structure/molecule.h"
-#include "structure/matrix.h"
 #include "structure/scf_workspace.h"
 
 // Compile-time constants for quantum chemistry

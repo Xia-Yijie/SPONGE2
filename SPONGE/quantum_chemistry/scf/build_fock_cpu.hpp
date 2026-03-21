@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifndef USE_GPU
 static inline int QC_Count_Active_Partners_By_Bound(
@@ -50,15 +50,15 @@ static inline float QC_Exact_Quartet_Screen_CPU(
 
     const float shell_bound =
         shell_pair_bounds[pair_ij] * shell_pair_bounds[pair_kl];
-    const float coul_screen =
-        shell_bound *
-        fmaxf(pair_density_coul[pair_ij], pair_density_coul[pair_kl]);
-    const float exx_screen_a =
-        exx_scale_a == 0.0f
-            ? 0.0f
-            : shell_bound * exx_scale_a *
-                  QC_Max4(pair_density_exx_a[ik_pair], pair_density_exx_a[il_pair],
-                          pair_density_exx_a[jk_pair], pair_density_exx_a[jl_pair]);
+    const float coul_screen = shell_bound * fmaxf(pair_density_coul[pair_ij],
+                                                  pair_density_coul[pair_kl]);
+    const float exx_screen_a = exx_scale_a == 0.0f
+                                   ? 0.0f
+                                   : shell_bound * exx_scale_a *
+                                         QC_Max4(pair_density_exx_a[ik_pair],
+                                                 pair_density_exx_a[il_pair],
+                                                 pair_density_exx_a[jk_pair],
+                                                 pair_density_exx_a[jl_pair]);
     float exx_screen_b = 0.0f;
     if (pair_density_exx_b != NULL && exx_scale_b != 0.0f)
     {
@@ -121,16 +121,11 @@ struct QC_Generic_Pair_View_CPU
 constexpr int QC_MAX_PAIR_TERM_COUNT_CPU = 9 * 9 * 9;
 constexpr int QC_MAX_CART_PAIR_COUNT_CPU = MAX_CART_SHELL * MAX_CART_SHELL;
 
-static inline int QC_Build_Angular_Terms_CPU(const float* ex_row,
-                                             const float* ey_row,
-                                             const float* ez_row,
-                                             const int max_x, const int max_y,
-                                             const int max_z,
-                                             const int apply_phase,
-                                             const int hr_stride_x,
-                                             const int hr_stride_y,
-                                             const int hr_stride_z,
-                                             QC_Angular_Term_CPU* terms)
+static inline int QC_Build_Angular_Terms_CPU(
+    const float* ex_row, const float* ey_row, const float* ez_row,
+    const int max_x, const int max_y, const int max_z, const int apply_phase,
+    const int hr_stride_x, const int hr_stride_y, const int hr_stride_z,
+    QC_Angular_Term_CPU* terms)
 {
     int term_count = 0;
     for (int x = 0; x <= max_x; x++)
@@ -150,7 +145,7 @@ static inline int QC_Build_Angular_Terms_CPU(const float* ex_row,
                 if (apply_phase && ((x + y + z) & 1)) coeff = -coeff;
                 terms[term_count].hr_offset =
                     (unsigned short)(x * hr_stride_x + y * hr_stride_y +
-                                    z * hr_stride_z);
+                                     z * hr_stride_z);
                 terms[term_count].coeff = coeff;
                 term_count++;
             }
@@ -160,8 +155,8 @@ static inline int QC_Build_Angular_Terms_CPU(const float* ex_row,
 }
 
 static inline void QC_Init_Shell_Pair_Meta_CPU(
-    const QC_ONE_E_TASK& pair, const int* atm, const int* bas,
-    const float* env, const int* ao_offsets_cart, const int* ao_offsets_sph,
+    const QC_ONE_E_TASK& pair, const int* atm, const int* bas, const float* env,
+    const int* ao_offsets_cart, const int* ao_offsets_sph,
     const int is_spherical, QC_Shell_Pair_Meta_CPU& meta)
 {
     meta.sh[0] = pair.x;
@@ -177,8 +172,7 @@ static inline void QC_Init_Shell_Pair_Meta_CPU(
         meta.dims_sph[s] = 2 * meta.l[s] + 1;
         meta.dims_eff[s] = QC_Shell_Dim(meta.l[s], is_spherical);
         meta.off_cart[s] = ao_offsets_cart[sh];
-        meta.off_eff[s] =
-            is_spherical ? ao_offsets_sph[sh] : meta.off_cart[s];
+        meta.off_eff[s] = is_spherical ? ao_offsets_sph[sh] : meta.off_cart[s];
         const int ptr_R = atm[bas[sh * 8 + 0] * 6 + 1];
         meta.R[s][0] = env[ptr_R + 0];
         meta.R[s][1] = env[ptr_R + 1];
@@ -326,28 +320,43 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
         {
             const int ij = i * bra.dims_cart[1] + j;
             QC_Cart_Pair_Geom_CPU& g = bra_geom[ij];
-            g.c0x = bra.comp_x[0][i]; g.c0y = bra.comp_y[0][i]; g.c0z = bra.comp_z[0][i];
-            g.c1x = bra.comp_x[1][j]; g.c1y = bra.comp_y[1][j]; g.c1z = bra.comp_z[1][j];
-            g.sumx = g.c0x + g.c1x; g.sumy = g.c0y + g.c1y; g.sumz = g.c0z + g.c1z;
-            g.shell_offset = (unsigned short)(i * shell_stride_i + j * shell_stride_j);
+            g.c0x = bra.comp_x[0][i];
+            g.c0y = bra.comp_y[0][i];
+            g.c0z = bra.comp_z[0][i];
+            g.c1x = bra.comp_x[1][j];
+            g.c1y = bra.comp_y[1][j];
+            g.c1z = bra.comp_z[1][j];
+            g.sumx = g.c0x + g.c1x;
+            g.sumy = g.c0y + g.c1y;
+            g.sumz = g.c0z + g.c1z;
+            g.shell_offset =
+                (unsigned short)(i * shell_stride_i + j * shell_stride_j);
         }
     for (int k = 0; k < ket.dims_cart[0]; k++)
         for (int l_idx = 0; l_idx < ket.dims_cart[1]; l_idx++)
         {
             const int kl = k * ket.dims_cart[1] + l_idx;
             QC_Cart_Pair_Geom_CPU& g = ket_geom[kl];
-            g.c0x = ket.comp_x[0][k]; g.c0y = ket.comp_y[0][k]; g.c0z = ket.comp_z[0][k];
-            g.c1x = ket.comp_x[1][l_idx]; g.c1y = ket.comp_y[1][l_idx]; g.c1z = ket.comp_z[1][l_idx];
-            g.sumx = g.c0x + g.c1x; g.sumy = g.c0y + g.c1y; g.sumz = g.c0z + g.c1z;
+            g.c0x = ket.comp_x[0][k];
+            g.c0y = ket.comp_y[0][k];
+            g.c0z = ket.comp_z[0][k];
+            g.c1x = ket.comp_x[1][l_idx];
+            g.c1y = ket.comp_y[1][l_idx];
+            g.c1z = ket.comp_z[1][l_idx];
+            g.sumx = g.c0x + g.c1x;
+            g.sumy = g.c0y + g.c1y;
+            g.sumz = g.c0z + g.c1z;
             g.shell_offset = (unsigned short)(k * shell_stride_k + l_idx);
         }
 
     const bool low_l_fast_path =
         (bra.l[0] <= 1 && bra.l[1] <= 1 && ket.l[0] <= 1 && ket.l[1] <= 1);
 
-    QC_Angular_Term_CPU bra_terms_buf[QC_MAX_CART_PAIR_COUNT_CPU * QC_MAX_PAIR_TERM_COUNT_CPU];
+    QC_Angular_Term_CPU
+        bra_terms_buf[QC_MAX_CART_PAIR_COUNT_CPU * QC_MAX_PAIR_TERM_COUNT_CPU];
     int bra_term_counts[QC_MAX_CART_PAIR_COUNT_CPU];
-    QC_Angular_Term_CPU ket_terms_buf[QC_MAX_CART_PAIR_COUNT_CPU * QC_MAX_PAIR_TERM_COUNT_CPU];
+    QC_Angular_Term_CPU
+        ket_terms_buf[QC_MAX_CART_PAIR_COUNT_CPU * QC_MAX_PAIR_TERM_COUNT_CPU];
     int ket_term_counts[QC_MAX_CART_PAIR_COUNT_CPU];
 
     float E_ket[3][5][5][9];
@@ -389,9 +398,9 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
                 float PQ_val[3] = {prim.P[0] - Q[0], prim.P[1] - Q[1],
                                    prim.P[2] - Q[2]};
                 const int L_sum = l[0] + l[1] + l[2] + l[3];
-                float t_arg = alpha * (PQ_val[0] * PQ_val[0] +
-                                       PQ_val[1] * PQ_val[1] +
-                                       PQ_val[2] * PQ_val[2]);
+                float t_arg =
+                    alpha * (PQ_val[0] * PQ_val[0] + PQ_val[1] * PQ_val[1] +
+                             PQ_val[2] * PQ_val[2]);
                 compute_hr_tensor(HR, alpha, PQ_val, L_sum, hr_base, t_arg);
 
                 for (int d = 0; d < 3; d++)
@@ -412,9 +421,8 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
                         ll_bra_tc[ij] = QC_Build_Angular_Terms_CPU(
                             prim.E_bra[0][g.c0x][g.c1x],
                             prim.E_bra[1][g.c0y][g.c1y],
-                            prim.E_bra[2][g.c0z][g.c1z],
-                            g.sumx, g.sumy, g.sumz, 0,
-                            hr_stride_x, hr_stride_y, hr_stride_z,
+                            prim.E_bra[2][g.c0z][g.c1z], g.sumx, g.sumy, g.sumz,
+                            0, hr_stride_x, hr_stride_y, hr_stride_z,
                             ll_bra[ij]);
                     }
                     for (int kl = 0; kl < ket_pair_count; kl++)
@@ -422,10 +430,8 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
                         const QC_Cart_Pair_Geom_CPU& g = ket_geom[kl];
                         ll_ket_tc[kl] = QC_Build_Angular_Terms_CPU(
                             E_ket[0][g.c0x][g.c1x], E_ket[1][g.c0y][g.c1y],
-                            E_ket[2][g.c0z][g.c1z],
-                            g.sumx, g.sumy, g.sumz, 1,
-                            hr_stride_x, hr_stride_y, hr_stride_z,
-                            ll_ket[kl]);
+                            E_ket[2][g.c0z][g.c1z], g.sumx, g.sumy, g.sumz, 1,
+                            hr_stride_x, hr_stride_y, hr_stride_z, ll_ket[kl]);
                     }
                     for (int ij = 0; ij < bra_pair_count; ij++)
                     {
@@ -462,7 +468,8 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
                             E_ket[0][g.c0x][g.c1x], E_ket[1][g.c0y][g.c1y],
                             E_ket[2][g.c0z][g.c1z], g.sumx, g.sumy, g.sumz, 1,
                             hr_stride_x, hr_stride_y, hr_stride_z,
-                            ket_terms_buf + (size_t)kl * QC_MAX_PAIR_TERM_COUNT_CPU);
+                            ket_terms_buf +
+                                (size_t)kl * QC_MAX_PAIR_TERM_COUNT_CPU);
                     }
 
                     for (int ij = 0; ij < bra_pair_count; ij++)
@@ -470,22 +477,26 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
                         const int btc = bra_term_counts[ij];
                         if (btc == 0) continue;
                         const QC_Angular_Term_CPU* bt =
-                            bra_terms_buf + (size_t)ij * QC_MAX_PAIR_TERM_COUNT_CPU;
+                            bra_terms_buf +
+                            (size_t)ij * QC_MAX_PAIR_TERM_COUNT_CPU;
                         float* eri_ij = shell_eri + bra_geom[ij].shell_offset;
                         for (int kl = 0; kl < ket_pair_count; kl++)
                         {
                             const int ktc = ket_term_counts[kl];
                             if (ktc == 0) continue;
                             const QC_Angular_Term_CPU* kt =
-                                ket_terms_buf + (size_t)kl * QC_MAX_PAIR_TERM_COUNT_CPU;
+                                ket_terms_buf +
+                                (size_t)kl * QC_MAX_PAIR_TERM_COUNT_CPU;
                             // Put smaller count in outer loop
                             const QC_Angular_Term_CPU* outer = bt;
                             const QC_Angular_Term_CPU* inner = kt;
                             int otc = btc, itc = ktc;
                             if (otc > itc)
                             {
-                                outer = kt; inner = bt;
-                                otc = ktc; itc = btc;
+                                outer = kt;
+                                inner = bt;
+                                otc = ktc;
+                                itc = btc;
                             }
                             const QC_Angular_Term_CPU* inner_end = inner + itc;
                             const QC_Angular_Term_CPU* inner_u4 =
@@ -524,8 +535,7 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
     if (is_spherical)
     {
         QC_Cart2Sph_Shell_ERI_CPU(cart2sph_mat, nao_sph, off_cart, off_eff,
-                                  dims_cart, dims_sph, shell_eri,
-                                  shell_tmp);
+                                  dims_cart, dims_sph, shell_eri, shell_tmp);
     }
 
     for (int i = 0; i < dims_eff[0]; i++)
@@ -540,9 +550,8 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
                 for (int l_idx = 0; l_idx < dims_eff[3]; l_idx++)
                 {
                     const float nl = norms[off_eff[3] + l_idx];
-                    const int idx =
-                        QC_Shell_Buffer_Index(i, j, k, l_idx, dims_eff[1],
-                                              dims_eff[2], dims_eff[3]);
+                    const int idx = QC_Shell_Buffer_Index(
+                        i, j, k, l_idx, dims_eff[1], dims_eff[2], dims_eff[3]);
                     shell_eri[idx] *= ni * nj * nk * nl;
                 }
             }
@@ -565,7 +574,10 @@ static inline void QC_Accumulate_Fock_Unique_Quartet_Double(
         bool duplicate = false;
         for (int prev = 0; prev < n; prev++)
             if (QC_Same_Ordered_Fock_Term(j_terms[n], j_terms[prev]))
-            { duplicate = true; break; }
+            {
+                duplicate = true;
+                break;
+            }
         if (duplicate) continue;
         const int i = j_terms[n][0], j = j_terms[n][1];
         const int k = j_terms[n][2], l = j_terms[n][3];
@@ -581,18 +593,23 @@ static inline void QC_Accumulate_Fock_Unique_Quartet_Double(
         bool duplicate = false;
         for (int prev = 0; prev < n; prev++)
             if (QC_Same_Ordered_Fock_Term(k_terms[n], k_terms[prev]))
-            { duplicate = true; break; }
+            {
+                duplicate = true;
+                break;
+            }
         if (duplicate) continue;
         const int i = k_terms[n][0], j = k_terms[n][1];
         const int k = k_terms[n][2], l = k_terms[n][3];
         if (exx_scale_a != 0.0f)
         {
-            const double exx_a = -(double)exx_scale_a * (double)P_exx_a[k * nao + l] * (double)value;
+            const double exx_a = -(double)exx_scale_a *
+                                 (double)P_exx_a[k * nao + l] * (double)value;
             F_a[i * nao + j] += exx_a;
         }
         if (F_b != NULL && P_exx_b != NULL && exx_scale_b != 0.0f)
         {
-            const double exx_b = -(double)exx_scale_b * (double)P_exx_b[k * nao + l] * (double)value;
+            const double exx_b = -(double)exx_scale_b *
+                                 (double)P_exx_b[k * nao + l] * (double)value;
             F_b[i * nao + j] += exx_b;
         }
     }
@@ -607,8 +624,7 @@ static inline void QC_Build_Fock_Direct_CPU(
     const float shell_screen_tol, const float* P_coul, const float* P_exx_a,
     const float* P_exx_b, const float exx_scale_a, const float exx_scale_b,
     const int nao, const int nao_sph, const int is_spherical,
-    const float* cart2sph_mat, double* F_a, double* F_b,
-    float* global_hr_pool,
+    const float* cart2sph_mat, double* F_a, double* F_b, float* global_hr_pool,
     int hr_base, int hr_size, int shell_buf_size, float prim_screen_tol,
     const int fock_thread_count)
 {
@@ -659,9 +675,9 @@ static inline void QC_Build_Fock_Direct_CPU(
                 : exx_scale_b * fmaxf(shell_max_exx_b[(size_t)pair.x],
                                       shell_max_exx_b[(size_t)pair.y]);
         anchor_activity[(size_t)pair_id] =
-            shell_pair_bounds[pair_id] *
-            QC_Max4(pair_density_coul[pair_id], exx_anchor_a, exx_anchor_b,
-                    0.0f);
+            shell_pair_bounds[pair_id] * QC_Max4(pair_density_coul[pair_id],
+                                                 exx_anchor_a, exx_anchor_b,
+                                                 0.0f);
         sorted_pair_ids[(size_t)pair_id] = pair_id;
     }
     std::sort(sorted_pair_ids.begin(), sorted_pair_ids.end(),
@@ -670,11 +686,14 @@ static inline void QC_Build_Fock_Direct_CPU(
     std::vector<int> sorted_activity_ids = sorted_pair_ids;
     std::sort(sorted_activity_ids.begin(), sorted_activity_ids.end(),
               [&anchor_activity](const int lhs, const int rhs)
-              { return anchor_activity[(size_t)lhs] >
-                       anchor_activity[(size_t)rhs]; });
+              {
+                  return anchor_activity[(size_t)lhs] >
+                         anchor_activity[(size_t)rhs];
+              });
 
     const float max_bound = shell_pair_bounds[sorted_pair_ids.front()];
-    const float max_activity = anchor_activity[(size_t)sorted_activity_ids.front()];
+    const float max_activity =
+        anchor_activity[(size_t)sorted_activity_ids.front()];
     const int nao2 = nao * nao;
 
 #pragma omp parallel num_threads(fock_thread_count)
@@ -683,8 +702,8 @@ static inline void QC_Build_Fock_Direct_CPU(
         double* F_a_accum = F_a + (size_t)tid * (size_t)nao2;
         double* F_b_accum =
             (F_b != NULL) ? (F_b + (size_t)tid * (size_t)nao2) : NULL;
-        float* task_pool =
-            global_hr_pool + (size_t)tid * (size_t)(hr_size + 2 * shell_buf_size);
+        float* task_pool = global_hr_pool +
+                           (size_t)tid * (size_t)(hr_size + 2 * shell_buf_size);
         float* HR = task_pool;
         float* shell_eri = task_pool + hr_size;
         float* shell_tmp = shell_eri + shell_buf_size;
@@ -725,11 +744,13 @@ static inline void QC_Build_Fock_Direct_CPU(
             const float activity_threshold =
                 shell_screen_tol / shell_pair_bounds[pair_ij];
             const int activity_count = QC_Count_Active_Partners_By_Activity(
-                sorted_activity_ids, anchor_activity.data(), activity_threshold);
+                sorted_activity_ids, anchor_activity.data(),
+                activity_threshold);
             for (int rank = 0; rank < activity_count; rank++)
             {
                 const int pair_kl = sorted_activity_ids[(size_t)rank];
-                if (pair_kl > pair_ij || partner_marks[(size_t)pair_kl] == stamp)
+                if (pair_kl > pair_ij ||
+                    partner_marks[(size_t)pair_kl] == stamp)
                     continue;
                 partner_marks[(size_t)pair_kl] = stamp;
                 candidate_partners.push_back(pair_kl);
@@ -762,8 +783,7 @@ static inline void QC_Build_Fock_Direct_CPU(
 
                 const bool jk_same_bra = (ij.x == ij.y);
                 const bool jk_same_ket = (kl.x == kl.y);
-                const bool jk_same_braket =
-                    (ij.x == kl.x && ij.y == kl.y);
+                const bool jk_same_braket = (ij.x == kl.x && ij.y == kl.y);
                 if (!jk_same_bra && !jk_same_ket && !jk_same_braket)
                 {
                     for (int i = 0; i < dims_eff[0]; i++)
@@ -791,8 +811,7 @@ static inline void QC_Build_Fock_Direct_CPU(
                                     if (val == 0.0f) continue;
                                     const int sn = s * nao;
                                     const float j_pq =
-                                        (P_coul[rn + s] + P_coul[sn + r]) *
-                                        val;
+                                        (P_coul[rn + s] + P_coul[sn + r]) * val;
                                     F_a_accum[pn + q] += j_pq;
                                     F_a_accum[qn + p] += j_pq;
                                     const float j_rs = Ppq_sym * val;
@@ -807,16 +826,11 @@ static inline void QC_Build_Fock_Direct_CPU(
                                     }
                                     if (exx_scale_a != 0.0f)
                                     {
-                                        const float nsv =
-                                            -exx_scale_a * val;
-                                        const float k1 =
-                                            nsv * P_exx_a[qn + s];
-                                        const float k2 =
-                                            nsv * P_exx_a[qn + r];
-                                        const float k3 =
-                                            nsv * P_exx_a[pn + s];
-                                        const float k4 =
-                                            nsv * P_exx_a[pn + r];
+                                        const float nsv = -exx_scale_a * val;
+                                        const float k1 = nsv * P_exx_a[qn + s];
+                                        const float k2 = nsv * P_exx_a[qn + r];
+                                        const float k3 = nsv * P_exx_a[pn + s];
+                                        const float k4 = nsv * P_exx_a[pn + r];
                                         F_a_accum[pn + r] += k1;
                                         F_a_accum[rn + p] += k1;
                                         F_a_accum[pn + s] += k2;
@@ -826,20 +840,14 @@ static inline void QC_Build_Fock_Direct_CPU(
                                         F_a_accum[qn + s] += k4;
                                         F_a_accum[sn + q] += k4;
                                     }
-                                    if (F_b_accum != NULL &&
-                                        P_exx_b != NULL &&
+                                    if (F_b_accum != NULL && P_exx_b != NULL &&
                                         exx_scale_b != 0.0f)
                                     {
-                                        const float nsv =
-                                            -exx_scale_b * val;
-                                        const float k1 =
-                                            nsv * P_exx_b[qn + s];
-                                        const float k2 =
-                                            nsv * P_exx_b[qn + r];
-                                        const float k3 =
-                                            nsv * P_exx_b[pn + s];
-                                        const float k4 =
-                                            nsv * P_exx_b[pn + r];
+                                        const float nsv = -exx_scale_b * val;
+                                        const float k1 = nsv * P_exx_b[qn + s];
+                                        const float k2 = nsv * P_exx_b[qn + r];
+                                        const float k3 = nsv * P_exx_b[pn + s];
+                                        const float k4 = nsv * P_exx_b[pn + r];
                                         F_b_accum[pn + r] += k1;
                                         F_b_accum[rn + p] += k1;
                                         F_b_accum[pn + s] += k2;
@@ -885,9 +893,9 @@ static inline void QC_Build_Fock_Direct_CPU(
                                             dims_eff[2], dims_eff[3])];
                                     if (val == 0.0f) continue;
                                     QC_Accumulate_Fock_Unique_Quartet_Double(
-                                        p, q, r, s, val, nao, P_coul,
-                                        P_exx_a, P_exx_b, exx_scale_a,
-                                        exx_scale_b, F_a_accum, F_b_accum);
+                                        p, q, r, s, val, nao, P_coul, P_exx_a,
+                                        P_exx_b, exx_scale_a, exx_scale_b,
+                                        F_a_accum, F_b_accum);
                                 }
                             }
                         }

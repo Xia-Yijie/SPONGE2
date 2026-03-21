@@ -1,9 +1,6 @@
-#include "quantum_chemistry.h"
-
-#include "integrals/eri.hpp"
+﻿#include "integrals/eri.hpp"
 #include "integrals/one_e.hpp"
-#include "structure/matrix.h"
-
+#include "quantum_chemistry.h"
 #include "scf/accumulate_energy.hpp"
 #include "scf/apply_diis.hpp"
 #include "scf/build_fock.hpp"
@@ -11,6 +8,7 @@
 #include "scf/mix_converge.hpp"
 #include "scf/pre_scf.hpp"
 #include "scf/workspace.hpp"
+#include "structure/matrix.h"
 
 void QUANTUM_CHEMISTRY::Solve_SCF(const VECTOR* crd, const VECTOR box_length,
                                   bool need_energy, int md_step)

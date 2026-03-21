@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 void QUANTUM_CHEMISTRY::Diagonalize_And_Build_Density()
 {
@@ -36,7 +36,8 @@ void QUANTUM_CHEMISTRY::Diagonalize_And_Build_Density()
     double* dTmp = scf_ws.d_dwork_nao2_2;  // nao*ne <= nao2
     QC_Dgemm_NN(blas_handle, nao, ne, nao, dF, nao, scf_ws.d_X, nao, dTmp, ne);
 
-    // Fp = X^T * Tmp: (ne x nao, X stride=nao) @ (nao x ne, Tmp stride=ne) -> ne x ne
+    // Fp = X^T * Tmp: (ne x nao, X stride=nao) @ (nao x ne, Tmp stride=ne) ->
+    // ne x ne
     double* dFp = scf_ws.d_dwork_nao2_3;  // ne*ne <= nao2
     QC_Dgemm_TN(blas_handle, ne, ne, nao, scf_ws.d_X, nao, dTmp, ne, dFp, ne);
 
@@ -59,8 +60,8 @@ void QUANTUM_CHEMISTRY::Diagonalize_And_Build_Density()
     QC_Rect_Double_To_Padded_Float(nao, ne, dC, scf_ws.d_C);
 
     // P_new = occ * C_occ * C_occ^T
-    QC_Build_Density_Blas(blas_handle, nao, scf_ws.n_alpha,
-                          scf_ws.occ_factor, scf_ws.d_C, scf_ws.d_P_new);
+    QC_Build_Density_Blas(blas_handle, nao, scf_ws.n_alpha, scf_ws.occ_factor,
+                          scf_ws.d_C, scf_ws.d_P_new);
 
     if (!scf_ws.unrestricted) return;
 
@@ -79,6 +80,6 @@ void QUANTUM_CHEMISTRY::Diagonalize_And_Build_Density()
     QC_Double_To_Float(ne, dW, scf_ws.d_W);
     QC_Dgemm_NT(blas_handle, nao, ne, ne, scf_ws.d_X, nao, dFp, ne, dC, ne);
     QC_Rect_Double_To_Padded_Float(nao, ne, dC, scf_ws.d_C_b);
-    QC_Build_Density_Blas(blas_handle, nao, scf_ws.n_beta, 1.0f,
-                          scf_ws.d_C_b, scf_ws.d_P_b_new);
+    QC_Build_Density_Blas(blas_handle, nao, scf_ws.n_beta, 1.0f, scf_ws.d_C_b,
+                          scf_ws.d_P_b_new);
 }

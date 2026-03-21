@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "prototype.h"
 
 extern QC_BASIS_SET* QC_BASIS_CC_PVDZ_PTR;
