@@ -258,52 +258,179 @@ static void QC_DIIS_Reset(int& hist_count, int& hist_head)
     hist_head = 0;
 }
 
+// ADIIS: minimize energy estimate over convex combination of stored Fock matrices
+// Ref: JCP 132, 054109 (2010)
+static bool QC_ADIIS_Extrapolate(int nao, int diis_space, int adiis_count,
+                                  int adiis_head, double** d_f_hist,
+                                  double** d_d_hist, double* d_f_out)
+{
+    if (adiis_count < 2) return false;
+    const int m = std::min(adiis_count, diis_space);
+    if (m < 2) return false;
+    const int nao2 = nao * nao;
+    auto hist_idx = [&](int i) { return (adiis_head + i) % diis_space; };
+    const int newest = hist_idx(m - 1);
+
+    // df[i,j] = Tr(D_i * F_j)
+    std::vector<double> df(m * m);
+    for (int i = 0; i < m; i++)
+        for (int j = 0; j < m; j++)
+            df[i * m + j] = QC_Double_Dot(nao2, d_d_hist[hist_idx(i)],
+                                           d_f_hist[hist_idx(j)]);
+
+    // Build ADIIS quadratic form
+    std::vector<double> dd_fn(m), dn_f(m);
+    double dn_fn = df[( m-1) * m + (m-1)];
+    for (int i = 0; i < m; i++)
+    {
+        dd_fn[i] = df[i * m + (m-1)] - dn_fn;
+        dn_f[i] = df[(m-1) * m + i];
+    }
+    // df_adj[i,j] = df[i,j] - df[i,newest] - df[newest,j] + df[newest,newest]
+    std::vector<double> df_adj(m * m);
+    for (int i = 0; i < m; i++)
+        for (int j = 0; j < m; j++)
+            df_adj[i * m + j] = df[i * m + j] - df[i * m + (m-1)]
+                                 - df[(m-1) * m + j] + dn_fn;
+
+    // Minimize cost(c) = 2*sum(c_i*dd_fn_i) + sum(c_i*df_adj_ij*c_j)
+    // with c_i >= 0, sum(c_i) = 1
+    // Parametrize: c_i = x_i^2 / sum(x_j^2)
+    // Use simple gradient descent
+    std::vector<double> x(m, 1.0);
+
+    for (int step = 0; step < 300; step++)
+    {
+        double x2sum = 0;
+        for (int i = 0; i < m; i++) x2sum += x[i] * x[i];
+        std::vector<double> c(m);
+        for (int i = 0; i < m; i++) c[i] = x[i] * x[i] / x2sum;
+
+        // Gradient of cost w.r.t. c
+        std::vector<double> gc(m);
+        for (int k = 0; k < m; k++)
+        {
+            gc[k] = 2.0 * dd_fn[k];
+            for (int j = 0; j < m; j++)
+                gc[k] += (df_adj[k * m + j] + df_adj[j * m + k]) * c[j];
+        }
+
+        // Chain rule: dc/dx
+        // dc_k/dx_n = (2*x_n*delta_kn*x2sum - x_k^2*2*x_n) / x2sum^2
+        std::vector<double> gx(m, 0.0);
+        for (int n = 0; n < m; n++)
+        {
+            for (int k = 0; k < m; k++)
+            {
+                double dc = 2.0 * x[n] * ((k == n ? x2sum : 0.0) - x[k] * x[k])
+                            / (x2sum * x2sum);
+                gx[n] += gc[k] * dc;
+            }
+        }
+
+        // Line search: step size
+        double gnorm = 0;
+        for (int i = 0; i < m; i++) gnorm += gx[i] * gx[i];
+        if (gnorm < 1e-20) break;
+        double lr = 0.1;
+        for (int i = 0; i < m; i++) x[i] -= lr * gx[i];
+    }
+
+    // Final coefficients
+    double x2sum = 0;
+    for (int i = 0; i < m; i++) x2sum += x[i] * x[i];
+    std::vector<double> c(m);
+    for (int i = 0; i < m; i++) c[i] = x[i] * x[i] / x2sum;
+
+    printf("ADIIS coeffs: [");
+    for (int i = 0; i < m; i++) printf("%.4f%s", c[i], i<m-1?", ":"");
+    printf("]\n");
+    fflush(stdout);
+
+    // Extrapolate: F = sum(c_i * F_i)
+    memset(d_f_out, 0, sizeof(double) * nao2);
+    for (int i = 0; i < m; i++)
+    {
+        double ci = c[i];
+        const double* fh = d_f_hist[hist_idx(i)];
+        for (int idx = 0; idx < nao2; idx++)
+            d_f_out[idx] += ci * fh[idx];
+    }
+    return true;
+}
+
 void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
 {
     if (!scf_ws.use_diis || (iter + 1) < scf_ws.diis_start_iter) return;
 
 #ifndef USE_GPU
-    // CPU path: full double DIIS
-    // Use d_F_double for DIIS (double Fock from Build_Fock reduce)
     double* dF = scf_ws.d_F_double;
-    if (!dF) return;  // fallback: no double Fock available
+    if (!dF) return;
+    const int nao2 = (int)mol.nao2;
 
+    // Compute DIIS error and its norm
     QC_Build_DIIS_Error_Double(mol.nao, dF, scf_ws.d_P, scf_ws.d_S,
                                scf_ws.d_diis_err);
-    {
-        double enorm = 0;
-        for (int i = 0; i < (int)mol.nao2; i++)
-            enorm += scf_ws.d_diis_err[i] * scf_ws.d_diis_err[i];
-        printf("DIIS error norm=%.6e, F_max=%.6e\n",
-               sqrt(enorm), [&]{double mx=0; for(int i=0;i<(int)mol.nao2;i++) mx=fmax(mx,fabs(dF[i])); return mx;}());
-        fflush(stdout);
-    }
+    double enorm = 0;
+    for (int i = 0; i < nao2; i++)
+        enorm += scf_ws.d_diis_err[i] * scf_ws.d_diis_err[i];
+    enorm = sqrt(enorm);
+
+    // Push F and error to CDIIS history
     QC_DIIS_History_Push_Double(
-        (int)mol.nao2, scf_ws.diis_space, scf_ws.diis_hist_count,
+        nao2, scf_ws.diis_space, scf_ws.diis_hist_count,
         scf_ws.diis_hist_head, scf_ws.d_diis_f_hist.data(),
         scf_ws.d_diis_e_hist.data(), dF, scf_ws.d_diis_err);
+
+    // Push D (density) to ADIIS history (same ring buffer indexing as F)
+    {
+        int& ac = scf_ws.adiis_count;
+        int& ah = scf_ws.adiis_head;
+        int ws = scf_ws.diis_space;
+        int write_idx = (ac < ws) ? ((ah + ac) % ws) : ah;
+        if (ac < ws) ac++;
+        else ah = (ah + 1) % ws;
+        // Store density as double
+        for (int i = 0; i < nao2; i++)
+            scf_ws.d_adiis_d_hist[write_idx][i] = (double)scf_ws.d_P[i];
+    }
+
+    bool extrapolated = false;
     if (scf_ws.diis_hist_count >= 2)
     {
-        if (QC_DIIS_Extrapolate_Double(
+        // Switch: ADIIS when error is large, CDIIS when small
+        if (enorm > scf_ws.adiis_to_cdiis_threshold)
+        {
+            // ADIIS
+            extrapolated = QC_ADIIS_Extrapolate(
+                mol.nao, scf_ws.diis_space, scf_ws.adiis_count,
+                scf_ws.adiis_head, scf_ws.d_diis_f_hist.data(),
+                scf_ws.d_adiis_d_hist.data(), dF);
+        }
+        else
+        {
+            // CDIIS
+            extrapolated = QC_DIIS_Extrapolate_Double(
                 mol.nao, scf_ws.diis_space, scf_ws.diis_hist_count,
                 scf_ws.diis_hist_head, scf_ws.d_diis_f_hist.data(),
                 scf_ws.d_diis_e_hist.data(), scf_ws.diis_reg, dF,
-                scf_ws.d_diis_B, scf_ws.d_diis_rhs, scf_ws.d_diis_info))
+                scf_ws.d_diis_B, scf_ws.d_diis_rhs, scf_ws.d_diis_info);
+        }
+        if (extrapolated)
         {
-            // Cast back to float d_F for energy computation
-            for (int i = 0; i < (int)mol.nao2; i++)
+            for (int i = 0; i < nao2; i++)
                 scf_ws.d_F[i] = (float)dF[i];
         }
     }
 
     if (!scf_ws.unrestricted) return;
-
+    // Beta spin: simplified (CDIIS only for now)
     double* dFb = scf_ws.d_F_b_double;
     if (!dFb) return;
     QC_Build_DIIS_Error_Double(mol.nao, dFb, scf_ws.d_P_b, scf_ws.d_S,
                                scf_ws.d_diis_err);
     QC_DIIS_History_Push_Double(
-        (int)mol.nao2, scf_ws.diis_space, scf_ws.diis_hist_count_b,
+        nao2, scf_ws.diis_space, scf_ws.diis_hist_count_b,
         scf_ws.diis_hist_head_b, scf_ws.d_diis_f_hist_b.data(),
         scf_ws.d_diis_e_hist_b.data(), dFb, scf_ws.d_diis_err);
     if (scf_ws.diis_hist_count_b >= 2)
@@ -314,12 +441,9 @@ void QUANTUM_CHEMISTRY::Apply_DIIS(int iter)
                 scf_ws.d_diis_e_hist_b.data(), scf_ws.diis_reg, dFb,
                 scf_ws.d_diis_B, scf_ws.d_diis_rhs, scf_ws.d_diis_info))
         {
-            for (int i = 0; i < (int)mol.nao2; i++)
+            for (int i = 0; i < nao2; i++)
                 scf_ws.d_F_b[i] = (float)dFb[i];
         }
     }
-#else
-    // GPU path: keep float DIIS (unchanged for now)
-    // ... would need separate implementation
 #endif
 }
