@@ -232,14 +232,6 @@ static bool QC_DIIS_Extrapolate_Double(int nao, int diis_space, int hist_count,
         memcpy(d_rhs, c.data(), sizeof(double) * n);
     }
 
-    // Print DIIS coefficients and B matrix diagonal
-    printf("DIIS extrap: m=%d, coeffs=[", m);
-    for (int i = 0; i < m; i++) printf("%.6f%s", d_rhs[i], i<m-1?", ":"");
-    printf("], B_diag=[");
-    for (int i = 0; i < m; i++) printf("%.6e%s", d_B[i*(m+1)+i], i<m-1?", ":"");
-    printf("]\n");
-    fflush(stdout);
-
     // Extrapolate: F_out = sum_i c[i] * F_hist[i]
     memset(d_f_out, 0, sizeof(double) * nao2);
     for (int i = 0; i < m; i++)
@@ -341,11 +333,6 @@ static bool QC_ADIIS_Extrapolate(int nao, int diis_space, int adiis_count,
     for (int i = 0; i < m; i++) x2sum += x[i] * x[i];
     std::vector<double> c(m);
     for (int i = 0; i < m; i++) c[i] = x[i] * x[i] / x2sum;
-
-    printf("ADIIS coeffs: [");
-    for (int i = 0; i < m; i++) printf("%.4f%s", c[i], i<m-1?", ":"");
-    printf("]\n");
-    fflush(stdout);
 
     // Extrapolate: F = sum(c_i * F_i)
     memset(d_f_out, 0, sizeof(double) * nao2);
