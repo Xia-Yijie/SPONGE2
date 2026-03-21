@@ -1,9 +1,11 @@
-﻿#pragma once
-#include "basis_common.hpp"
+﻿#include "../basis_common.hpp"
+#include <map>
+#include <string>
+#include <vector>
 
-inline std::map<std::string, std::vector<ShellData>> BASIS_STO_3G;
+std::map<std::string, std::vector<ShellData>> BASIS_STO_3G;
 
-inline void Initialize_Basis_Sto3g()
+void Initialize_Basis_Sto3g()
 {
     if (!BASIS_STO_3G.empty()) return;
 

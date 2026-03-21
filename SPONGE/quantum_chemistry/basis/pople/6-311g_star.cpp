@@ -1,9 +1,11 @@
-﻿#pragma once
-#include "basis_common.hpp"
+﻿#include "../basis_common.hpp"
+#include <map>
+#include <string>
+#include <vector>
 
-inline std::map<std::string, std::vector<ShellData>> BASIS_6_311GSTAR;
+std::map<std::string, std::vector<ShellData>> BASIS_6_311GSTAR;
 
-inline void Initialize_Basis_6311gstar()
+void Initialize_Basis_6311gstar()
 {
     if (!BASIS_6_311GSTAR.empty()) return;
 

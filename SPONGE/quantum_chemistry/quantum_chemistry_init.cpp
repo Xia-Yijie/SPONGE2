@@ -1,19 +1,6 @@
 #include "quantum_chemistry.h"
 
-#include "basis/basis_3_21g.hpp"
-#include "basis/basis_631g.hpp"
-#include "basis/basis_6_311g.hpp"
-#include "basis/basis_6_311gstar.hpp"
-#include "basis/basis_6_311gstarstar.hpp"
-#include "basis/basis_6_31gstar.hpp"
-#include "basis/basis_6_31gstarstar.hpp"
-#include "basis/basis_cc_pvdz.hpp"
-#include "basis/basis_cc_pvtz.hpp"
-#include "basis/basis_def2_qzvp.hpp"
-#include "basis/basis_def2_svp.hpp"
-#include "basis/basis_def2_tzvp.hpp"
-#include "basis/basis_def2_tzvpp.hpp"
-#include "basis/basis_sto_3g.hpp"
+#include "basis/basis.h"
 
 static inline bool Equals_Ignore_Case(const std::string& lhs, const char* rhs)
 {

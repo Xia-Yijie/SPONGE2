@@ -1,9 +1,11 @@
-#pragma once
-#include "basis_common.hpp"
+#include "../basis_common.hpp"
+#include <map>
+#include <string>
+#include <vector>
 
-inline std::map<std::string, std::vector<ShellData>> BASIS_DEF2_QZVP;
+std::map<std::string, std::vector<ShellData>> BASIS_DEF2_QZVP;
 
-inline void Initialize_Basis_Def2Qzvp()
+void Initialize_Basis_Def2Qzvp()
 {
     if (!BASIS_DEF2_QZVP.empty()) return;
 

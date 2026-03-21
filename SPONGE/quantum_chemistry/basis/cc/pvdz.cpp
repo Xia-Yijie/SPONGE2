@@ -1,9 +1,11 @@
-﻿#pragma once
-#include "basis_common.hpp"
+﻿#include "../basis_common.hpp"
+#include <map>
+#include <string>
+#include <vector>
 
-inline std::map<std::string, std::vector<ShellData>> BASIS_CC_PVDZ;
+std::map<std::string, std::vector<ShellData>> BASIS_CC_PVDZ;
 
-inline void Initialize_Basis_CcPvdz()
+void Initialize_Basis_CcPvdz()
 {
     if (!BASIS_CC_PVDZ.empty()) return;
 

@@ -1,9 +1,11 @@
-#pragma once
-#include "basis_common.hpp"
+#include "../basis_common.hpp"
+#include <map>
+#include <string>
+#include <vector>
 
-inline std::map<std::string, std::vector<ShellData>> BASIS_DEF2_SVP;
+std::map<std::string, std::vector<ShellData>> BASIS_DEF2_SVP;
 
-inline void Initialize_Basis_Def2_SVP()
+void Initialize_Basis_Def2_SVP()
 {
     if (!BASIS_DEF2_SVP.empty()) return;
 
