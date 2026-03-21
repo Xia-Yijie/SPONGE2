@@ -14,7 +14,7 @@ static __global__ void QC_Mix_Density_Kernel(const int nao2, const int iter,
     }
 }
 
-bool QUANTUM_CHEMISTRY::Mix_And_Check_Convergence(int iter)
+bool QUANTUM_CHEMISTRY::Mix_And_Check_Convergence(int iter, int md_step)
 {
     const int mix_threads = 256;
 
@@ -36,7 +36,7 @@ bool QUANTUM_CHEMISTRY::Mix_And_Check_Convergence(int iter)
                              scf_ws.d_P_b, scf_ws.d_Ptot);
     }
 
-    if (scf_ws.print_iter && CONTROLLER::MPI_rank == 0)
+    if (scf_ws.print_iter && scf_output_file != NULL && CONTROLLER::MPI_rank == 0)
     {
         double h_energy = 0.0;
         double h_delta_e = 0.0;
@@ -44,9 +44,10 @@ bool QUANTUM_CHEMISTRY::Mix_And_Check_Convergence(int iter)
                      deviceMemcpyDeviceToHost);
         deviceMemcpy(&h_delta_e, scf_ws.d_delta_e, sizeof(double),
                      deviceMemcpyDeviceToHost);
-        printf("SCF Iter %3d | E(Ha)=%.12f | dE(Ha)=%+.6e\n", iter + 1,
-               h_energy, h_delta_e);
-        fflush(stdout);
+        fprintf(scf_output_file,
+                "Step %6d | SCF Iter %3d | E(Ha)=%.12f | dE(Ha)=%+.6e\n",
+                md_step, iter + 1, h_energy, h_delta_e);
+        fflush(scf_output_file);
     }
 
     int h_converged = 0;

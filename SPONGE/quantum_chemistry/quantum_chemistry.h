@@ -19,6 +19,7 @@ struct QUANTUM_CHEMISTRY
     int atom_numbers = 0;
 
     float scf_energy = 0.0f;
+    FILE* scf_output_file = NULL;
 
     // 本地原子映射
     std::vector<int> atom_local;
@@ -48,7 +49,7 @@ struct QUANTUM_CHEMISTRY
     void Initial(CONTROLLER* controller, const int atom_numbers,
                  const VECTOR* crd, const char* module_name = NULL);
     void Solve_SCF(const VECTOR* crd, const VECTOR box_length,
-                   bool need_energy = true);
+                   bool need_energy = true, int md_step = -1);
 
     // 外部查询与输出
     void Step_Print(CONTROLLER* controller);
@@ -83,7 +84,7 @@ struct QUANTUM_CHEMISTRY
     void Accumulate_SCF_Energy(int iter);
     void Apply_DIIS(int iter);
     void Diagonalize_And_Build_Density();
-    bool Mix_And_Check_Convergence(int iter);
+    bool Mix_And_Check_Convergence(int iter, int md_step);
     void Build_Overlap_X();
     void Reset_SCF_State();
 };

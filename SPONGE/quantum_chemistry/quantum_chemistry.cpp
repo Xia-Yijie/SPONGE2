@@ -327,6 +327,12 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         scf_ws.level_shift = atof(controller->Command("qc_level_shift"));
     }
 
+    if (controller->Command_Exist("qc_scf_output"))
+    {
+        const char* fname = controller->Command("qc_scf_output");
+        Open_File_Safely(&scf_output_file, fname, "w");
+    }
+
     dft.dft_radial_points = 60;
     if (controller->Command_Exist("qc_dft_radial_points"))
     {
