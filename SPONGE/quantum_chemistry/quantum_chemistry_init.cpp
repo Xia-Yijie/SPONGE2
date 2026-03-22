@@ -1,38 +1,5 @@
-﻿#include "quantum_chemistry.h"
-
-#include "basis/basis_3_21g.hpp"
-#include "basis/basis_631g.hpp"
-#include "basis/basis_6_311g.hpp"
-#include "basis/basis_6_311gstar.hpp"
-#include "basis/basis_6_311gstarstar.hpp"
-#include "basis/basis_6_31gstar.hpp"
-#include "basis/basis_6_31gstarstar.hpp"
-#include "basis/basis_cc_pvdz.hpp"
-#include "basis/basis_cc_pvtz.hpp"
-#include "basis/basis_def2_qzvp.hpp"
-#include "basis/basis_def2_svp.hpp"
-#include "basis/basis_def2_tzvp.hpp"
-#include "basis/basis_def2_tzvpp.hpp"
-#include "basis/basis_sto_3g.hpp"
-
-// 计算单电子积分的批大小
-#define ONE_E_BATCH_SIZE 4096
-
-#define PI_25 17.4934183276248628469f
-#define HR_BASE_MAX 17
-#define HR_SIZE_MAX 83521
-#define ONEE_MD_BASE 9
-#define ONEE_MD_IDX(t, u, v, n) \
-    ((((t) * ONEE_MD_BASE + (u)) * ONEE_MD_BASE + (v)) * ONEE_MD_BASE + (n))
-#define ERI_BATCH_SIZE 8192
-#define MAX_CART_SHELL 15
-#define MAX_SHELL_ERI \
-    (MAX_CART_SHELL * MAX_CART_SHELL * MAX_CART_SHELL * MAX_CART_SHELL)
-
-#include "dft/dft.hpp"
-#include "integrals/eri.hpp"
-#include "integrals/one_e.hpp"
-#include "scf/matrix.hpp"
+﻿#include "basis/basis.h"
+#include "quantum_chemistry.h"
 
 static inline bool Equals_Ignore_Case(const std::string& lhs, const char* rhs)
 {
@@ -142,6 +109,38 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
+    task_ctx.direct_eri_prim_screen_tol = 1e-10f;
+    if (controller->Command_Exist("qc_direct_eri_prim_screen_tol"))
+    {
+        controller->Check_Float("qc_direct_eri_prim_screen_tol",
+                                "QUANTUM_CHEMISTRY::Initial");
+        task_ctx.direct_eri_prim_screen_tol =
+            atof(controller->Command("qc_direct_eri_prim_screen_tol"));
+        if (task_ctx.direct_eri_prim_screen_tol < 0.0f)
+        {
+            Throw_QC_Initial_Error(controller, spongeErrorValueErrorCommand,
+                                   "Reason:\n    qc_direct_eri_prim_screen_tol "
+                                   "must be >= 0, got %g\n",
+                                   (double)task_ctx.direct_eri_prim_screen_tol);
+        }
+    }
+
+    task_ctx.eri_shell_screen_tol = 1e-10f;
+    if (controller->Command_Exist("qc_eri_shell_screen_tol"))
+    {
+        controller->Check_Float("qc_eri_shell_screen_tol",
+                                "QUANTUM_CHEMISTRY::Initial");
+        task_ctx.eri_shell_screen_tol =
+            atof(controller->Command("qc_eri_shell_screen_tol"));
+        if (task_ctx.eri_shell_screen_tol < 0.0f)
+        {
+            Throw_QC_Initial_Error(
+                controller, spongeErrorValueErrorCommand,
+                "Reason:\n    qc_eri_shell_screen_tol must be >= 0, got %g\n",
+                (double)task_ctx.eri_shell_screen_tol);
+        }
+    }
+
     scf_ws.unrestricted = false;
     if (controller->Command_Exist("qc_restricted"))
     {
@@ -186,7 +185,7 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         scf_ws.use_diis = (qc_diis != 0);
     }
 
-    scf_ws.diis_start_iter = 8;
+    scf_ws.diis_start_iter = 2;
     if (controller->Command_Exist("qc_diis_start"))
     {
         controller->Check_Int("qc_diis_start", "QUANTUM_CHEMISTRY::Initial");
@@ -257,6 +256,50 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
+    scf_ws.overlap_eig_floor = 1e-10f;
+    if (controller->Command_Exist("qc_overlap_eig_floor"))
+    {
+        controller->Check_Float("qc_overlap_eig_floor",
+                                "QUANTUM_CHEMISTRY::Initial");
+        scf_ws.overlap_eig_floor =
+            atof(controller->Command("qc_overlap_eig_floor"));
+        if (scf_ws.overlap_eig_floor <= 0.0f)
+        {
+            Throw_QC_Initial_Error(
+                controller, spongeErrorValueErrorCommand,
+                "Reason:\n    qc_overlap_eig_floor must be > 0, got \"%s\"\n",
+                controller->Command("qc_overlap_eig_floor"));
+        }
+    }
+
+    scf_ws.print_iter = false;
+    if (controller->Command_Exist("qc_scf_print_iter"))
+    {
+        controller->Check_Int("qc_scf_print_iter",
+                              "QUANTUM_CHEMISTRY::Initial");
+        const int qc_scf_print_iter =
+            atoi(controller->Command("qc_scf_print_iter"));
+        if (qc_scf_print_iter != 0 && qc_scf_print_iter != 1)
+        {
+            Throw_QC_Initial_Error(
+                controller, spongeErrorValueErrorCommand,
+                "Reason:\n    qc_scf_print_iter must be 0 or 1, got \"%s\"\n",
+                controller->Command("qc_scf_print_iter"));
+        }
+        scf_ws.print_iter = (qc_scf_print_iter != 0);
+    }
+
+    if (controller->Command_Exist("qc_level_shift"))
+    {
+        scf_ws.level_shift = atof(controller->Command("qc_level_shift"));
+    }
+
+    if (controller->Command_Exist("qc_scf_output"))
+    {
+        const char* fname = controller->Command("qc_scf_output");
+        Open_File_Safely(&scf_output_file, fname, "w");
+    }
+
     dft.dft_radial_points = 60;
     if (controller->Command_Exist("qc_dft_radial_points"))
     {
@@ -285,53 +328,34 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
                                          const char* qc_type_file,
                                          const std::string& basis_set_name)
 {
-    using BasisMap = std::map<std::string, std::vector<ShellData>>;
-    struct BasisSpec
-    {
-        BasisMap* basis;
-        void (*init_fn)();
-        bool spherical;
+    static QC_BASIS_SET* all_bases[] = {
+        QC_BASIS_STO_3G_PTR,        QC_BASIS_3_21G_PTR,
+        QC_BASIS_631G_PTR,          QC_BASIS_631G_STAR_PTR,
+        QC_BASIS_631G_STARSTAR_PTR, QC_BASIS_6311G_PTR,
+        QC_BASIS_6311G_STAR_PTR,    QC_BASIS_6311G_STARSTAR_PTR,
+        QC_BASIS_DEF2_SVP_PTR,      QC_BASIS_DEF2_TZVP_PTR,
+        QC_BASIS_DEF2_TZVPP_PTR,    QC_BASIS_DEF2_QZVP_PTR,
+        QC_BASIS_CC_PVDZ_PTR,       QC_BASIS_CC_PVTZ_PTR,
     };
 
-    BasisSpec spec = {nullptr, nullptr, false};
-
-    if (Equals_Ignore_Case(basis_set_name, "6-31g"))
-        spec = {&BASIS_631G, Initialize_Basis_631G, false};
-    else if (Equals_Ignore_Case(basis_set_name, "def2-svp"))
-        spec = {&BASIS_DEF2_SVP, Initialize_Basis_Def2_SVP, true};
-    else if (Equals_Ignore_Case(basis_set_name, "sto-3g"))
-        spec = {&BASIS_STO_3G, Initialize_Basis_Sto3g, false};
-    else if (Equals_Ignore_Case(basis_set_name, "3-21g"))
-        spec = {&BASIS_3_21G, Initialize_Basis_321g, false};
-    else if (Equals_Ignore_Case(basis_set_name, "6-311g"))
-        spec = {&BASIS_6_311G, Initialize_Basis_6311g, false};
-    else if (Equals_Ignore_Case(basis_set_name, "6-31g*"))
-        spec = {&BASIS_6_31GSTAR, Initialize_Basis_631gstar, true};
-    else if (Equals_Ignore_Case(basis_set_name, "6-31g**"))
-        spec = {&BASIS_6_31GSTARSTAR, Initialize_Basis_631gstarstar, true};
-    else if (Equals_Ignore_Case(basis_set_name, "6-311g*"))
-        spec = {&BASIS_6_311GSTAR, Initialize_Basis_6311gstar, true};
-    else if (Equals_Ignore_Case(basis_set_name, "6-311g**"))
-        spec = {&BASIS_6_311GSTARSTAR, Initialize_Basis_6311gstarstar, true};
-    else if (Equals_Ignore_Case(basis_set_name, "def2-tzvp"))
-        spec = {&BASIS_DEF2_TZVP, Initialize_Basis_Def2Tzvp, true};
-    else if (Equals_Ignore_Case(basis_set_name, "def2-tzvpp"))
-        spec = {&BASIS_DEF2_TZVPP, Initialize_Basis_Def2Tzvpp, true};
-    else if (Equals_Ignore_Case(basis_set_name, "def2-qzvp"))
-        spec = {&BASIS_DEF2_QZVP, Initialize_Basis_Def2Qzvp, true};
-    else if (Equals_Ignore_Case(basis_set_name, "cc-pvdz"))
-        spec = {&BASIS_CC_PVDZ, Initialize_Basis_CcPvdz, true};
-    else if (Equals_Ignore_Case(basis_set_name, "cc-pvtz"))
-        spec = {&BASIS_CC_PVTZ, Initialize_Basis_CcPvtz, true};
-    else
+    QC_BASIS_SET* basis = nullptr;
+    for (auto* b : all_bases)
+    {
+        if (Equals_Ignore_Case(basis_set_name, b->name))
+        {
+            basis = b;
+            break;
+        }
+    }
+    if (!basis)
     {
         Throw_QC_Initial_Error(
             controller, spongeErrorValueErrorCommand,
             "Reason:\n    Basis set \"%s\" is not supported.\n",
             basis_set_name.c_str());
     }
-    spec.init_fn();
-    mol.is_spherical = spec.spherical ? 1 : 0;
+    basis->Initialize();
+    mol.is_spherical = basis->spherical ? 1 : 0;
 
     std::vector<std::string> atom_symbols;
     FILE* fp = NULL;
@@ -445,9 +469,9 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
         mol.h_atm.push_back(0);
         mol.h_atm.push_back(0);
 
-        const std::vector<ShellData>* shells_ptr = NULL;
-        auto it_basis = spec.basis->find(sym);
-        if (it_basis != spec.basis->end()) shells_ptr = &(it_basis->second);
+        const std::vector<QC_SHELL_DATA>* shells_ptr = NULL;
+        auto it_basis = basis->data.find(sym);
+        if (it_basis != basis->data.end()) shells_ptr = &(it_basis->second);
 
         if (shells_ptr == NULL)
         {
@@ -483,7 +507,6 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
             mol.h_l_list.push_back(shell.l);
             mol.h_shell_sizes.push_back(shell.exps.size());
             mol.h_shell_offsets.push_back(mol.h_exps.size());
-            mol.h_ao_offsets.push_back(0);
 
             mol.h_exps.insert(mol.h_exps.end(), shell.exps.begin(),
                               shell.exps.end());
@@ -502,11 +525,18 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
     mol.nao2 = (int)((int)mol.nao * (int)mol.nao);
     mol.h_ao_loc.push_back(mol.nao_cart);
     mol.h_ao_offsets.clear();
+    mol.h_ao_offsets_sph.clear();
     int acc = 0;
+    int acc_sph = 0;
     for (int k = 0; k < mol.h_l_list.size(); k++)
     {
+        const int l = mol.h_l_list[k];
+        const int cart_dim = (l + 1) * (l + 2) / 2;
+        const int sph_dim = mol.is_spherical ? (2 * l + 1) : cart_dim;
         mol.h_ao_offsets.push_back(acc);
-        acc += (mol.h_l_list[k] + 1) * (mol.h_l_list[k] + 2) / 2;
+        mol.h_ao_offsets_sph.push_back(acc_sph);
+        acc += cart_dim;
+        acc_sph += sph_dim;
     }
     mol.h_shell_offsets.clear();
     int exp_acc = 0;
@@ -546,6 +576,9 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
     Device_Malloc_And_Copy_Safely((void**)&mol.d_ao_offsets,
                                   (void*)mol.h_ao_offsets.data(),
                                   sizeof(int) * mol.h_ao_offsets.size());
+    Device_Malloc_And_Copy_Safely((void**)&mol.d_ao_offsets_sph,
+                                  (void*)mol.h_ao_offsets_sph.data(),
+                                  sizeof(int) * mol.h_ao_offsets_sph.size());
     Device_Malloc_And_Copy_Safely((void**)&d_atom_local,
                                   (void*)atom_local.data(),
                                   sizeof(int) * atom_local.size());
@@ -577,6 +610,11 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
             std::max(1, std::min(MAX_SHELL_ERI, task_ctx.eri_shell_buf_size));
     }
 
+    task_ctx.h_shell_pairs.clear();
+    for (int i = 0; i < mol.nbas; i++)
+        for (int j = 0; j <= i; j++) task_ctx.h_shell_pairs.push_back({i, j});
+    task_ctx.n_shell_pairs = task_ctx.h_shell_pairs.size();
+
     for (int i = 0; i < mol.nbas; i++)
     {
         for (int j = 0; j <= i; j++)
@@ -606,11 +644,15 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
     Device_Malloc_And_Copy_Safely(
         (void**)&task_ctx.d_1e_tasks, (void*)task_ctx.h_1e_tasks.data(),
         sizeof(QC_ONE_E_TASK) * task_ctx.h_1e_tasks.size());
+    Device_Malloc_And_Copy_Safely(
+        (void**)&task_ctx.d_shell_pairs, (void*)task_ctx.h_shell_pairs.data(),
+        sizeof(QC_ONE_E_TASK) * task_ctx.h_shell_pairs.size());
 }
 
 void QUANTUM_CHEMISTRY::Initial(CONTROLLER* controller, const int atom_numbers,
                                 const VECTOR* crd, const char* module_name)
 {
+    (void)crd;
     if (module_name == NULL)
     {
         strcpy(this->module_name, "quantum_chemistry");
@@ -643,8 +685,6 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
     Device_Malloc_Safely((void**)&scf_ws.d_T, sizeof(float) * mol.nao2);
     Device_Malloc_Safely((void**)&scf_ws.d_V, sizeof(float) * mol.nao2);
     Device_Malloc_Safely((void**)&scf_ws.d_H_core, sizeof(float) * mol.nao2);
-    Device_Malloc_Safely((void**)&scf_ws.d_ERI,
-                         sizeof(float) * mol.nao2 * mol.nao2);
     Device_Malloc_Safely((void**)&scf_ws.d_scf_energy, sizeof(double));
     Device_Malloc_Safely((void**)&scf_ws.d_nuc_energy_dev, sizeof(double));
     Device_Malloc_Safely((void**)&dft.d_exc_total, sizeof(double));
@@ -662,25 +702,22 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
                              sizeof(float) * nao_c * nao_c);
         Device_Malloc_Safely((void**)&cart2sph.d_V_cart,
                              sizeof(float) * nao_c * nao_c);
-        Device_Malloc_Safely(
-            (void**)&cart2sph.d_ERI_cart,
-            sizeof(float) * (int)nao_c * nao_c * nao_c * nao_c);
         Device_Malloc_Safely((void**)&cart2sph.d_cart2sph_1e_tmp,
                              sizeof(float) * (int)nao_c * (int)nao_s);
-        const int n_t1 = (int)nao_s * nao_c * nao_c * nao_c;
-        const int n_t2 = (int)nao_s * nao_s * nao_c * nao_c;
-        const int n_t3 = (int)nao_s * nao_s * nao_s * nao_c;
-        Device_Malloc_Safely((void**)&cart2sph.d_cart2sph_eri_t1,
-                             sizeof(float) * n_t1);
-        Device_Malloc_Safely((void**)&cart2sph.d_cart2sph_eri_t2,
-                             sizeof(float) * n_t2);
-        Device_Malloc_Safely((void**)&cart2sph.d_cart2sph_eri_t3,
-                             sizeof(float) * n_t3);
     }
-    Device_Malloc_Safely((void**)&d_hr_pool, (int)ERI_BATCH_SIZE *
-                                                 (task_ctx.eri_hr_size +
-                                                  task_ctx.eri_shell_buf_size) *
-                                                 sizeof(float));
+    int hr_pool_tasks = ERI_BATCH_SIZE;
+#ifndef USE_GPU
+    hr_pool_tasks = std::max(1, omp_get_max_threads());
+#endif
+    Device_Malloc_Safely(
+        (void**)&d_hr_pool,
+        (int)hr_pool_tasks *
+            (task_ctx.eri_hr_size + 2 * task_ctx.eri_shell_buf_size) *
+            sizeof(float));
+    Device_Malloc_Safely((void**)&task_ctx.d_shell_pair_bounds,
+                         sizeof(float) * task_ctx.n_shell_pairs);
+    deviceMemset(task_ctx.d_shell_pair_bounds, 0,
+                 sizeof(float) * task_ctx.n_shell_pairs);
     if (dft.enable_dft)
     {
         dft.max_grid_capacity =
@@ -758,10 +795,3 @@ void QUANTUM_CHEMISTRY::Step_Print(CONTROLLER* controller)
     }
     controller->Step_Print("QC", scf_energy * CONSTANT_HARTREE_TO_KCAL_MOL);
 }
-
-#include "dft/ao.hpp"
-#include "dft/grid.hpp"
-#include "dft/vxc.hpp"
-#include "dft/xc.hpp"
-#include "integrals/cart2sph.hpp"
-#include "scf/scf.hpp"

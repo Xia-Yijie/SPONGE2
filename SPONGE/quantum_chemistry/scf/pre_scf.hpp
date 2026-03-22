@@ -62,10 +62,19 @@ void QUANTUM_CHEMISTRY::Reset_SCF_State()
     scf_ws.diis_hist_count_b = scf_ws.diis_hist_head_b = 0;
 
     deviceMemset(scf_ws.d_scf_energy, 0, sizeof(double));
+    deviceMemset(scf_ws.d_prev_energy, 0, sizeof(double));
+    deviceMemset(scf_ws.d_delta_e, 0, sizeof(double));
+    deviceMemset(scf_ws.d_density_residual, 0, sizeof(double));
+    deviceMemset(scf_ws.d_e, 0, sizeof(double));
+    if (scf_ws.unrestricted) deviceMemset(scf_ws.d_e_b, 0, sizeof(double));
+    deviceMemset(scf_ws.d_pvxc, 0, sizeof(double));
     deviceMemset(scf_ws.d_converged, 0, sizeof(int));
     deviceMemset(scf_ws.d_P, 0, sizeof(float) * nao2);
     if (scf_ws.unrestricted)
+    {
         deviceMemset(scf_ws.d_P_b, 0, sizeof(float) * nao2);
+        deviceMemset(scf_ws.d_Ptot, 0, sizeof(float) * nao2);
+    }
 }
 
 // =========================== 单电子积分 ===========================
@@ -127,14 +136,18 @@ void QUANTUM_CHEMISTRY::Compute_Nuclear_Repulsion(const VECTOR box_length)
 {
     deviceMemset(scf_ws.d_nuc_energy_dev, 0, sizeof(double));
     const int threads = 256;
+    // env coordinates are in Bohr; box_length is in Angstrom → convert
+    const VECTOR box_bohr(box_length.x * CONSTANT_ANGSTROM_TO_BOHR,
+                          box_length.y * CONSTANT_ANGSTROM_TO_BOHR,
+                          box_length.z * CONSTANT_ANGSTROM_TO_BOHR);
     Launch_Device_Kernel(QC_Accumulate_Nuclear_Repulsion_Kernel,
                          (mol.natm + threads - 1) / threads, threads, 0, 0,
                          mol.natm, mol.d_Z, mol.d_atm, mol.d_env,
-                         scf_ws.d_nuc_energy_dev, box_length);
+                         scf_ws.d_nuc_energy_dev, box_bohr);
 }
 
 // =========================== 积分预处理 ===========================
-// 归一化单电子积分并构建 Hcore，同时计算、变换和归一化 ERI
+// 归一化单电子积分并构建 Hcore；双电子积分在 Build_Fock 中 direct 计算
 // ================================================================
 static __global__ void QC_Build_Norms_From_S_Kernel(const int nao,
                                                     const float* S,
@@ -166,32 +179,13 @@ static __global__ void QC_Scale_OneE_And_Build_Hcore_Kernel(const int nao,
     }
 }
 
-static __global__ void QC_Normalize_ERI_Kernel(const int eri4, const int nao,
-                                               const float* norms, float* ERI)
-{
-    SIMPLE_DEVICE_FOR(idx, eri4)
-    {
-        int t = idx;
-        int l = t % nao;
-        t /= nao;
-        int k = t % nao;
-        t /= nao;
-        int j = t % nao;
-        t /= nao;
-        ERI[idx] *= norms[t] * norms[j] * norms[k] * norms[l];
-    }
-}
-
 void QUANTUM_CHEMISTRY::Prepare_Integrals()
 {
-    const int nao_c = mol.nao_cart;
     const int nao = mol.nao;
     const int nao2 = mol.nao2;
-    const int eri4 = nao2 * nao2;
-    const int eri4_calc = nao_c * nao_c * nao_c * nao_c;
+    const int threads = 256;
 
     // 单电子积分归一化合并至 Hcore
-    const int threads = 256;
     Launch_Device_Kernel(QC_Build_Norms_From_S_Kernel,
                          (nao + threads - 1) / threads, threads, 0, 0, nao,
                          scf_ws.d_S, scf_ws.d_norms);
@@ -200,74 +194,61 @@ void QUANTUM_CHEMISTRY::Prepare_Integrals()
                          scf_ws.d_norms, scf_ws.d_S, scf_ws.d_T, scf_ws.d_V,
                          scf_ws.d_H_core);
 
-    // 计算双电子积分 ERI
-    float* p_ERI = mol.is_spherical ? cart2sph.d_ERI_cart : scf_ws.d_ERI;
-    deviceMemset(p_ERI, 0, sizeof(float) * eri4_calc);
-    const int chunk_size = ERI_BATCH_SIZE;
-    const int eri_threads = 64;
-    for (int i = 0; i < task_ctx.n_eri_tasks; i += chunk_size)
-    {
-        int current_chunk = std::min(chunk_size, task_ctx.n_eri_tasks - i);
-        QC_ERI_TASK* task_ptr = task_ctx.d_eri_tasks + i;
-        Launch_Device_Kernel(
-            ERI_Kernel, (current_chunk + eri_threads - 1) / eri_threads,
-            eri_threads, 0, 0, current_chunk, task_ptr, mol.d_atm, mol.d_bas,
-            mol.d_env, mol.d_ao_loc, p_ERI, d_hr_pool, nao_c,
-            task_ctx.eri_hr_base, task_ctx.eri_hr_size,
-            task_ctx.eri_shell_buf_size, task_ctx.eri_prim_screen_tol);
-    }
+    if (task_ctx.n_shell_pairs <= 0) return;
 
-    // 球谐变换 + 归一化 ERI
-    if (mol.is_spherical) Cart2Sph_ERI();
-    Launch_Device_Kernel(QC_Normalize_ERI_Kernel,
-                         (eri4 + threads - 1) / threads, threads, 0, 0, eri4,
-                         nao, scf_ws.d_norms, scf_ws.d_ERI);
+    int chunk_size = ERI_BATCH_SIZE;
+#ifndef USE_GPU
+    chunk_size = std::max(1, task_ctx.n_shell_pairs);
+#endif
+    for (int i = 0; i < task_ctx.n_shell_pairs; i += chunk_size)
+    {
+        const int current_chunk =
+            std::min(chunk_size, task_ctx.n_shell_pairs - i);
+        Launch_Device_Kernel(
+            QC_Build_Shell_Pair_Bounds_Kernel,
+            (current_chunk + threads - 1) / threads, threads, 0, 0,
+            current_chunk, task_ctx.d_shell_pairs + i, mol.d_atm, mol.d_bas,
+            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph, scf_ws.d_norms,
+            mol.is_spherical, cart2sph.d_cart2sph_mat, mol.nao_sph,
+            task_ctx.d_shell_pair_bounds + i, d_hr_pool, task_ctx.eri_hr_base,
+            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+            task_ctx.eri_prim_screen_tol);
+    }
 }
 
 // ========================= 重叠正交化矩阵 =========================
-// 对重叠矩阵 S 做本征分解，并构建正交化变换矩阵 X
+// 对重叠矩阵 S 做 double 精度本征分解，并构建正交化变换矩阵 X
 // ================================================================
-static __global__ void QC_Build_X_From_EigCol_Kernel(const int nao,
-                                                     const float* U_col,
-                                                     const float* W,
-                                                     float* X_row)
-{
-#ifdef USE_GPU
-    int j = blockIdx.x * blockDim.x + threadIdx.x;
-    int i = blockIdx.y * blockDim.y + threadIdx.y;
-    if (i >= nao || j >= nao) return;
-#else
-#pragma omp parallel for collapse(2)
-    for (int i = 0; i < nao; i++)
-        for (int j = 0; j < nao; j++)
-#endif
-    {
-        double sum = 0.0;
-        for (int k = 0; k < nao; k++)
-        {
-            float wk = fmaxf(W[k], 1e-10f);
-            float uik = U_col[i + k * nao];
-            float ujk = U_col[j + k * nao];
-            sum += (double)uik * (double)ujk / sqrt((double)wk);
-        }
-        X_row[i * nao + j] = (float)sum;
-    }
-}
-
 void QUANTUM_CHEMISTRY::Build_Overlap_X()
 {
     const int nao = mol.nao;
     const int nao2 = mol.nao2;
 
-    deviceMemcpy(scf_ws.d_Work, scf_ws.d_S, sizeof(float) * nao2,
-                 deviceMemcpyDeviceToDevice);
-    QC_Diagonalize(solver_handle, mol.nao, scf_ws.d_Work, scf_ws.d_W,
-                   scf_ws.d_solver_work, scf_ws.lwork, scf_ws.d_solver_iwork,
-                   scf_ws.liwork, scf_ws.d_info);
+    // Promote S (float) to double workspace
+    QC_Float_To_Double(nao2, scf_ws.d_S, scf_ws.d_dwork_nao2_1);
 
-    const dim3 block2d(16, 16);
-    const dim3 grid2d((nao + block2d.x - 1) / block2d.x,
-                      (nao + block2d.y - 1) / block2d.y);
-    Launch_Device_Kernel(QC_Build_X_From_EigCol_Kernel, grid2d, block2d, 0, 0,
-                         nao, scf_ws.d_Work, scf_ws.d_W, scf_ws.d_X);
+    // Diagonalize S in double: eigvecs overwrite d_dwork_nao2_1, eigenvals in
+    // d_dW_double
+    int info = 0;
+    QC_Diagonalize_Double(solver_handle, nao, scf_ws.d_dwork_nao2_1,
+                          scf_ws.d_dW_double, scf_ws.d_solver_work_double,
+                          scf_ws.lwork_double, &info);
+
+    // Copy eigenvalues to float d_W
+    QC_Double_To_Float(nao, scf_ws.d_dW_double, scf_ws.d_W);
+
+    // Count nao_eff on host (need eigenvalues on host for this)
+    std::vector<double> h_W(nao);
+    deviceMemcpy(h_W.data(), scf_ws.d_dW_double, sizeof(double) * nao,
+                 deviceMemcpyDeviceToHost);
+    const double lindep_thresh = scf_ws.lindep_threshold;
+    int nao_eff = 0;
+    for (int k = 0; k < nao; k++)
+        if (h_W[k] >= lindep_thresh) nao_eff++;
+    scf_ws.nao_eff = nao_eff;
+
+    // Build X on device
+    deviceMemset(scf_ws.d_X, 0, sizeof(double) * nao2);
+    QC_Build_X_Canonical(nao, nao_eff, scf_ws.d_dwork_nao2_1,
+                         scf_ws.d_dW_double, lindep_thresh, scf_ws.d_X);
 }

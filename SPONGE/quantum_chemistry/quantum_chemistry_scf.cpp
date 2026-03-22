@@ -1,15 +1,17 @@
-﻿#pragma once
-
-#include "accumulate_energy.hpp"
-#include "apply_diis.hpp"
-#include "build_fock.hpp"
-#include "diag_density.hpp"
-#include "mix_converge.hpp"
-#include "pre_scf.hpp"
-#include "workspace.hpp"
+﻿#include "integrals/eri.hpp"
+#include "integrals/one_e.hpp"
+#include "quantum_chemistry.h"
+#include "scf/accumulate_energy.hpp"
+#include "scf/apply_diis.hpp"
+#include "scf/build_fock.hpp"
+#include "scf/diag_density.hpp"
+#include "scf/mix_converge.hpp"
+#include "scf/pre_scf.hpp"
+#include "scf/workspace.hpp"
+#include "structure/matrix.h"
 
 void QUANTUM_CHEMISTRY::Solve_SCF(const VECTOR* crd, const VECTOR box_length,
-                                  bool need_energy)
+                                  bool need_energy, int md_step)
 {
     if (!is_initialized) return;
 
@@ -28,6 +30,6 @@ void QUANTUM_CHEMISTRY::Solve_SCF(const VECTOR* crd, const VECTOR box_length,
         Accumulate_SCF_Energy(iter);
         Apply_DIIS(iter);
         Diagonalize_And_Build_Density();
-        if (Mix_And_Check_Convergence(iter)) break;
+        if (Mix_And_Check_Convergence(iter, md_step)) break;
     }
 }

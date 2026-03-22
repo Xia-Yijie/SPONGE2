@@ -48,7 +48,24 @@ set(SPONGE_SOURCES
     ${PROJECT_ROOT_DIR}/SPONGE/custom_force/pairwise_force.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/wall/soft_wall.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/wall/hard_wall.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_init.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_scf.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_dft.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_matrix.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/sto-3g.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/3-21g.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/6-31g.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/6-31g_star.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/6-31g_starstar.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/6-311g.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/6-311g_star.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/6-311g_starstar.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/def2/def2-svp.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/def2/def2-tzvp.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/def2/def2-tzvpp.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/def2/def2-qzvp.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/cc/cc-pvdz.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/cc/cc-pvtz.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/NO_PBC/Coulomb_Force_No_PBC.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/NO_PBC/Lennard_Jones_force_No_PBC.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/NO_PBC/generalized_Born.cpp
