@@ -244,8 +244,16 @@ static __global__ void QC_Fock_pppp_Kernel(
             }
         }
 
-        // ---- Apply norms ----
+        // ---- Apply s-shell cart2sph scalars + norms ----
+        // (pppp has no s shells, so s_c2s is always 1.0, but keep for uniformity)
         {
+            float s_c2s = 1.0f;
+            if (is_spherical)
+            {
+                for (int i = 0; i < 4; i++)
+                    if (l[i] == 0)
+                        s_c2s *= cart2sph_mat[ao_offsets_cart[sh[i]] * nao_sph + off[i]];
+            }
             int idx = 0;
             for (int c0 = 0; c0 < dim[0]; c0++)
               for (int c1 = 0; c1 < dim[1]; c1++)
@@ -253,7 +261,8 @@ static __global__ void QC_Fock_pppp_Kernel(
                   for (int c3 = 0; c3 < dim[3]; c3++)
                   {
                       eri_cart[idx] *= norms[off[0] + c0] * norms[off[1] + c1] *
-                                       norms[off[2] + c2] * norms[off[3] + c3];
+                                       norms[off[2] + c2] * norms[off[3] + c3] *
+                                       s_c2s;
                       idx++;
                   }
         }

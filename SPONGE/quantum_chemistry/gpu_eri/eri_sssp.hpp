@@ -257,11 +257,17 @@ static __global__ void QC_Fock_sssp_Kernel(
             eri_final[2] = eri_z;
         }
 
-        // ---- Apply norms and accumulate into Fock matrix ----
-        // s-shell norms: single value each
+        // ---- Apply s-shell cart2sph scalars + norms ----
         float norm_s = 1.0f;
         for (int i = 0; i < 4; i++)
-            if (i != p_pos) norm_s *= norms[off[i]];
+        {
+            if (i != p_pos)
+            {
+                norm_s *= norms[off[i]];
+                if (is_spherical)
+                    norm_s *= cart2sph_mat[ao_offsets_cart[sh[i]] * nao_sph + off[i]];
+            }
+        }
 
         const bool jk_same_bra = (tk.x == tk.y);
         const bool jk_same_ket = (tk.z == tk.w);

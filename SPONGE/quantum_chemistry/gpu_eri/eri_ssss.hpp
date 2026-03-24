@@ -159,10 +159,16 @@ static __global__ void QC_Fock_ssss_Kernel(
             }
         }
 
-        // ---- Apply norms and accumulate ----
+        // ---- Apply cart2sph (scalar for s shells) + norms ----
+        float c2s = 1.0f;
+        if (is_spherical)
+        {
+            for (int i = 0; i < 4; i++)
+                c2s *= cart2sph_mat[ao_offsets_cart[sh[i]] * nao_sph + off[i]];
+        }
         const float norm_all = norms[off[0]] * norms[off[1]] *
                                norms[off[2]] * norms[off[3]];
-        const float val = eri * norm_all;
+        const float val = eri * norm_all * c2s;
         if (val != 0.0f)
         {
             const int p = off[0], q = off[1], r = off[2], s = off[3];

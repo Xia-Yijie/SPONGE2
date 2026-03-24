@@ -244,8 +244,17 @@ static __global__ void QC_Fock_sspp_Kernel(
             }
         }
 
-        // ---- Apply norms ----
+        // ---- Apply s-shell cart2sph scalars + norms ----
+        // The cart2sph loop above only handles p-shells (3×3 transform).
+        // s-shells need their scalar cart2sph factor (e.g. 0.28209479 = Y_0^0).
         {
+            float s_c2s = 1.0f;
+            if (is_spherical)
+            {
+                for (int i = 0; i < 4; i++)
+                    if (l[i] == 0)
+                        s_c2s *= cart2sph_mat[ao_offsets_cart[sh[i]] * nao_sph + off[i]];
+            }
             int idx = 0;
             for (int c0 = 0; c0 < dim[0]; c0++)
               for (int c1 = 0; c1 < dim[1]; c1++)
@@ -253,7 +262,8 @@ static __global__ void QC_Fock_sspp_Kernel(
                   for (int c3 = 0; c3 < dim[3]; c3++)
                   {
                       eri_cart[idx] *= norms[off[0] + c0] * norms[off[1] + c1] *
-                                       norms[off[2] + c2] * norms[off[3] + c3];
+                                       norms[off[2] + c2] * norms[off[3] + c3] *
+                                       s_c2s;
                       idx++;
                   }
         }
