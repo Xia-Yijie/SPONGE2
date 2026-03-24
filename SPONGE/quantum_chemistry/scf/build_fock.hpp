@@ -1035,96 +1035,81 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         DEBUG_bucket_sssp_timer.Stop();
     }
 
-    // --- Launch sspp specialized kernel (chunked, uses scratch buffer) ---
+    // --- Launch sspp specialized kernel (register-only, single launch) ---
     const int n_sspp = (int)h_sspp_tasks.size();
     if (n_sspp > 0)
     {
         DEBUG_bucket_sspp_timer.Start();
         deviceMemcpy(task_ctx.d_eri_tasks, h_sspp_tasks.data(),
                      sizeof(QC_ERI_TASK) * n_sspp, deviceMemcpyHostToDevice);
-        const QC_ERI_TASK* sspp_tasks_ptr = task_ctx.d_eri_tasks;
-        for (int i = 0; i < n_sspp; i += chunk_size)
-        {
-            const int current_chunk = std::min(chunk_size, n_sspp - i);
-            Launch_Device_Kernel(
-                QC_Fock_sspp_Kernel,
-                (current_chunk + threads - 1) / threads, threads, 0, 0,
-                current_chunk, sspp_tasks_ptr + i, mol.d_atm, mol.d_bas,
-                mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
-                scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-                scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-                scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                    : (const float*)nullptr,
-                shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-                scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-                exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-                mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-                d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-                task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-                prim_screen_tol);
-        }
+        Launch_Device_Kernel(
+            QC_Fock_sspp_Kernel,
+            (n_sspp + threads - 1) / threads, threads, 0, 0,
+            n_sspp, task_ctx.d_eri_tasks, mol.d_atm, mol.d_bas,
+            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
+            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                : (const float*)nullptr,
+            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
+            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
+            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
+            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
+            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
+            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+            prim_screen_tol);
         DEBUG_bucket_sspp_timer.Stop();
     }
 
-    // --- Launch sppp specialized kernel (chunked, uses scratch buffer) ---
+    // --- Launch sppp specialized kernel (register-only, single launch) ---
     const int n_sppp = (int)h_sppp_tasks.size();
     if (n_sppp > 0)
     {
         DEBUG_bucket_sppp_timer.Start();
         deviceMemcpy(task_ctx.d_eri_tasks, h_sppp_tasks.data(),
                      sizeof(QC_ERI_TASK) * n_sppp, deviceMemcpyHostToDevice);
-        const QC_ERI_TASK* sppp_tasks_ptr = task_ctx.d_eri_tasks;
-        for (int i = 0; i < n_sppp; i += chunk_size)
-        {
-            const int current_chunk = std::min(chunk_size, n_sppp - i);
-            Launch_Device_Kernel(
-                QC_Fock_sppp_Kernel,
-                (current_chunk + threads - 1) / threads, threads, 0, 0,
-                current_chunk, sppp_tasks_ptr + i, mol.d_atm, mol.d_bas,
-                mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
-                scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-                scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-                scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                    : (const float*)nullptr,
-                shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-                scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-                exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-                mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-                d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-                task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-                prim_screen_tol);
-        }
+        Launch_Device_Kernel(
+            QC_Fock_sppp_Kernel,
+            (n_sppp + threads - 1) / threads, threads, 0, 0,
+            n_sppp, task_ctx.d_eri_tasks, mol.d_atm, mol.d_bas,
+            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
+            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                : (const float*)nullptr,
+            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
+            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
+            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
+            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
+            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
+            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+            prim_screen_tol);
         DEBUG_bucket_sppp_timer.Stop();
     }
 
-    // --- Launch pppp specialized kernel (chunked, uses scratch buffer) ---
+    // --- Launch pppp specialized kernel (register-only, single launch) ---
     const int n_pppp = (int)h_pppp_tasks.size();
     if (n_pppp > 0)
     {
         DEBUG_bucket_pppp_timer.Start();
         deviceMemcpy(task_ctx.d_eri_tasks, h_pppp_tasks.data(),
                      sizeof(QC_ERI_TASK) * n_pppp, deviceMemcpyHostToDevice);
-        const QC_ERI_TASK* pppp_tasks_ptr = task_ctx.d_eri_tasks;
-        for (int i = 0; i < n_pppp; i += chunk_size)
-        {
-            const int current_chunk = std::min(chunk_size, n_pppp - i);
-            Launch_Device_Kernel(
-                QC_Fock_pppp_Kernel,
-                (current_chunk + threads - 1) / threads, threads, 0, 0,
-                current_chunk, pppp_tasks_ptr + i, mol.d_atm, mol.d_bas,
-                mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
-                scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-                scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-                scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                    : (const float*)nullptr,
-                shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-                scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-                exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-                mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-                d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-                task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-                prim_screen_tol);
-        }
+        Launch_Device_Kernel(
+            QC_Fock_pppp_Kernel,
+            (n_pppp + threads - 1) / threads, threads, 0, 0,
+            n_pppp, task_ctx.d_eri_tasks, mol.d_atm, mol.d_bas,
+            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
+            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                : (const float*)nullptr,
+            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
+            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
+            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
+            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
+            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
+            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+            prim_screen_tol);
         DEBUG_bucket_pppp_timer.Stop();
     }
 
