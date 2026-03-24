@@ -823,17 +823,8 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 #include "../gpu_eri/eri_sp_common.hpp"
 #include "../gpu_eri/eri_ssss.hpp"
 
-// Screening kernels: triangular (same pair type) and rectangular (cross type)
-#define SAME_PAIR_TYPE 1
-#define SCREEN_KERNEL_NAME QC_Screen_Compact_SameType
+// Single-launch screening kernel for all pair-type combinations
 #include "../gpu_eri/eri_screen_compact.hpp"
-#undef SCREEN_KERNEL_NAME
-#undef SAME_PAIR_TYPE
-#define SAME_PAIR_TYPE 0
-#define SCREEN_KERNEL_NAME QC_Screen_Compact_CrossType
-#include "../gpu_eri/eri_screen_compact.hpp"
-#undef SCREEN_KERNEL_NAME
-#undef SAME_PAIR_TYPE
 // 3s1p: 4 permutations by p-shell position
 #define P_POS 0
 #define KERNEL_NAME QC_Fock_psss_Kernel
@@ -990,119 +981,109 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
     TIME_RECORDER DEBUG_screen_timer;
     TIME_RECORDER DEBUG_eri_timer;
     scf_ws.last_active_eri_tasks = task_ctx.n_eri_tasks;
-    // ===== GPU on-the-fly screening + compaction + ERI dispatch =====
-    //
-    // For each pair-type combination (A, B):
-    //   1. Launch screening kernel → compact active quartets into d_screened_tasks
-    //   2. Sync, read count
-    //   3. Launch ERI kernel on compacted tasks
-    //
-    // ERI kernel selection: determined by (l_A0, l_A1, l_B0, l_B1) from pair types.
-    // For now, all ERI kernels go through the old generic path (QC_Build_Fock_Direct_Kernel)
-    // via the compacted task list. Specialized kernels can be wired in later.
-
-    const int npt = task_ctx.n_pair_types;
-    int total_screened = 0;
+    // ===== Single-launch screening + per-combo ERI dispatch =====
 
     DEBUG_screen_timer.Start();
 
-    // Helper: launch screening + ERI for one pair-type combo
-    auto screen_and_eri = [&](int tA, int tB) {
-        const int offA = task_ctx.pair_type_offset[tA];
-        const int nA = task_ctx.pair_type_count[tA];
-        const int offB = task_ctx.pair_type_offset[tB];
-        const int nB = task_ctx.pair_type_count[tB];
-        const bool same = (tA == tB);
-        const long long n_quartets = same
-            ? (long long)nA * (nA + 1) / 2
-            : (long long)nA * nB;
-        if (n_quartets == 0) return;
+    // 1. Zero all per-combo counters
+    deviceMemset(task_ctx.d_screen_counts, 0,
+                 sizeof(int) * task_ctx.n_combos);
 
+    // 2. Single screening kernel launch for ALL combos
+    {
+        // Upload combo prefix sums to device (small, could be cached)
+        int* d_combo_prefix = NULL;
+        Device_Malloc_And_Copy_Safely(
+            (void**)&d_combo_prefix, (void*)task_ctx.combo_prefix,
+            sizeof(int) * (task_ctx.n_combos + 1));
 
-        // Reset counter
-        deviceMemset(task_ctx.d_screen_count, 0, sizeof(int));
-
-        // Launch screening kernel
-        auto screen_kernel = same ? QC_Screen_Compact_SameType
-                                  : QC_Screen_Compact_CrossType;
         Launch_Device_Kernel(
-            screen_kernel,
-            ((int)n_quartets + threads - 1) / threads, threads, 0, 0,
-            (int)n_quartets, offA, nA, offB, nB,
+            QC_Screen_All_Combos_Kernel,
+            (task_ctx.total_quartets + threads - 1) / threads, threads, 0, 0,
+            task_ctx.total_quartets, task_ctx.d_combos, d_combo_prefix,
+            task_ctx.n_combos,
             task_ctx.d_sorted_pair_ids, task_ctx.d_shell_pairs,
             task_ctx.d_shell_pair_bounds,
             scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
             scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
                                 : (const float*)nullptr,
             shell_screen_tol, exx_scale_a, exx_scale_b,
-            task_ctx.d_screened_tasks, task_ctx.d_screen_count);
+            task_ctx.d_screened_tasks, task_ctx.d_screen_counts);
 
-        // Read back count
-        int h_count = 0;
-        deviceMemcpy(&h_count, task_ctx.d_screen_count, sizeof(int),
-                     deviceMemcpyDeviceToHost);
-        total_screened += h_count;
+        deviceFree(d_combo_prefix);
+    }
 
-        if (h_count == 0) return;
+    // 3. One sync: read back all per-combo counts
+    int h_counts[QC_INTEGRAL_TASKS::MAX_COMBOS] = {};
+    deviceMemcpy(h_counts, task_ctx.d_screen_counts,
+                 sizeof(int) * task_ctx.n_combos, deviceMemcpyDeviceToHost);
 
-        // Determine the (l0,l1,l2,l3) from pair types
-        const int l0 = task_ctx.pair_type_l0[tA];
-        const int l1 = task_ctx.pair_type_l1[tA];
-        const int l2 = task_ctx.pair_type_l0[tB];
-        const int l3 = task_ctx.pair_type_l1[tB];
-        const int l_max = std::max({l0, l1, l2, l3});
+    int total_screened = 0;
+    for (int ci = 0; ci < task_ctx.n_combos; ci++) total_screened += h_counts[ci];
 
-        // Launch helper for ERI kernel (task-list based, single launch)
-        auto launch_eri = [&](auto kernel_func) {
-            Launch_Device_Kernel(
-                kernel_func,
-                (h_count + threads - 1) / threads, threads, 0, 0,
-                h_count, task_ctx.d_screened_tasks,
-                mol.d_atm, mol.d_bas, mol.d_env,
-                mol.d_ao_offsets, mol.d_ao_offsets_sph,
-                scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-                scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-                scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                    : (const float*)nullptr,
-                shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-                scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-                exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-                mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-                d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-                task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-                prim_screen_tol);
-        };
+    DEBUG_screen_timer.Stop();
 
-        // Select specialized kernel by shell arrangement
-        const int lkey = l0*1000 + l1*100 + l2*10 + l3;
+    // 4. Launch ERI kernels per combo (no sync between them)
+    DEBUG_eri_timer.Start();
+
+    // Helper: launch ERI kernel for a given combo
+    auto launch_eri = [&](int ci, auto kernel_func) {
+        const int n = h_counts[ci];
+        if (n == 0) return;
+        Launch_Device_Kernel(
+            kernel_func,
+            (n + threads - 1) / threads, threads, 0, 0,
+            n, task_ctx.d_screened_tasks + task_ctx.h_combos[ci].output_offset,
+            mol.d_atm, mol.d_bas, mol.d_env,
+            mol.d_ao_offsets, mol.d_ao_offsets_sph,
+            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                : (const float*)nullptr,
+            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
+            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
+            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
+            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
+            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
+            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+            prim_screen_tol);
+    };
+
+    for (int ci = 0; ci < task_ctx.n_combos; ci++)
+    {
+        if (h_counts[ci] == 0) continue;
+        const auto& combo = task_ctx.h_combos[ci];
+        const int lkey = combo.l0*1000 + combo.l1*100 + combo.l2*10 + combo.l3;
         switch (lkey)
         {
-            case    0: launch_eri(QC_Fock_ssss_Kernel); break;
-            case 1000: launch_eri(QC_Fock_psss_Kernel); break;
-            case  100: launch_eri(QC_Fock_spss_Kernel); break;
-            case   10: launch_eri(QC_Fock_ssps_Kernel); break;
-            case    1: launch_eri(QC_Fock_sssp_New_Kernel); break;
-            case 1100: launch_eri(QC_Fock_ppss_Kernel); break;
-            case 1010: launch_eri(QC_Fock_psps_Kernel); break;
-            case 1001: launch_eri(QC_Fock_pssp_Kernel); break;
-            case  110: launch_eri(QC_Fock_spps_Kernel); break;
-            case  101: launch_eri(QC_Fock_spsp_Kernel); break;
-            case   11: launch_eri(QC_Fock_sspp_New_Kernel); break;
-            case  111: launch_eri(QC_Fock_sppp_New_Kernel); break;
-            case 1011: launch_eri(QC_Fock_pspp_Kernel); break;
-            case 1101: launch_eri(QC_Fock_ppsp_Kernel); break;
-            case 1110: launch_eri(QC_Fock_ppps_Kernel); break;
-            case 1111: launch_eri(QC_Fock_pppp_Kernel); break;
+            case    0: launch_eri(ci, QC_Fock_ssss_Kernel); break;
+            case 1000: launch_eri(ci, QC_Fock_psss_Kernel); break;
+            case  100: launch_eri(ci, QC_Fock_spss_Kernel); break;
+            case   10: launch_eri(ci, QC_Fock_ssps_Kernel); break;
+            case    1: launch_eri(ci, QC_Fock_sssp_New_Kernel); break;
+            case 1100: launch_eri(ci, QC_Fock_ppss_Kernel); break;
+            case 1010: launch_eri(ci, QC_Fock_psps_Kernel); break;
+            case 1001: launch_eri(ci, QC_Fock_pssp_Kernel); break;
+            case  110: launch_eri(ci, QC_Fock_spps_Kernel); break;
+            case  101: launch_eri(ci, QC_Fock_spsp_Kernel); break;
+            case   11: launch_eri(ci, QC_Fock_sspp_New_Kernel); break;
+            case  111: launch_eri(ci, QC_Fock_sppp_New_Kernel); break;
+            case 1011: launch_eri(ci, QC_Fock_pspp_Kernel); break;
+            case 1101: launch_eri(ci, QC_Fock_ppsp_Kernel); break;
+            case 1110: launch_eri(ci, QC_Fock_ppps_Kernel); break;
+            case 1111: launch_eri(ci, QC_Fock_pppp_Kernel); break;
             default:
-                // Generic fallback (d/f/g shells) — chunked launch
-                for (int i = 0; i < h_count; i += chunk_size)
+            {
+                const int n = h_counts[ci];
+                const QC_ERI_TASK* ptr =
+                    task_ctx.d_screened_tasks + combo.output_offset;
+                for (int i = 0; i < n; i += chunk_size)
                 {
-                    const int cc = std::min(chunk_size, h_count - i);
+                    const int cc = std::min(chunk_size, n - i);
                     Launch_Device_Kernel(
                         QC_Build_Fock_Direct_Kernel,
                         (cc + threads - 1) / threads, threads, 0, 0,
-                        cc, task_ctx.d_screened_tasks + i,
-                        mol.d_atm, mol.d_bas, mol.d_env,
+                        cc, ptr + i, mol.d_atm, mol.d_bas, mol.d_env,
                         mol.d_ao_offsets, mol.d_ao_offsets_sph,
                         scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
                         scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
@@ -1117,19 +1098,16 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
                         prim_screen_tol);
                 }
                 break;
+            }
         }
-    };
+    }
 
-    // Iterate over all pair-type combinations (A >= B by offset order)
-    for (int tA = 0; tA < npt; tA++)
-        for (int tB = 0; tB <= tA; tB++)
-            screen_and_eri(tA, tB);
-
-    DEBUG_screen_timer.Stop();
+    DEBUG_eri_timer.Stop();
 
     fprintf(stderr,
-            "    [DEBUG_FOCK] iter=%d screened=%d t_total=%.6fs\n",
-            iter + 1, total_screened, DEBUG_screen_timer.time);
+            "    [DEBUG_FOCK] iter=%d screened=%d t_screen=%.6fs t_eri=%.6fs\n",
+            iter + 1, total_screened,
+            DEBUG_screen_timer.time, DEBUG_eri_timer.time);
     if (scf_ws.d_F_double != NULL)
         QC_Float_To_Double_Copy(total, scf_ws.d_F, scf_ws.d_F_double);
     if (scf_ws.unrestricted && scf_ws.d_F_b_double != NULL)

@@ -715,6 +715,58 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
 
     }
 
+    // Build screening combos: one per pair-type combination (A >= B)
+    {
+        const int npt = task_ctx.n_pair_types;
+        task_ctx.n_combos = 0;
+        int output_off = 0;
+        for (int tA = 0; tA < npt; tA++)
+        {
+            for (int tB = 0; tB <= tA; tB++)
+            {
+                const int nA = task_ctx.pair_type_count[tA];
+                const int nB = task_ctx.pair_type_count[tB];
+                const bool same = (tA == tB);
+                const int nq = same ? nA * (nA + 1) / 2 : nA * nB;
+                if (nq == 0) continue;
+
+                auto& c = task_ctx.h_combos[task_ctx.n_combos];
+                c.pair_base_A = task_ctx.pair_type_offset[tA];
+                c.n_A = nA;
+                c.pair_base_B = task_ctx.pair_type_offset[tB];
+                c.n_B = nB;
+                c.n_quartets = nq;
+                c.output_offset = output_off;
+                c.same_type = same ? 1 : 0;
+                c.l0 = task_ctx.pair_type_l0[tA];
+                c.l1 = task_ctx.pair_type_l1[tA];
+                c.l2 = task_ctx.pair_type_l0[tB];
+                c.l3 = task_ctx.pair_type_l1[tB];
+                output_off += nq; // reserve worst case
+                task_ctx.n_combos++;
+            }
+        }
+        // Prefix sum
+        task_ctx.combo_prefix[0] = 0;
+        for (int i = 0; i < task_ctx.n_combos; i++)
+            task_ctx.combo_prefix[i + 1] =
+                task_ctx.combo_prefix[i] + task_ctx.h_combos[i].n_quartets;
+        task_ctx.total_quartets = task_ctx.combo_prefix[task_ctx.n_combos];
+
+        fprintf(stderr, "    [Screen combos] %d combos, %d total quartets\n",
+                task_ctx.n_combos, task_ctx.total_quartets);
+
+        // Allocate device buffers
+        Device_Malloc_And_Copy_Safely(
+            (void**)&task_ctx.d_combos, (void*)task_ctx.h_combos,
+            sizeof(QC_INTEGRAL_TASKS::ScreenCombo) * task_ctx.n_combos);
+        task_ctx.screened_buf_capacity = output_off;
+        Device_Malloc_Safely((void**)&task_ctx.d_screened_tasks,
+                             sizeof(QC_ERI_TASK) * task_ctx.screened_buf_capacity);
+        Device_Malloc_Safely((void**)&task_ctx.d_screen_counts,
+                             sizeof(int) * QC_INTEGRAL_TASKS::MAX_COMBOS);
+    }
+
     for (int i = 0; i < mol.nbas; i++)
     {
         for (int j = 0; j <= i; j++)
@@ -733,11 +785,8 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
     }
     task_ctx.n_eri_tasks = task_ctx.h_eri_tasks.size();
 
-    // Allocate screening output buffer (sized to full task list as upper bound)
-    task_ctx.screened_buf_capacity = task_ctx.n_eri_tasks;
-    Device_Malloc_Safely((void**)&task_ctx.d_screened_tasks,
-                         sizeof(QC_ERI_TASK) * task_ctx.screened_buf_capacity);
-    Device_Malloc_Safely((void**)&task_ctx.d_screen_count, sizeof(int));
+    // Build screening combos from pair types (after pair type index is ready)
+    // Deferred to after pair type construction below.
 
     // Pre-bin ERI tasks by shell type and sort in-place.
     // Bucket layout: 4s(1) | 3s1p×4 | 2s2p×6 | 1s3p×4 | 4p(1) | generic(1)

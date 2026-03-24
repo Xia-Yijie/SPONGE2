@@ -1,15 +1,15 @@
-// GPU/CPU screening kernel with LaneGroup-based compaction.
-// Generates quartets on-the-fly from pair-type blocks, screens them,
-// and writes surviving quartets to a compact output buffer.
-//
-// Expected macros before include:
-//   SCREEN_KERNEL_NAME
-//   SAME_PAIR_TYPE  - 0 or 1
+#pragma once
 
-static __global__ void SCREEN_KERNEL_NAME(
-    const int n_quartets,
-    const int pair_id_base_A, const int n_A,
-    const int pair_id_base_B, const int n_B,
+// Single-launch GPU/CPU screening kernel with LaneGroup compaction.
+// Covers ALL pair-type combinations in one kernel launch.
+// Each thread finds its combo via linear search in prefix sums,
+// generates the quartet on-the-fly, screens, and compacts to per-combo output.
+
+static __global__ void QC_Screen_All_Combos_Kernel(
+    const int n_total,
+    const QC_INTEGRAL_TASKS::ScreenCombo* __restrict__ combos,
+    const int* __restrict__ combo_prefix,
+    const int n_combos,
     const int* __restrict__ sorted_pair_ids,
     const QC_ONE_E_TASK* __restrict__ shell_pairs,
     const float* __restrict__ shell_pair_bounds,
@@ -19,26 +19,35 @@ static __global__ void SCREEN_KERNEL_NAME(
     const float shell_screen_tol,
     const float exx_scale_a, const float exx_scale_b,
     QC_ERI_TASK* __restrict__ output_tasks,
-    int* __restrict__ output_count)
+    int* __restrict__ output_counts)
 {
-    SIMPLE_DEVICE_FOR(idx, n_quartets)
+    SIMPLE_DEVICE_FOR(global_idx, n_total)
     {
-        // --- On-the-fly: flat_idx → (pair_ij, pair_kl) ---
+        // --- Find which combo this thread belongs to (linear search, n_combos <= ~10) ---
+        int ci = 0;
+        while (ci < n_combos - 1 && global_idx >= combo_prefix[ci + 1]) ci++;
+        const auto& combo = combos[ci];
+        const int local_idx = global_idx - combo_prefix[ci];
+
+        // --- On-the-fly: local_idx → (pair_ij, pair_kl) ---
         int local_ij, local_kl;
-#if SAME_PAIR_TYPE
-        local_ij = (int)floor((sqrt(8.0 * (double)idx + 1.0) - 1.0) * 0.5);
-        local_kl = idx - local_ij * (local_ij + 1) / 2;
-        if (local_ij * (local_ij + 1) / 2 + local_kl != idx)
+        if (combo.same_type)
         {
-            local_ij++;
-            local_kl = idx - local_ij * (local_ij + 1) / 2;
+            local_ij = (int)floor((sqrt(8.0 * (double)local_idx + 1.0) - 1.0) * 0.5);
+            local_kl = local_idx - local_ij * (local_ij + 1) / 2;
+            if (local_ij * (local_ij + 1) / 2 + local_kl != local_idx)
+            {
+                local_ij++;
+                local_kl = local_idx - local_ij * (local_ij + 1) / 2;
+            }
         }
-#else
-        local_ij = idx / n_B;
-        local_kl = idx % n_B;
-#endif
-        const int pair_ij = sorted_pair_ids[pair_id_base_A + local_ij];
-        const int pair_kl = sorted_pair_ids[pair_id_base_B + local_kl];
+        else
+        {
+            local_ij = local_idx / combo.n_B;
+            local_kl = local_idx % combo.n_B;
+        }
+        const int pair_ij = sorted_pair_ids[combo.pair_base_A + local_ij];
+        const int pair_kl = sorted_pair_ids[combo.pair_base_B + local_kl];
 
         const QC_ONE_E_TASK pij = shell_pairs[pair_ij];
         const QC_ONE_E_TASK pkl = shell_pairs[pair_kl];
@@ -66,22 +75,14 @@ static __global__ void SCREEN_KERNEL_NAME(
 
         const bool pass = (screen >= shell_screen_tol);
 
-        // --- LaneGroup compaction ---
-        LaneMask mask = LaneGroup::Ballot(pass);
-        if (LaneGroup::Any(mask))
+        // --- Per-thread atomicAdd compaction to per-combo output region ---
+        // (Can't use warp-level LaneGroup here because threads in the same warp
+        //  may belong to different combos with different output regions.)
+        if (pass)
         {
-            const int count = LaneGroup::Count(mask);
-            int base_slot = 0;
-            const int leader = LaneGroup::First_Lane(mask);
-            if (LaneGroup::Lane_Id() == leader)
-                base_slot = atomicAdd(output_count, count);
-            base_slot = LaneGroup::Broadcast(base_slot, leader);
-
-            if (pass)
-            {
-                const int rank = LaneGroup::Prefix_Count(mask);
-                output_tasks[base_slot + rank] = {pij.x, pij.y, pkl.x, pkl.y};
-            }
+            const int slot = atomicAdd(&output_counts[ci], 1);
+            output_tasks[combo.output_offset + slot] =
+                {pij.x, pij.y, pkl.x, pkl.y};
         }
     }
 }

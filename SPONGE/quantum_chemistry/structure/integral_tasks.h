@@ -53,10 +53,26 @@ struct QC_INTEGRAL_TASKS
     std::vector<int> h_sorted_pair_ids;
     int* d_sorted_pair_ids = NULL;
 
+    // On-the-fly screening combo info
+    struct ScreenCombo {
+        int pair_base_A, n_A;
+        int pair_base_B, n_B;
+        int n_quartets;       // total quartets in this combo
+        int output_offset;    // offset into d_screened_tasks
+        int same_type;        // 1=triangular, 0=rectangular
+        int l0, l1, l2, l3;   // shell angular momenta for ERI kernel selection
+    };
+    static const int MAX_COMBOS = 64;
+    int n_combos = 0;
+    ScreenCombo h_combos[MAX_COMBOS];
+    ScreenCombo* d_combos = NULL;
+    int combo_prefix[MAX_COMBOS + 1] = {}; // prefix sum of n_quartets
+    int total_quartets = 0;
+
     // Screening output buffer (reused each SCF iteration)
-    QC_ERI_TASK* d_screened_tasks = NULL;  // compacted output
-    int* d_screen_count = NULL;            // atomic counter (device)
-    int screened_buf_capacity = 0;         // allocated size
+    QC_ERI_TASK* d_screened_tasks = NULL;
+    int* d_screen_counts = NULL;  // per-combo atomic counters [MAX_COMBOS]
+    int screened_buf_capacity = 0;
     int eri_hr_base = 13;
     int eri_hr_size = 28561;
     int eri_shell_buf_size = 50625;
