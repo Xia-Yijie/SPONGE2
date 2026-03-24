@@ -34,4 +34,8 @@ description: >
 
 - sponge-skill-installer: 指导安装SPONGE skill的skill
 - sponge-benchmark-creator: 指导创建SPONGE benchmark的skill
+- sponge-build-guide: 指导 SPONGE 构建、编译、环境配置、构建排错
+- sponge-code-style: 指导 SPONGE 的 C++、Python、CMake 代码风格与格式化流程
 - sponge-prips-mlp: 指导使用 PRIPS 对接 MACE 等机器学习/神经网络势并在 SPONGE 中验证与 benchmark
+- sponge-toml-input: 指导 SPONGE 输入文件 `mdin.spg.toml` 的参数配置
+- pixi-usage: 指导 SPONGE 项目中 pixi 的环境管理、依赖安装、任务运行与 shell 使用

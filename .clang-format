@@ -9,5 +9,3 @@ ColumnLimit: 80
 BreakBeforeBraces: Allman
 AllowShortIfStatementsOnASingleLine: true
 AllowShortLoopsOnASingleLine: true
-
-UseCRLF: false
