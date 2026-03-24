@@ -822,10 +822,94 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 #include "build_fock_gpu.hpp"
 #include "../gpu_eri/eri_sp_common.hpp"
 #include "../gpu_eri/eri_ssss.hpp"
-#include "../gpu_eri/eri_sssp.hpp"
-#include "../gpu_eri/eri_sspp.hpp"
-#include "../gpu_eri/eri_sppp.hpp"
+// 3s1p: 4 permutations by p-shell position
+#define P_POS 0
+#define KERNEL_NAME QC_Fock_psss_Kernel
+#include "../gpu_eri/eri_3s1p.hpp"
+#undef KERNEL_NAME
+#undef P_POS
+#define P_POS 1
+#define KERNEL_NAME QC_Fock_spss_Kernel
+#include "../gpu_eri/eri_3s1p.hpp"
+#undef KERNEL_NAME
+#undef P_POS
+#define P_POS 2
+#define KERNEL_NAME QC_Fock_ssps_Kernel
+#include "../gpu_eri/eri_3s1p.hpp"
+#undef KERNEL_NAME
+#undef P_POS
+#define P_POS 3
+#define KERNEL_NAME QC_Fock_sssp_New_Kernel
+#include "../gpu_eri/eri_3s1p.hpp"
+#undef KERNEL_NAME
+#undef P_POS
 #include "../gpu_eri/eri_pppp.hpp"
+
+// 2s2p: 6 permutations by p-shell positions
+#define P_POS0 0
+#define P_POS1 1
+#define KERNEL_NAME QC_Fock_ppss_Kernel
+#include "../gpu_eri/eri_2s2p.hpp"
+#undef KERNEL_NAME
+#undef P_POS1
+#undef P_POS0
+#define P_POS0 0
+#define P_POS1 2
+#define KERNEL_NAME QC_Fock_psps_Kernel
+#include "../gpu_eri/eri_2s2p.hpp"
+#undef KERNEL_NAME
+#undef P_POS1
+#undef P_POS0
+#define P_POS0 0
+#define P_POS1 3
+#define KERNEL_NAME QC_Fock_pssp_Kernel
+#include "../gpu_eri/eri_2s2p.hpp"
+#undef KERNEL_NAME
+#undef P_POS1
+#undef P_POS0
+#define P_POS0 1
+#define P_POS1 2
+#define KERNEL_NAME QC_Fock_spps_Kernel
+#include "../gpu_eri/eri_2s2p.hpp"
+#undef KERNEL_NAME
+#undef P_POS1
+#undef P_POS0
+#define P_POS0 1
+#define P_POS1 3
+#define KERNEL_NAME QC_Fock_spsp_Kernel
+#include "../gpu_eri/eri_2s2p.hpp"
+#undef KERNEL_NAME
+#undef P_POS1
+#undef P_POS0
+#define P_POS0 2
+#define P_POS1 3
+#define KERNEL_NAME QC_Fock_sspp_New_Kernel
+#include "../gpu_eri/eri_2s2p.hpp"
+#undef KERNEL_NAME
+#undef P_POS1
+#undef P_POS0
+
+// 1s3p: 4 permutations by s-shell position
+#define S_POS 0
+#define KERNEL_NAME QC_Fock_sppp_New_Kernel
+#include "../gpu_eri/eri_1s3p.hpp"
+#undef KERNEL_NAME
+#undef S_POS
+#define S_POS 1
+#define KERNEL_NAME QC_Fock_pspp_Kernel
+#include "../gpu_eri/eri_1s3p.hpp"
+#undef KERNEL_NAME
+#undef S_POS
+#define S_POS 2
+#define KERNEL_NAME QC_Fock_ppsp_Kernel
+#include "../gpu_eri/eri_1s3p.hpp"
+#undef KERNEL_NAME
+#undef S_POS
+#define S_POS 3
+#define KERNEL_NAME QC_Fock_ppps_Kernel
+#include "../gpu_eri/eri_1s3p.hpp"
+#undef KERNEL_NAME
+#undef S_POS
 
 void QUANTUM_CHEMISTRY::Build_Fock(int iter)
 {
@@ -925,17 +1009,17 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         h_active_eri_tasks);
     scf_ws.last_active_eri_tasks = n_eri_tasks;
 
-    // --- Bin tasks by shell type: ssss vs generic ---
+    // --- Bin tasks by shell type and position ---
     std::vector<QC_ERI_TASK> h_ssss_tasks;
-    std::vector<QC_ERI_TASK> h_sssp_tasks;
-    std::vector<QC_ERI_TASK> h_sspp_tasks;
-    std::vector<QC_ERI_TASK> h_sppp_tasks;
+    std::vector<QC_ERI_TASK> h_3s1p_tasks[4];  // indexed by p-position
+    std::vector<QC_ERI_TASK> h_2s2p_tasks[6];  // indexed by (p0,p1) combo: 01,02,03,12,13,23
+    std::vector<QC_ERI_TASK> h_1s3p_tasks[4];  // indexed by s-position
     std::vector<QC_ERI_TASK> h_pppp_tasks;
     std::vector<QC_ERI_TASK> h_generic_tasks;
     h_ssss_tasks.reserve(n_eri_tasks);
-    h_sssp_tasks.reserve(n_eri_tasks);
-    h_sspp_tasks.reserve(n_eri_tasks);
-    h_sppp_tasks.reserve(n_eri_tasks);
+    for (int i = 0; i < 4; i++) h_3s1p_tasks[i].reserve(n_eri_tasks / 8);
+    for (int i = 0; i < 6; i++) h_2s2p_tasks[i].reserve(n_eri_tasks / 8);
+    for (int i = 0; i < 4; i++) h_1s3p_tasks[i].reserve(n_eri_tasks / 8);
     h_pppp_tasks.reserve(n_eri_tasks);
     h_generic_tasks.reserve(n_eri_tasks);
     for (int i = 0; i < n_eri_tasks; i++)
@@ -950,20 +1034,33 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         {
             h_ssss_tasks.push_back(t);
         }
-        else if (l_sum == 1 &&
-                 ((lx == 1) + (ly == 1) + (lz == 1) + (lw == 1) == 1))
+        else if (l_sum == 1)
         {
-            h_sssp_tasks.push_back(t);
+            // 3s1p: bin by which position has the p shell
+            if (lx == 1)      h_3s1p_tasks[0].push_back(t);
+            else if (ly == 1) h_3s1p_tasks[1].push_back(t);
+            else if (lz == 1) h_3s1p_tasks[2].push_back(t);
+            else              h_3s1p_tasks[3].push_back(t);
         }
         else if (l_sum == 2 &&
                  ((lx == 1) + (ly == 1) + (lz == 1) + (lw == 1) == 2))
         {
-            h_sspp_tasks.push_back(t);
+            // 2s2p: encode (p0,p1) pair as index 0-5
+            const int p0 = (lx==1)?0:(ly==1)?1:(lz==1)?2:3;
+            const int p1_start = (lx==1)?((ly==1)?1:(lz==1)?2:3):
+                                 (ly==1)?((lz==1)?2:3):3;
+            // Map (p0,p1) to 0-5: (0,1)=0 (0,2)=1 (0,3)=2 (1,2)=3 (1,3)=4 (2,3)=5
+            static const int pair_idx[4][4] = {{-1,0,1,2},{0,-1,3,4},{1,3,-1,5},{2,4,5,-1}};
+            h_2s2p_tasks[pair_idx[p0][p1_start]].push_back(t);
         }
         else if (l_sum == 3 &&
                  ((lx == 1) + (ly == 1) + (lz == 1) + (lw == 1) == 3))
         {
-            h_sppp_tasks.push_back(t);
+            // 1s3p: bin by s-position
+            if (lx == 0)      h_1s3p_tasks[0].push_back(t);
+            else if (ly == 0) h_1s3p_tasks[1].push_back(t);
+            else if (lz == 0) h_1s3p_tasks[2].push_back(t);
+            else              h_1s3p_tasks[3].push_back(t);
         }
         else if (l_sum == 4 &&
                  ((lx == 1) + (ly == 1) + (lz == 1) + (lw == 1) == 4))
@@ -976,12 +1073,17 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         }
     }
     scf_ws.last_fock_filter_s = omp_get_wtime() - t_filter_begin;
-    fprintf(stderr,
-            "    [Fock dispatch] filtered=%d ssss=%d sssp=%d sspp=%d "
-            "sppp=%d pppp=%d generic=%d\n",
-            n_eri_tasks, (int)h_ssss_tasks.size(), (int)h_sssp_tasks.size(),
-            (int)h_sspp_tasks.size(), (int)h_sppp_tasks.size(),
-            (int)h_pppp_tasks.size(), (int)h_generic_tasks.size());
+    {
+        int n_3s1p = 0, n_2s2p = 0, n_1s3p = 0;
+        for (int i = 0; i < 4; i++) n_3s1p += (int)h_3s1p_tasks[i].size();
+        for (int i = 0; i < 6; i++) n_2s2p += (int)h_2s2p_tasks[i].size();
+        for (int i = 0; i < 4; i++) n_1s3p += (int)h_1s3p_tasks[i].size();
+        fprintf(stderr,
+                "    [Fock dispatch] filtered=%d ssss=%d 3s1p=%d 2s2p=%d "
+                "1s3p=%d 4p=%d generic=%d\n",
+                n_eri_tasks, (int)h_ssss_tasks.size(), n_3s1p, n_2s2p,
+                n_1s3p, (int)h_pppp_tasks.size(), (int)h_generic_tasks.size());
+    }
 
     // --- Launch ssss specialized kernel (register-only, single launch) ---
     const int n_ssss = (int)h_ssss_tasks.size();
@@ -1009,81 +1111,101 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         DEBUG_bucket_ssss_timer.Stop();
     }
 
-    // --- Launch sssp specialized kernel (register-only, single launch) ---
-    const int n_sssp = (int)h_sssp_tasks.size();
-    if (n_sssp > 0)
+    // --- Launch 3s1p kernels (4 permutations, single launch each) ---
     {
+        using KernelFunc = decltype(&QC_Fock_psss_Kernel);
+        const KernelFunc kernels[4] = {
+            QC_Fock_psss_Kernel, QC_Fock_spss_Kernel,
+            QC_Fock_ssps_Kernel, QC_Fock_sssp_New_Kernel
+        };
         DEBUG_bucket_sssp_timer.Start();
-        deviceMemcpy(task_ctx.d_eri_tasks, h_sssp_tasks.data(),
-                     sizeof(QC_ERI_TASK) * n_sssp, deviceMemcpyHostToDevice);
-        Launch_Device_Kernel(
-            QC_Fock_sssp_Kernel,
-            (n_sssp + threads - 1) / threads, threads, 0, 0,
-            n_sssp, task_ctx.d_eri_tasks, mol.d_atm, mol.d_bas,
-            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
-            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                : (const float*)nullptr,
-            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-            prim_screen_tol);
+        for (int p = 0; p < 4; p++)
+        {
+            const int n = (int)h_3s1p_tasks[p].size();
+            if (n == 0) continue;
+            deviceMemcpy(task_ctx.d_eri_tasks, h_3s1p_tasks[p].data(),
+                         sizeof(QC_ERI_TASK) * n, deviceMemcpyHostToDevice);
+            Launch_Device_Kernel(
+                kernels[p],
+                (n + threads - 1) / threads, threads, 0, 0,
+                n, task_ctx.d_eri_tasks, mol.d_atm, mol.d_bas,
+                mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
+                scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+                scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+                scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                    : (const float*)nullptr,
+                shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
+                scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
+                exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
+                mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
+                d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
+                task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+                prim_screen_tol);
+        }
         DEBUG_bucket_sssp_timer.Stop();
     }
 
-    // --- Launch sspp specialized kernel (register-only, single launch) ---
-    const int n_sspp = (int)h_sspp_tasks.size();
-    if (n_sspp > 0)
+    // --- Launch 2s2p kernels (6 permutations) ---
     {
+        using KF = decltype(&QC_Fock_ppss_Kernel);
+        const KF k2s2p[6] = {
+            QC_Fock_ppss_Kernel, QC_Fock_psps_Kernel, QC_Fock_pssp_Kernel,
+            QC_Fock_spps_Kernel, QC_Fock_spsp_Kernel, QC_Fock_sspp_New_Kernel
+        };
         DEBUG_bucket_sspp_timer.Start();
-        deviceMemcpy(task_ctx.d_eri_tasks, h_sspp_tasks.data(),
-                     sizeof(QC_ERI_TASK) * n_sspp, deviceMemcpyHostToDevice);
-        Launch_Device_Kernel(
-            QC_Fock_sspp_Kernel,
-            (n_sspp + threads - 1) / threads, threads, 0, 0,
-            n_sspp, task_ctx.d_eri_tasks, mol.d_atm, mol.d_bas,
-            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
-            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                : (const float*)nullptr,
-            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-            prim_screen_tol);
+        for (int p = 0; p < 6; p++) {
+            const int n = (int)h_2s2p_tasks[p].size();
+            if (n == 0) continue;
+            deviceMemcpy(task_ctx.d_eri_tasks, h_2s2p_tasks[p].data(),
+                         sizeof(QC_ERI_TASK)*n, deviceMemcpyHostToDevice);
+            Launch_Device_Kernel(k2s2p[p],
+                (n+threads-1)/threads, threads, 0, 0,
+                n, task_ctx.d_eri_tasks, mol.d_atm, mol.d_bas,
+                mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
+                scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+                scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+                scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                    : (const float*)nullptr,
+                shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
+                scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
+                exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
+                mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
+                d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
+                task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+                prim_screen_tol);
+        }
         DEBUG_bucket_sspp_timer.Stop();
     }
 
-    // --- Launch sppp specialized kernel (register-only, single launch) ---
-    const int n_sppp = (int)h_sppp_tasks.size();
-    if (n_sppp > 0)
+    // --- Launch 1s3p kernels (4 permutations) ---
     {
+        using KF = decltype(&QC_Fock_sppp_New_Kernel);
+        const KF k1s3p[4] = {
+            QC_Fock_sppp_New_Kernel, QC_Fock_pspp_Kernel,
+            QC_Fock_ppsp_Kernel, QC_Fock_ppps_Kernel
+        };
         DEBUG_bucket_sppp_timer.Start();
-        deviceMemcpy(task_ctx.d_eri_tasks, h_sppp_tasks.data(),
-                     sizeof(QC_ERI_TASK) * n_sppp, deviceMemcpyHostToDevice);
-        Launch_Device_Kernel(
-            QC_Fock_sppp_Kernel,
-            (n_sppp + threads - 1) / threads, threads, 0, 0,
-            n_sppp, task_ctx.d_eri_tasks, mol.d_atm, mol.d_bas,
-            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
-            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                : (const float*)nullptr,
-            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-            prim_screen_tol);
+        for (int p = 0; p < 4; p++) {
+            const int n = (int)h_1s3p_tasks[p].size();
+            if (n == 0) continue;
+            deviceMemcpy(task_ctx.d_eri_tasks, h_1s3p_tasks[p].data(),
+                         sizeof(QC_ERI_TASK)*n, deviceMemcpyHostToDevice);
+            Launch_Device_Kernel(k1s3p[p],
+                (n+threads-1)/threads, threads, 0, 0,
+                n, task_ctx.d_eri_tasks, mol.d_atm, mol.d_bas,
+                mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
+                scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+                scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+                scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                    : (const float*)nullptr,
+                shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
+                scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
+                exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
+                mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
+                d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
+                task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+                prim_screen_tol);
+        }
         DEBUG_bucket_sppp_timer.Stop();
     }
 
@@ -1143,17 +1265,23 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         }
         DEBUG_bucket_generic_timer.Stop();
     }
+    {
+    int n_3s1p_t=0, n_2s2p_t=0, n_1s3p_t=0;
+    for(int i=0;i<4;i++) n_3s1p_t+=(int)h_3s1p_tasks[i].size();
+    for(int i=0;i<6;i++) n_2s2p_t+=(int)h_2s2p_tasks[i].size();
+    for(int i=0;i<4;i++) n_1s3p_t+=(int)h_1s3p_tasks[i].size();
     fprintf(stderr,
             "    [DEBUG_FOCK_BUCKET_TIMING] iter=%d filtered=%d ssss=%d "
-            "sssp=%d sspp=%d sppp=%d pppp=%d generic=%d t_ssss=%.6fs "
-            "t_sssp=%.6fs t_sspp=%.6fs t_sppp=%.6fs t_pppp=%.6fs "
+            "3s1p=%d 2s2p=%d 1s3p=%d 4p=%d generic=%d t_ssss=%.6fs "
+            "t_3s1p=%.6fs t_2s2p=%.6fs t_1s3p=%.6fs t_4p=%.6fs "
             "t_generic=%.6fs\n",
-            iter + 1, n_eri_tasks, n_ssss, n_sssp, n_sspp, n_sppp, n_pppp,
-            n_generic,
+            iter + 1, n_eri_tasks, n_ssss, n_3s1p_t, n_2s2p_t, n_1s3p_t,
+            n_pppp, n_generic,
             DEBUG_bucket_ssss_timer.time, DEBUG_bucket_sssp_timer.time,
             DEBUG_bucket_sspp_timer.time, DEBUG_bucket_sppp_timer.time,
             DEBUG_bucket_pppp_timer.time,
             DEBUG_bucket_generic_timer.time);
+    }
     if (scf_ws.d_F_double != NULL)
         QC_Float_To_Double_Copy(total, scf_ws.d_F, scf_ws.d_F_double);
     if (scf_ws.unrestricted && scf_ws.d_F_b_double != NULL)
