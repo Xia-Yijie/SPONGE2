@@ -126,7 +126,7 @@ static __device__ float rys_hrr_1d(
 {
     if (lb == 0) return g_col[la];
 
-    float tmp[5]; // max la+lb = 4 for d shells
+    float tmp[9]; // max la+lb = 4 for d shells
     const int n = la + lb;
     for (int i = 0; i <= n; i++) tmp[i] = g_col[i];
 

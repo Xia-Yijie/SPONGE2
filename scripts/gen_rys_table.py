@@ -12,7 +12,7 @@ from scipy.special import hyp1f1
 from numpy.polynomial.chebyshev import chebfit, chebval
 
 # Parameters (matching gpu4pyscf convention for compatibility)
-MAX_NRYS = 5      # max Rys roots (covers up to L_sum=8, dddd)
+MAX_NRYS = 9      # max Rys roots (covers up to L_sum=8, dddd)
 DEGREE = 13        # Chebyshev polynomial degree
 INTERVAL = 2.5     # width of each T interval
 N_INTERVALS = 40   # number of intervals (covers T=0..100)

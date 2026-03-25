@@ -893,7 +893,81 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 #undef ERI_MAX_G
 #undef ERI_NRYS
 
-// d-containing MD kernels per L_sum: kept as fallback
+// f/g Rys kernels (L_sum 9..16)
+#define ERI_NRYS 5
+#define ERI_MAX_G 18
+#define ERI_MAX_CART 2160
+#define KERNEL_NAME QC_Fock_Rys_L9_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 6
+#define ERI_MAX_G 27
+#define ERI_MAX_CART 3600
+#define KERNEL_NAME QC_Fock_Rys_L10_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 6
+#define ERI_MAX_G 36
+#define ERI_MAX_CART 6000
+#define KERNEL_NAME QC_Fock_Rys_L11_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 7
+#define ERI_MAX_G 45
+#define ERI_MAX_CART 10000
+#define KERNEL_NAME QC_Fock_Rys_L12_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 7
+#define ERI_MAX_G 54
+#define ERI_MAX_CART 15000
+#define KERNEL_NAME QC_Fock_Rys_L13_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 8
+#define ERI_MAX_G 63
+#define ERI_MAX_CART 22500
+#define KERNEL_NAME QC_Fock_Rys_L14_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 8
+#define ERI_MAX_G 72
+#define ERI_MAX_CART 33750
+#define KERNEL_NAME QC_Fock_Rys_L15_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 9
+#define ERI_MAX_G 81
+#define ERI_MAX_CART 50625
+#define KERNEL_NAME QC_Fock_Rys_L16_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+
+// d-containing MD kernels per L_sum: kept for d shells (faster than Rys)
 #define ERI_LSUM 2
 #define ERI_F_SIZE 3
 #define ERI_R0_SIZE 10
@@ -1238,43 +1312,37 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
                 const int l_sum = combo.l0 + combo.l1 + combo.l2 + combo.l3;
                 if (l_max <= 2)
                 {
-                    // d-containing: per-L_sum Rys quadrature kernel
+                    // d-containing: MD per-L_sum (faster than Rys for d)
                     switch (l_sum)
                     {
-                        case 2: launch_eri(ci, QC_Fock_Rys_L2_Kernel); break;
-                        case 3: launch_eri(ci, QC_Fock_Rys_L3_Kernel); break;
-                        case 4: launch_eri(ci, QC_Fock_Rys_L4_Kernel); break;
-                        case 5: launch_eri(ci, QC_Fock_Rys_L5_Kernel); break;
-                        case 6: launch_eri(ci, QC_Fock_Rys_L6_Kernel); break;
-                        case 7: launch_eri(ci, QC_Fock_Rys_L7_Kernel); break;
-                        case 8: launch_eri(ci, QC_Fock_Rys_L8_Kernel); break;
+                        case 2: launch_eri(ci, QC_Fock_D_L2_Kernel); break;
+                        case 3: launch_eri(ci, QC_Fock_D_L3_Kernel); break;
+                        case 4: launch_eri(ci, QC_Fock_D_L4_Kernel); break;
+                        case 5: launch_eri(ci, QC_Fock_D_L5_Kernel); break;
+                        case 6: launch_eri(ci, QC_Fock_D_L6_Kernel); break;
+                        case 7: launch_eri(ci, QC_Fock_D_L7_Kernel); break;
+                        case 8: launch_eri(ci, QC_Fock_D_L8_Kernel); break;
                     }
                 }
                 else
                 {
-                    // f/g shells: fall back to old chunked generic
-                    const int n = h_counts[ci];
-                    const QC_ERI_TASK* ptr =
-                        task_ctx.d_screened_tasks + combo.output_offset;
-                    for (int i = 0; i < n; i += chunk_size)
+                    // f/g shells: Rys quadrature per-L_sum (single launch)
+                    switch (l_sum)
                     {
-                        const int cc = std::min(chunk_size, n - i);
-                        Launch_Device_Kernel(
-                            QC_Build_Fock_Direct_Kernel,
-                            (cc + threads - 1) / threads, threads, 0, 0,
-                            cc, ptr + i, mol.d_atm, mol.d_bas, mol.d_env,
-                            mol.d_ao_offsets, mol.d_ao_offsets_sph,
-                            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-                            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-                            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                                : (const float*)nullptr,
-                            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-                            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-                            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-                            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-                            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-                            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-                            prim_screen_tol);
+                        case  3: launch_eri(ci, QC_Fock_Rys_L3_Kernel); break;
+                        case  4: launch_eri(ci, QC_Fock_Rys_L4_Kernel); break;
+                        case  5: launch_eri(ci, QC_Fock_Rys_L5_Kernel); break;
+                        case  6: launch_eri(ci, QC_Fock_Rys_L6_Kernel); break;
+                        case  7: launch_eri(ci, QC_Fock_Rys_L7_Kernel); break;
+                        case  8: launch_eri(ci, QC_Fock_Rys_L8_Kernel); break;
+                        case  9: launch_eri(ci, QC_Fock_Rys_L9_Kernel); break;
+                        case 10: launch_eri(ci, QC_Fock_Rys_L10_Kernel); break;
+                        case 11: launch_eri(ci, QC_Fock_Rys_L11_Kernel); break;
+                        case 12: launch_eri(ci, QC_Fock_Rys_L12_Kernel); break;
+                        case 13: launch_eri(ci, QC_Fock_Rys_L13_Kernel); break;
+                        case 14: launch_eri(ci, QC_Fock_Rys_L14_Kernel); break;
+                        case 15: launch_eri(ci, QC_Fock_Rys_L15_Kernel); break;
+                        case 16: launch_eri(ci, QC_Fock_Rys_L16_Kernel); break;
                     }
                 }
                 break;

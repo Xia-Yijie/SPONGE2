@@ -177,7 +177,7 @@ static __global__ void KERNEL_NAME(
                     QC_Get_Lxyz_Device(l[3], c3, ax3, ay3, az3);
 
                     // Extract G columns for HRR
-                    float gx_col[5], gy_col[5], gz_col[5];
+                    float gx_col[9], gy_col[5], gz_col[5];
                     for (int i = 0; i <= ij_am; i++) {
                         gx_col[i] = Gx[i*g_stride + ax2+ax3];
                         gy_col[i] = Gy[i*g_stride + ay2+ay3];
@@ -201,25 +201,25 @@ static __global__ void KERNEL_NAME(
                     // Then Ket HRR: from I(ax0, ax1, 0..kl_am) → I(ax0, ax1, ax2, ax3)
 
                     // Recompute properly:
-                    float gx_bra[5]; // result after bra HRR, indexed by kl
+                    float gx_bra[9]; // result after bra HRR, indexed by kl
                     for (int j = 0; j <= kl_am; j++) {
-                        float col[5];
+                        float col[9];
                         for (int i = 0; i <= ij_am; i++) col[i] = Gx[i*g_stride + j];
                         gx_bra[j] = rys_hrr_1d(col, ax0, ax1, AB[0]);
                     }
                     Ix = rys_hrr_1d(gx_bra, ax2, ax3, CD[0]);
 
-                    float gy_bra[5];
+                    float gy_bra[9];
                     for (int j = 0; j <= kl_am; j++) {
-                        float col[5];
+                        float col[9];
                         for (int i = 0; i <= ij_am; i++) col[i] = Gy[i*g_stride + j];
                         gy_bra[j] = rys_hrr_1d(col, ay0, ay1, AB[1]);
                     }
                     Iy = rys_hrr_1d(gy_bra, ay2, ay3, CD[1]);
 
-                    float gz_bra[5];
+                    float gz_bra[9];
                     for (int j = 0; j <= kl_am; j++) {
-                        float col[5];
+                        float col[9];
                         for (int i = 0; i <= ij_am; i++) col[i] = Gz[i*g_stride + j];
                         gz_bra[j] = rys_hrr_1d(col, az0, az1, AB[2]);
                     }
