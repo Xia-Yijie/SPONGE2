@@ -825,8 +825,98 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 
 // Single-launch screening kernel for all pair-type combinations
 #include "../gpu_eri/eri_screen_compact.hpp"
-// Generic register-only kernel for d-containing quartets
-#include "../gpu_eri/eri_d_generic.hpp"
+// d-containing kernels: one per L_sum with compile-time array sizes
+#define ERI_LSUM 2
+#define ERI_F_SIZE 3
+#define ERI_R0_SIZE 10
+#define ERI_RW_SIZE 15
+#define ERI_MAX_CART 6
+#define KERNEL_NAME QC_Fock_D_L2_Kernel
+#include "../gpu_eri/eri_d_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_RW_SIZE
+#undef ERI_R0_SIZE
+#undef ERI_F_SIZE
+#undef ERI_LSUM
+#define ERI_LSUM 3
+#define ERI_F_SIZE 4
+#define ERI_R0_SIZE 20
+#define ERI_RW_SIZE 35
+#define ERI_MAX_CART 18
+#define KERNEL_NAME QC_Fock_D_L3_Kernel
+#include "../gpu_eri/eri_d_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_RW_SIZE
+#undef ERI_R0_SIZE
+#undef ERI_F_SIZE
+#undef ERI_LSUM
+#define ERI_LSUM 4
+#define ERI_F_SIZE 5
+#define ERI_R0_SIZE 35
+#define ERI_RW_SIZE 70
+#define ERI_MAX_CART 54
+#define KERNEL_NAME QC_Fock_D_L4_Kernel
+#include "../gpu_eri/eri_d_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_RW_SIZE
+#undef ERI_R0_SIZE
+#undef ERI_F_SIZE
+#undef ERI_LSUM
+#define ERI_LSUM 5
+#define ERI_F_SIZE 6
+#define ERI_R0_SIZE 56
+#define ERI_RW_SIZE 126
+#define ERI_MAX_CART 162
+#define KERNEL_NAME QC_Fock_D_L5_Kernel
+#include "../gpu_eri/eri_d_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_RW_SIZE
+#undef ERI_R0_SIZE
+#undef ERI_F_SIZE
+#undef ERI_LSUM
+#define ERI_LSUM 6
+#define ERI_F_SIZE 7
+#define ERI_R0_SIZE 84
+#define ERI_RW_SIZE 210
+#define ERI_MAX_CART 324
+#define KERNEL_NAME QC_Fock_D_L6_Kernel
+#include "../gpu_eri/eri_d_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_RW_SIZE
+#undef ERI_R0_SIZE
+#undef ERI_F_SIZE
+#undef ERI_LSUM
+#define ERI_LSUM 7
+#define ERI_F_SIZE 8
+#define ERI_R0_SIZE 120
+#define ERI_RW_SIZE 330
+#define ERI_MAX_CART 648
+#define KERNEL_NAME QC_Fock_D_L7_Kernel
+#include "../gpu_eri/eri_d_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_RW_SIZE
+#undef ERI_R0_SIZE
+#undef ERI_F_SIZE
+#undef ERI_LSUM
+#define ERI_LSUM 8
+#define ERI_F_SIZE 9
+#define ERI_R0_SIZE 165
+#define ERI_RW_SIZE 495
+#define ERI_MAX_CART 1296
+#define KERNEL_NAME QC_Fock_D_L8_Kernel
+#include "../gpu_eri/eri_d_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_RW_SIZE
+#undef ERI_R0_SIZE
+#undef ERI_F_SIZE
+#undef ERI_LSUM
 // 3s1p: 4 permutations by p-shell position
 #define P_POS 0
 #define KERNEL_NAME QC_Fock_psss_Kernel
@@ -1077,10 +1167,20 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
             default:
             {
                 const int l_max = std::max({combo.l0, combo.l1, combo.l2, combo.l3});
+                const int l_sum = combo.l0 + combo.l1 + combo.l2 + combo.l3;
                 if (l_max <= 2)
                 {
-                    // d-containing: register-only generic kernel (single launch)
-                    launch_eri(ci, QC_Fock_D_Generic_Kernel);
+                    // d-containing: per-L_sum register kernel (compile-time sized arrays)
+                    switch (l_sum)
+                    {
+                        case 2: launch_eri(ci, QC_Fock_D_L2_Kernel); break;
+                        case 3: launch_eri(ci, QC_Fock_D_L3_Kernel); break;
+                        case 4: launch_eri(ci, QC_Fock_D_L4_Kernel); break;
+                        case 5: launch_eri(ci, QC_Fock_D_L5_Kernel); break;
+                        case 6: launch_eri(ci, QC_Fock_D_L6_Kernel); break;
+                        case 7: launch_eri(ci, QC_Fock_D_L7_Kernel); break;
+                        case 8: launch_eri(ci, QC_Fock_D_L8_Kernel); break;
+                    }
                 }
                 else
                 {
