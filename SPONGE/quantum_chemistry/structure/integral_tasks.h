@@ -62,7 +62,7 @@ struct QC_INTEGRAL_TASKS
         int same_type;        // 1=triangular, 0=rectangular
         int l0, l1, l2, l3;   // shell angular momenta for ERI kernel selection
     };
-    static const int MAX_COMBOS = 64;
+    static const int MAX_COMBOS = 512; // C(25+1,2)=325 for l_max=4
     int n_combos = 0;
     ScreenCombo h_combos[MAX_COMBOS];
     ScreenCombo* d_combos = NULL;
