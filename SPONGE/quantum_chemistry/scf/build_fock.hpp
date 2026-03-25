@@ -825,7 +825,9 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 
 // Single-launch screening kernel for all pair-type combinations
 #include "../gpu_eri/eri_screen_compact.hpp"
-// d-containing kernels: one per L_sum with compile-time array sizes
+// Rys quadrature kernel for d-containing quartets
+#include "../gpu_eri/eri_d_rys.hpp"
+// d-containing kernels (MD, per L_sum): kept as fallback
 #define ERI_LSUM 2
 #define ERI_F_SIZE 3
 #define ERI_R0_SIZE 10
@@ -1170,17 +1172,8 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
                 const int l_sum = combo.l0 + combo.l1 + combo.l2 + combo.l3;
                 if (l_max <= 2)
                 {
-                    // d-containing: per-L_sum register kernel (compile-time sized arrays)
-                    switch (l_sum)
-                    {
-                        case 2: launch_eri(ci, QC_Fock_D_L2_Kernel); break;
-                        case 3: launch_eri(ci, QC_Fock_D_L3_Kernel); break;
-                        case 4: launch_eri(ci, QC_Fock_D_L4_Kernel); break;
-                        case 5: launch_eri(ci, QC_Fock_D_L5_Kernel); break;
-                        case 6: launch_eri(ci, QC_Fock_D_L6_Kernel); break;
-                        case 7: launch_eri(ci, QC_Fock_D_L7_Kernel); break;
-                        case 8: launch_eri(ci, QC_Fock_D_L8_Kernel); break;
-                    }
+                    // d-containing: Rys quadrature kernel (single launch)
+                    launch_eri(ci, QC_Fock_D_Rys_Kernel);
                 }
                 else
                 {
