@@ -825,6 +825,8 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 
 // Single-launch screening kernel for all pair-type combinations
 #include "../gpu_eri/eri_screen_compact.hpp"
+// Generic register-only kernel for d-containing quartets
+#include "../gpu_eri/eri_d_generic.hpp"
 // 3s1p: 4 permutations by p-shell position
 #define P_POS 0
 #define KERNEL_NAME QC_Fock_psss_Kernel
@@ -1074,28 +1076,38 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
             case 1111: launch_eri(ci, QC_Fock_pppp_Kernel); break;
             default:
             {
-                const int n = h_counts[ci];
-                const QC_ERI_TASK* ptr =
-                    task_ctx.d_screened_tasks + combo.output_offset;
-                for (int i = 0; i < n; i += chunk_size)
+                const int l_max = std::max({combo.l0, combo.l1, combo.l2, combo.l3});
+                if (l_max <= 2)
                 {
-                    const int cc = std::min(chunk_size, n - i);
-                    Launch_Device_Kernel(
-                        QC_Build_Fock_Direct_Kernel,
-                        (cc + threads - 1) / threads, threads, 0, 0,
-                        cc, ptr + i, mol.d_atm, mol.d_bas, mol.d_env,
-                        mol.d_ao_offsets, mol.d_ao_offsets_sph,
-                        scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-                        scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-                        scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                            : (const float*)nullptr,
-                        shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-                        scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-                        exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-                        mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-                        d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-                        task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-                        prim_screen_tol);
+                    // d-containing: register-only generic kernel (single launch)
+                    launch_eri(ci, QC_Fock_D_Generic_Kernel);
+                }
+                else
+                {
+                    // f/g shells: fall back to old chunked generic
+                    const int n = h_counts[ci];
+                    const QC_ERI_TASK* ptr =
+                        task_ctx.d_screened_tasks + combo.output_offset;
+                    for (int i = 0; i < n; i += chunk_size)
+                    {
+                        const int cc = std::min(chunk_size, n - i);
+                        Launch_Device_Kernel(
+                            QC_Build_Fock_Direct_Kernel,
+                            (cc + threads - 1) / threads, threads, 0, 0,
+                            cc, ptr + i, mol.d_atm, mol.d_bas, mol.d_env,
+                            mol.d_ao_offsets, mol.d_ao_offsets_sph,
+                            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+                            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+                            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                                : (const float*)nullptr,
+                            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
+                            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
+                            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
+                            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
+                            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
+                            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+                            prim_screen_tol);
+                    }
                 }
                 break;
             }

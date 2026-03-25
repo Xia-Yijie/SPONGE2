@@ -1,50 +1,67 @@
 #pragma once
 
-// Common utilities for register-only s/p ERI kernels.
-// Boys function (max_m <= 4), compact R tensor, E-coefficient helpers.
+// Common utilities for register-only ERI kernels (s/p/d shells).
+// Boys function, compact R tensor, E-coefficient helpers, contraction.
 
-// ---- Inline Boys function for small max_m (≤4) ----
-// Computes F[0..max_m] in double precision.
+// ---- Get angular momentum on axis d for shell with l and Cartesian component c ----
+static __device__ __forceinline__ int sp_get_l_axis(int l, int c, int axis)
+{
+    if (l == 0) return 0;
+    if (l == 1) return (c == axis) ? 1 : 0;
+    // l >= 2: use device constant lookup tables
+    const int offset = QC_Comp_Offset(l);
+    if (axis == 0) return QC_COMP_LX_DEVICE[offset + c];
+    if (axis == 1) return QC_COMP_LY_DEVICE[offset + c];
+    return QC_COMP_LZ_DEVICE[offset + c];
+}
+
+// ---- Boys function for max_m up to ~8 ----
+// Uses upward recursion for max_m <= 4 (fast, register-only).
+// Uses downward recursion for max_m > 4 (stable, needs small work array).
 static __device__ __forceinline__ void sp_boys(
     double* F, float T, int max_m)
 {
     const double td = (double)T;
-    if (td < 1e-7)
+    if (td < 1e-15)
     {
-        // Taylor: F_n(T) = 1/(2n+1) - T/(2n+3) + T^2/(2(2n+5)) - ...
-        for (int m = 0; m <= max_m; m++)
-        {
-            const double a = 2.0 * m + 1.0;
-            F[m] = 1.0 / a -
-                   td * (1.0 / (a + 2.0) -
-                         td * (0.5 / (a + 4.0) - td / (6.0 * (a + 6.0))));
-        }
+        for (int m = 0; m <= max_m; m++) F[m] = 1.0 / (2.0 * m + 1.0);
         return;
     }
     const double exp_t = exp(-td);
     const double st = sqrt(td);
-    F[0] = 0.5 * 1.7724538509055159 * erf(st) / st;
-    for (int m = 0; m < max_m; m++)
-        F[m + 1] = ((2.0 * m + 1.0) * F[m] - exp_t) / (2.0 * td);
+    const double f0 = 0.5 * 1.7724538509055159 * erf(st) / st;
+
+    if (max_m <= 4 && td > 1.0)
+    {
+        // Upward recursion — fast, accurate for small max_m and not-tiny T
+        F[0] = f0;
+        for (int m = 0; m < max_m; m++)
+            F[m + 1] = ((2.0 * m + 1.0) * F[m] - exp_t) / (2.0 * td);
+        return;
+    }
+
+    // Downward recursion (Miller's algorithm) — stable for any max_m and T
+    const int m_top = max_m + 25;
+    double work[48]; // max_m <= 16 → m_top <= 41
+    work[m_top] = 0.0;
+    for (int m = m_top - 1; m >= 0; m--)
+        work[m] = (2.0 * td * work[m + 1] + exp_t) / (2.0 * m + 1.0);
+    const double scale = f0 / work[0];
+    for (int m = 0; m <= max_m; m++) F[m] = work[m] * scale;
 }
 
 // ---- Compact R^0 tensor index ----
-// Maps (t,u,v) with t+u+v <= L to a flat index in [0, (L+1)(L+2)(L+3)/6).
-// Ordering: by level N=t+u+v, then decreasing t, then decreasing u.
 static __device__ __forceinline__ int sp_R0_idx(int t, int u, int v)
 {
     const int N = t + u + v;
     return N * (N + 1) * (N + 2) / 6 + (N - t) * (N - t + 1) / 2 + (N - t - u);
 }
 
-// Total number of (t,u,v) with t+u+v <= M
 static __device__ __forceinline__ int sp_T_count(int M)
 {
     return (M + 1) * (M + 2) * (M + 3) / 6;
 }
 
-// Combined index for R^n_{tuv} in the recurrence workspace.
-// Elements grouped by n: offset_for_n + flat_within_n.
 static __device__ __forceinline__ int sp_Rn_idx(int t, int u, int v, int n, int L)
 {
     int offset = 0;
@@ -53,14 +70,9 @@ static __device__ __forceinline__ int sp_Rn_idx(int t, int u, int v, int n, int 
 }
 
 // ---- Build R^0 tensor in registers ----
-// Input:  Boys values F[0..L], alpha, PQ[3]
-// Output: R0[0..T_count(L)-1] indexed by sp_R0_idx(t,u,v)
-// Workspace: Rw[0..total-1] where total = sum_{n=0}^{L} T_count(L-n)
-//   For L=2: 15, L=3: 35, L=4: 70
 static __device__ void sp_build_R0(
     float* R0, float* Rw, const double* F, float alpha, const float* PQ, int L)
 {
-    // Seed: R^n_{000} = (-2α)^n * F_n
     double m2a = -2.0 * (double)alpha;
     double fac = 1.0;
     for (int n = 0; n <= L; n++)
@@ -68,8 +80,6 @@ static __device__ void sp_build_R0(
         Rw[sp_Rn_idx(0, 0, 0, n, L)] = (float)(fac * F[n]);
         fac *= m2a;
     }
-
-    // Recurrence: build level N from level N-1
     for (int N = 1; N <= L; N++)
     {
         for (int t = N; t >= 0; t--)
@@ -94,7 +104,7 @@ static __device__ void sp_build_R0(
                             val += (float)(u - 1) *
                                    Rw[sp_Rn_idx(t, u - 2, v, n + 1, L)];
                     }
-                    else // v > 0
+                    else
                     {
                         val = PQ[2] * Rw[sp_Rn_idx(t, u, v - 1, n + 1, L)];
                         if (v > 1)
@@ -106,68 +116,88 @@ static __device__ void sp_build_R0(
             }
         }
     }
-
-    // Copy R^0 slice to output
     const int n0 = sp_T_count(L);
     for (int i = 0; i < n0; i++) R0[i] = Rw[i];
 }
 
 // ---- McMurchie-Davidson E-coefficient for one axis ----
-// Pair (la, lb) with shift_a = PA_d or QC_d, shift_b = PB_d or QD_d, inv2x = 1/(2p) or 1/(2q).
-// Writes e[0..la+lb] and returns la+lb+1 (number of terms).
+// Supports la, lb up to 2 (d shells). Returns number of terms.
 static __device__ __forceinline__ int sp_E_coeff(
     float* e, int la, int lb, float shift_a, float shift_b, float inv2x)
 {
-    if (la == 0 && lb == 0)
+    // Fast paths for common cases
+    if (la == 0 && lb == 0) { e[0] = 1.0f; return 1; }
+    if (la == 1 && lb == 0) { e[0] = shift_a; e[1] = inv2x; return 2; }
+    if (la == 0 && lb == 1) { e[0] = shift_b; e[1] = inv2x; return 2; }
+    if (la == 1 && lb == 1)
     {
-        e[0] = 1.0f;
-        return 1;
+        e[0] = shift_a * shift_b + inv2x;
+        e[1] = (shift_a + shift_b) * inv2x;
+        e[2] = inv2x * inv2x;
+        return 3;
     }
-    if (la == 1 && lb == 0)
+    if (la == 2 && lb == 0)
     {
-        e[0] = shift_a;
-        e[1] = inv2x;
-        return 2;
+        e[0] = shift_a * shift_a + inv2x;
+        e[1] = 2.0f * shift_a * inv2x;
+        e[2] = inv2x * inv2x;
+        return 3;
     }
-    if (la == 0 && lb == 1)
+    if (la == 0 && lb == 2)
     {
-        e[0] = shift_b;
-        e[1] = inv2x;
-        return 2;
+        e[0] = shift_b * shift_b + inv2x;
+        e[1] = 2.0f * shift_b * inv2x;
+        e[2] = inv2x * inv2x;
+        return 3;
     }
-    // la == 1, lb == 1
-    e[0] = shift_a * shift_b + inv2x;
-    e[1] = (shift_a + shift_b) * inv2x;
-    e[2] = inv2x * inv2x;
-    return 3;
+    // General recurrence for la+lb > 2 (e.g., (2,1), (1,2), (2,2))
+    // Build E^{la,0} first, then step up lb times
+    float prev[5];
+    int n_prev;
+    if (la == 0) { prev[0] = 1.0f; n_prev = 1; }
+    else if (la == 1) { prev[0] = shift_a; prev[1] = inv2x; n_prev = 2; }
+    else { prev[0] = shift_a*shift_a+inv2x; prev[1] = 2.0f*shift_a*inv2x; prev[2] = inv2x*inv2x; n_prev = 3; }
+    for (int step = 0; step < lb; step++)
+    {
+        float next[5];
+        int n_next = n_prev + 1;
+        for (int t = 0; t < n_next; t++)
+        {
+            float val = 0.0f;
+            if (t > 0) val += inv2x * prev[t - 1];
+            if (t < n_prev) val += shift_b * prev[t];
+            if (t + 1 < n_prev) val += (float)(t + 1) * prev[t + 1];
+            next[t] = val;
+        }
+        for (int t = 0; t < n_next; t++) prev[t] = next[t];
+        n_prev = n_next;
+    }
+    for (int t = 0; t < n_prev; t++) e[t] = prev[t];
+    return n_prev;
 }
 
-// ---- Contract E-coefficients with R^0 tensor for one Cartesian component ----
-// l[4]: angular momenta, c[4]: Cartesian component indices (0=x,1=y,2=z for p; 0 for s)
-// PA[3], PB[3], QC[3], QD[3]: shift vectors
-// inv2p, inv2q: 1/(2p), 1/(2q)
-// R0: precomputed R^0 tensor
+// ---- Contract E-coefficients with R^0 tensor ----
+// General version: supports any l values via sp_get_l_axis lookup.
+// For l<=1, sp_get_l_axis inlines to (c==d)?1:0, same perf as before.
 static __device__ __forceinline__ float sp_contract_eri(
     const int* l, const int* c,
     const float* PA, const float* PB, const float* QC, const float* QD,
     float inv2p, float inv2q, const float* R0)
 {
-    // Build E-coefficients per axis
-    float E_bra[3][3]; // E_bra[axis][hermite_idx], max 3 terms
-    float E_ket[3][3];
-    int n_bra[3], n_ket[3]; // number of terms per axis
+    float E_bra[3][5]; // max 5 terms per axis (la+lb up to 4)
+    float E_ket[3][5];
+    int n_bra[3], n_ket[3];
 
     for (int d = 0; d < 3; d++)
     {
-        const int la_d = (l[0] == 1 && c[0] == d) ? 1 : 0;
-        const int lb_d = (l[1] == 1 && c[1] == d) ? 1 : 0;
-        const int lc_d = (l[2] == 1 && c[2] == d) ? 1 : 0;
-        const int ld_d = (l[3] == 1 && c[3] == d) ? 1 : 0;
+        const int la_d = sp_get_l_axis(l[0], c[0], d);
+        const int lb_d = sp_get_l_axis(l[1], c[1], d);
+        const int lc_d = sp_get_l_axis(l[2], c[2], d);
+        const int ld_d = sp_get_l_axis(l[3], c[3], d);
         n_bra[d] = sp_E_coeff(E_bra[d], la_d, lb_d, PA[d], PB[d], inv2p);
         n_ket[d] = sp_E_coeff(E_ket[d], lc_d, ld_d, QC[d], QD[d], inv2q);
     }
 
-    // 6-level contraction
     float eri = 0.0f;
     for (int mx = 0; mx < n_bra[0]; mx++)
         for (int my = 0; my < n_bra[1]; my++)
