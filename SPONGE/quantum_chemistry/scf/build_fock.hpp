@@ -825,9 +825,75 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 
 // Single-launch screening kernel for all pair-type combinations
 #include "../gpu_eri/eri_screen_compact.hpp"
-// Rys quadrature kernel for d-containing quartets
-#include "../gpu_eri/eri_d_rys.hpp"
-// d-containing kernels (MD, per L_sum): kept as fallback
+// Rys quadrature utilities (roots/weights, VRR, HRR)
+#include "../gpu_eri/eri_rys.hpp"
+
+// Rys kernels per L_sum (compile-time sized arrays)
+#define ERI_NRYS 2
+#define ERI_MAX_G 3
+#define ERI_MAX_CART 6
+#define KERNEL_NAME QC_Fock_Rys_L2_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 2
+#define ERI_MAX_G 6
+#define ERI_MAX_CART 18
+#define KERNEL_NAME QC_Fock_Rys_L3_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 3
+#define ERI_MAX_G 9
+#define ERI_MAX_CART 54
+#define KERNEL_NAME QC_Fock_Rys_L4_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 3
+#define ERI_MAX_G 12
+#define ERI_MAX_CART 162
+#define KERNEL_NAME QC_Fock_Rys_L5_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 4
+#define ERI_MAX_G 16
+#define ERI_MAX_CART 324
+#define KERNEL_NAME QC_Fock_Rys_L6_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 4
+#define ERI_MAX_G 20
+#define ERI_MAX_CART 648
+#define KERNEL_NAME QC_Fock_Rys_L7_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+#define ERI_NRYS 5
+#define ERI_MAX_G 25
+#define ERI_MAX_CART 1296
+#define KERNEL_NAME QC_Fock_Rys_L8_Kernel
+#include "../gpu_eri/eri_rys_Lsum.hpp"
+#undef KERNEL_NAME
+#undef ERI_MAX_CART
+#undef ERI_MAX_G
+#undef ERI_NRYS
+
+// d-containing MD kernels per L_sum: kept as fallback
 #define ERI_LSUM 2
 #define ERI_F_SIZE 3
 #define ERI_R0_SIZE 10
@@ -1172,8 +1238,17 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
                 const int l_sum = combo.l0 + combo.l1 + combo.l2 + combo.l3;
                 if (l_max <= 2)
                 {
-                    // d-containing: Rys quadrature kernel (single launch)
-                    launch_eri(ci, QC_Fock_D_Rys_Kernel);
+                    // d-containing: per-L_sum Rys quadrature kernel
+                    switch (l_sum)
+                    {
+                        case 2: launch_eri(ci, QC_Fock_Rys_L2_Kernel); break;
+                        case 3: launch_eri(ci, QC_Fock_Rys_L3_Kernel); break;
+                        case 4: launch_eri(ci, QC_Fock_Rys_L4_Kernel); break;
+                        case 5: launch_eri(ci, QC_Fock_Rys_L5_Kernel); break;
+                        case 6: launch_eri(ci, QC_Fock_Rys_L6_Kernel); break;
+                        case 7: launch_eri(ci, QC_Fock_Rys_L7_Kernel); break;
+                        case 8: launch_eri(ci, QC_Fock_Rys_L8_Kernel); break;
+                    }
                 }
                 else
                 {
