@@ -781,17 +781,23 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
     task_ctx.n_eri_tasks = task_ctx.h_eri_tasks.size();
 
     // Allocate screening output buffer and assign per-combo offsets.
-    // Each combo reserves its n_quartets as worst-case capacity.
-    // Total buffer = sum of all combo n_quartets = total_quartets.
+    // Buffer sized to n_eri_tasks (post-screening active tasks <= this).
+    // Combos share buffer proportionally to their n_quartets.
     {
-        // Compute output offsets (prefix sum of n_quartets per combo)
+        task_ctx.screened_buf_capacity = task_ctx.n_eri_tasks;
+        const long long total_q = task_ctx.total_quartets > 0 ? task_ctx.total_quartets : 1;
         int output_off = 0;
         for (int i = 0; i < task_ctx.n_combos; i++)
         {
             task_ctx.h_combos[i].output_offset = output_off;
-            output_off += task_ctx.h_combos[i].n_quartets;
+            // Proportional share: this combo gets (n_quartets/total_quartets) * capacity
+            const int share = (int)((long long)task_ctx.h_combos[i].n_quartets *
+                              task_ctx.screened_buf_capacity / total_q);
+            output_off += std::max(share, 1);
         }
-        task_ctx.screened_buf_capacity = output_off; // = total_quartets
+        // Clamp to capacity (rounding might exceed slightly)
+        if (output_off > task_ctx.screened_buf_capacity)
+            task_ctx.screened_buf_capacity = output_off;
         Device_Malloc_Safely((void**)&task_ctx.d_screened_tasks,
                              sizeof(QC_ERI_TASK) * task_ctx.screened_buf_capacity);
         Device_Malloc_Safely((void**)&task_ctx.d_screen_counts,
