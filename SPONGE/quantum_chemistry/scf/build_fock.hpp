@@ -820,333 +820,11 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 
 #include "build_fock_cpu.hpp"
 #include "build_fock_gpu.hpp"
-#include "../gpu_eri/eri_common.hpp"
-#include "../gpu_eri/eri_ssss.hpp"
 
-// Single-launch screening kernel for all pair-type combinations
-#include "../gpu_eri/eri_screen_compact.hpp"
-// Rys quadrature utilities (roots/weights, VRR, HRR)
-#include "../gpu_eri/eri_rys.hpp"
+// ERI kernel launch wrappers (kernels defined in separate .cpp files)
+#include "../gpu_eri/eri_launch.hpp"
 
-// Rys kernels per L_sum (compile-time sized arrays)
-#define ERI_NRYS 2
-#define ERI_MAX_G 3
-#define ERI_MAX_CART 6
-#define KERNEL_NAME QC_Fock_Rys_L2_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 2
-#define ERI_MAX_G 6
-#define ERI_MAX_CART 18
-#define KERNEL_NAME QC_Fock_Rys_L3_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 3
-#define ERI_MAX_G 9
-#define ERI_MAX_CART 54
-#define KERNEL_NAME QC_Fock_Rys_L4_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 3
-#define ERI_MAX_G 12
-#define ERI_MAX_CART 162
-#define KERNEL_NAME QC_Fock_Rys_L5_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 4
-#define ERI_MAX_G 16
-#define ERI_MAX_CART 324
-#define KERNEL_NAME QC_Fock_Rys_L6_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 4
-#define ERI_MAX_G 20
-#define ERI_MAX_CART 648
-#define KERNEL_NAME QC_Fock_Rys_L7_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 5
-#define ERI_MAX_G 25
-#define ERI_MAX_CART 1296
-#define KERNEL_NAME QC_Fock_Rys_L8_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-
-// f/g Rys kernels (L_sum 9..16)
-#define ERI_NRYS 5
-#define ERI_MAX_G 18
-#define ERI_MAX_CART 2160
-#define KERNEL_NAME QC_Fock_Rys_L9_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 6
-#define ERI_MAX_G 27
-#define ERI_MAX_CART 3600
-#define KERNEL_NAME QC_Fock_Rys_L10_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 6
-#define ERI_MAX_G 36
-#define ERI_MAX_CART 6000
-#define KERNEL_NAME QC_Fock_Rys_L11_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 7
-#define ERI_MAX_G 45
-#define ERI_MAX_CART 10000
-#define KERNEL_NAME QC_Fock_Rys_L12_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 7
-#define ERI_MAX_G 54
-#define ERI_MAX_CART 15000
-#define KERNEL_NAME QC_Fock_Rys_L13_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 8
-#define ERI_MAX_G 63
-#define ERI_MAX_CART 22500
-#define KERNEL_NAME QC_Fock_Rys_L14_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 8
-#define ERI_MAX_G 72
-#define ERI_MAX_CART 33750
-#define KERNEL_NAME QC_Fock_Rys_L15_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-#define ERI_NRYS 9
-#define ERI_MAX_G 81
-#define ERI_MAX_CART 50625
-#define KERNEL_NAME QC_Fock_Rys_L16_Kernel
-#include "../gpu_eri/eri_rys_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_MAX_G
-#undef ERI_NRYS
-
-// d-containing MD kernels per L_sum: kept for d shells (faster than Rys)
-#define ERI_LSUM 2
-#define ERI_F_SIZE 3
-#define ERI_R0_SIZE 10
-#define ERI_RW_SIZE 15
-#define ERI_MAX_CART 6
-#define KERNEL_NAME QC_Fock_D_L2_Kernel
-#include "../gpu_eri/eri_d_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_RW_SIZE
-#undef ERI_R0_SIZE
-#undef ERI_F_SIZE
-#undef ERI_LSUM
-#define ERI_LSUM 3
-#define ERI_F_SIZE 4
-#define ERI_R0_SIZE 20
-#define ERI_RW_SIZE 35
-#define ERI_MAX_CART 18
-#define KERNEL_NAME QC_Fock_D_L3_Kernel
-#include "../gpu_eri/eri_d_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_RW_SIZE
-#undef ERI_R0_SIZE
-#undef ERI_F_SIZE
-#undef ERI_LSUM
-#define ERI_LSUM 4
-#define ERI_F_SIZE 5
-#define ERI_R0_SIZE 35
-#define ERI_RW_SIZE 70
-#define ERI_MAX_CART 54
-#define KERNEL_NAME QC_Fock_D_L4_Kernel
-#include "../gpu_eri/eri_d_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_RW_SIZE
-#undef ERI_R0_SIZE
-#undef ERI_F_SIZE
-#undef ERI_LSUM
-#define ERI_LSUM 5
-#define ERI_F_SIZE 6
-#define ERI_R0_SIZE 56
-#define ERI_RW_SIZE 126
-#define ERI_MAX_CART 162
-#define KERNEL_NAME QC_Fock_D_L5_Kernel
-#include "../gpu_eri/eri_d_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_RW_SIZE
-#undef ERI_R0_SIZE
-#undef ERI_F_SIZE
-#undef ERI_LSUM
-#define ERI_LSUM 6
-#define ERI_F_SIZE 7
-#define ERI_R0_SIZE 84
-#define ERI_RW_SIZE 210
-#define ERI_MAX_CART 324
-#define KERNEL_NAME QC_Fock_D_L6_Kernel
-#include "../gpu_eri/eri_d_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_RW_SIZE
-#undef ERI_R0_SIZE
-#undef ERI_F_SIZE
-#undef ERI_LSUM
-#define ERI_LSUM 7
-#define ERI_F_SIZE 8
-#define ERI_R0_SIZE 120
-#define ERI_RW_SIZE 330
-#define ERI_MAX_CART 648
-#define KERNEL_NAME QC_Fock_D_L7_Kernel
-#include "../gpu_eri/eri_d_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_RW_SIZE
-#undef ERI_R0_SIZE
-#undef ERI_F_SIZE
-#undef ERI_LSUM
-#define ERI_LSUM 8
-#define ERI_F_SIZE 9
-#define ERI_R0_SIZE 165
-#define ERI_RW_SIZE 495
-#define ERI_MAX_CART 1296
-#define KERNEL_NAME QC_Fock_D_L8_Kernel
-#include "../gpu_eri/eri_d_Lsum.hpp"
-#undef KERNEL_NAME
-#undef ERI_MAX_CART
-#undef ERI_RW_SIZE
-#undef ERI_R0_SIZE
-#undef ERI_F_SIZE
-#undef ERI_LSUM
-// 3s1p: 4 permutations by p-shell position
-#define P_POS 0
-#define KERNEL_NAME QC_Fock_psss_Kernel
-#include "../gpu_eri/eri_3s1p.hpp"
-#undef KERNEL_NAME
-#undef P_POS
-#define P_POS 1
-#define KERNEL_NAME QC_Fock_spss_Kernel
-#include "../gpu_eri/eri_3s1p.hpp"
-#undef KERNEL_NAME
-#undef P_POS
-#define P_POS 2
-#define KERNEL_NAME QC_Fock_ssps_Kernel
-#include "../gpu_eri/eri_3s1p.hpp"
-#undef KERNEL_NAME
-#undef P_POS
-#define P_POS 3
-#define KERNEL_NAME QC_Fock_sssp_New_Kernel
-#include "../gpu_eri/eri_3s1p.hpp"
-#undef KERNEL_NAME
-#undef P_POS
-#include "../gpu_eri/eri_pppp.hpp"
-
-// 2s2p: 6 permutations by p-shell positions
-#define P_POS0 0
-#define P_POS1 1
-#define KERNEL_NAME QC_Fock_ppss_Kernel
-#include "../gpu_eri/eri_2s2p.hpp"
-#undef KERNEL_NAME
-#undef P_POS1
-#undef P_POS0
-#define P_POS0 0
-#define P_POS1 2
-#define KERNEL_NAME QC_Fock_psps_Kernel
-#include "../gpu_eri/eri_2s2p.hpp"
-#undef KERNEL_NAME
-#undef P_POS1
-#undef P_POS0
-#define P_POS0 0
-#define P_POS1 3
-#define KERNEL_NAME QC_Fock_pssp_Kernel
-#include "../gpu_eri/eri_2s2p.hpp"
-#undef KERNEL_NAME
-#undef P_POS1
-#undef P_POS0
-#define P_POS0 1
-#define P_POS1 2
-#define KERNEL_NAME QC_Fock_spps_Kernel
-#include "../gpu_eri/eri_2s2p.hpp"
-#undef KERNEL_NAME
-#undef P_POS1
-#undef P_POS0
-#define P_POS0 1
-#define P_POS1 3
-#define KERNEL_NAME QC_Fock_spsp_Kernel
-#include "../gpu_eri/eri_2s2p.hpp"
-#undef KERNEL_NAME
-#undef P_POS1
-#undef P_POS0
-#define P_POS0 2
-#define P_POS1 3
-#define KERNEL_NAME QC_Fock_sspp_New_Kernel
-#include "../gpu_eri/eri_2s2p.hpp"
-#undef KERNEL_NAME
-#undef P_POS1
-#undef P_POS0
-
-// 1s3p: 4 permutations by s-shell position
-#define S_POS 0
-#define KERNEL_NAME QC_Fock_sppp_New_Kernel
-#include "../gpu_eri/eri_1s3p.hpp"
-#undef KERNEL_NAME
-#undef S_POS
-#define S_POS 1
-#define KERNEL_NAME QC_Fock_pspp_Kernel
-#include "../gpu_eri/eri_1s3p.hpp"
-#undef KERNEL_NAME
-#undef S_POS
-#define S_POS 2
-#define KERNEL_NAME QC_Fock_ppsp_Kernel
-#include "../gpu_eri/eri_1s3p.hpp"
-#undef KERNEL_NAME
-#undef S_POS
-#define S_POS 3
-#define KERNEL_NAME QC_Fock_ppps_Kernel
-#include "../gpu_eri/eri_1s3p.hpp"
-#undef KERNEL_NAME
-#undef S_POS
+// (Old forward declarations removed — now using launch wrappers)
 
 void QUANTUM_CHEMISTRY::Build_Fock(int iter)
 {
@@ -1231,9 +909,7 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
             (void**)&d_combo_prefix, (void*)task_ctx.combo_prefix,
             sizeof(int) * (task_ctx.n_combos + 1));
 
-        Launch_Device_Kernel(
-            QC_Screen_All_Combos_Kernel,
-            (task_ctx.total_quartets + threads - 1) / threads, threads, 0, 0,
+        QC_Launch_Screen(
             task_ctx.total_quartets, task_ctx.d_combos, d_combo_prefix,
             task_ctx.n_combos,
             task_ctx.d_sorted_pair_ids, task_ctx.d_shell_pairs,
@@ -1261,26 +937,25 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
     DEBUG_eri_timer.Start();
 
     // Helper: launch ERI kernel for a given combo
-    auto launch_eri = [&](int ci, auto kernel_func) {
+    // launch_eri: calls a wrapper function that launches the kernel
+    using LaunchFunc = void(*)(ERI_KERNEL_PARAMS);
+    auto launch_eri = [&](int ci, LaunchFunc func) {
         const int n = h_counts[ci];
         if (n == 0) return;
-        Launch_Device_Kernel(
-            kernel_func,
-            (n + threads - 1) / threads, threads, 0, 0,
-            n, task_ctx.d_screened_tasks + task_ctx.h_combos[ci].output_offset,
-            mol.d_atm, mol.d_bas, mol.d_env,
-            mol.d_ao_offsets, mol.d_ao_offsets_sph,
-            scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
-            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                : (const float*)nullptr,
-            shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
-            scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-            exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-            mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-            d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-            prim_screen_tol);
+        func(n, task_ctx.d_screened_tasks + task_ctx.h_combos[ci].output_offset,
+             mol.d_atm, mol.d_bas, mol.d_env,
+             mol.d_ao_offsets, mol.d_ao_offsets_sph,
+             scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+             scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+             scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                 : (const float*)nullptr,
+             shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
+             scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
+             exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
+             mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
+             d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
+             task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+             prim_screen_tol);
     };
 
     for (int ci = 0; ci < task_ctx.n_combos; ci++)
@@ -1290,22 +965,22 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         const int lkey = combo.l0*1000 + combo.l1*100 + combo.l2*10 + combo.l3;
         switch (lkey)
         {
-            case    0: launch_eri(ci, QC_Fock_ssss_Kernel); break;
-            case 1000: launch_eri(ci, QC_Fock_psss_Kernel); break;
-            case  100: launch_eri(ci, QC_Fock_spss_Kernel); break;
-            case   10: launch_eri(ci, QC_Fock_ssps_Kernel); break;
-            case    1: launch_eri(ci, QC_Fock_sssp_New_Kernel); break;
-            case 1100: launch_eri(ci, QC_Fock_ppss_Kernel); break;
-            case 1010: launch_eri(ci, QC_Fock_psps_Kernel); break;
-            case 1001: launch_eri(ci, QC_Fock_pssp_Kernel); break;
-            case  110: launch_eri(ci, QC_Fock_spps_Kernel); break;
-            case  101: launch_eri(ci, QC_Fock_spsp_Kernel); break;
-            case   11: launch_eri(ci, QC_Fock_sspp_New_Kernel); break;
-            case  111: launch_eri(ci, QC_Fock_sppp_New_Kernel); break;
-            case 1011: launch_eri(ci, QC_Fock_pspp_Kernel); break;
-            case 1101: launch_eri(ci, QC_Fock_ppsp_Kernel); break;
-            case 1110: launch_eri(ci, QC_Fock_ppps_Kernel); break;
-            case 1111: launch_eri(ci, QC_Fock_pppp_Kernel); break;
+            case    0: launch_eri(ci, QC_Launch_ssss); break;
+            case 1000: launch_eri(ci, QC_Launch_psss); break;
+            case  100: launch_eri(ci, QC_Launch_spss); break;
+            case   10: launch_eri(ci, QC_Launch_ssps); break;
+            case    1: launch_eri(ci, QC_Launch_sssp); break;
+            case 1100: launch_eri(ci, QC_Launch_ppss); break;
+            case 1010: launch_eri(ci, QC_Launch_psps); break;
+            case 1001: launch_eri(ci, QC_Launch_pssp); break;
+            case  110: launch_eri(ci, QC_Launch_spps); break;
+            case  101: launch_eri(ci, QC_Launch_spsp); break;
+            case   11: launch_eri(ci, QC_Launch_sspp); break;
+            case  111: launch_eri(ci, QC_Launch_sppp); break;
+            case 1011: launch_eri(ci, QC_Launch_pspp); break;
+            case 1101: launch_eri(ci, QC_Launch_ppsp); break;
+            case 1110: launch_eri(ci, QC_Launch_ppps); break;
+            case 1111: launch_eri(ci, QC_Launch_pppp); break;
             default:
             {
                 const int l_max = std::max({combo.l0, combo.l1, combo.l2, combo.l3});
@@ -1315,13 +990,13 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
                     // d-containing: MD per-L_sum (faster than Rys for d)
                     switch (l_sum)
                     {
-                        case 2: launch_eri(ci, QC_Fock_D_L2_Kernel); break;
-                        case 3: launch_eri(ci, QC_Fock_D_L3_Kernel); break;
-                        case 4: launch_eri(ci, QC_Fock_D_L4_Kernel); break;
-                        case 5: launch_eri(ci, QC_Fock_D_L5_Kernel); break;
-                        case 6: launch_eri(ci, QC_Fock_D_L6_Kernel); break;
-                        case 7: launch_eri(ci, QC_Fock_D_L7_Kernel); break;
-                        case 8: launch_eri(ci, QC_Fock_D_L8_Kernel); break;
+                        case 2: launch_eri(ci, QC_Launch_D_L2); break;
+                        case 3: launch_eri(ci, QC_Launch_D_L3); break;
+                        case 4: launch_eri(ci, QC_Launch_D_L4); break;
+                        case 5: launch_eri(ci, QC_Launch_D_L5); break;
+                        case 6: launch_eri(ci, QC_Launch_D_L6); break;
+                        case 7: launch_eri(ci, QC_Launch_D_L7); break;
+                        case 8: launch_eri(ci, QC_Launch_D_L8); break;
                     }
                 }
                 else
@@ -1329,20 +1004,20 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
                     // f/g shells: Rys quadrature per-L_sum (single launch)
                     switch (l_sum)
                     {
-                        case  3: launch_eri(ci, QC_Fock_Rys_L3_Kernel); break;
-                        case  4: launch_eri(ci, QC_Fock_Rys_L4_Kernel); break;
-                        case  5: launch_eri(ci, QC_Fock_Rys_L5_Kernel); break;
-                        case  6: launch_eri(ci, QC_Fock_Rys_L6_Kernel); break;
-                        case  7: launch_eri(ci, QC_Fock_Rys_L7_Kernel); break;
-                        case  8: launch_eri(ci, QC_Fock_Rys_L8_Kernel); break;
-                        case  9: launch_eri(ci, QC_Fock_Rys_L9_Kernel); break;
-                        case 10: launch_eri(ci, QC_Fock_Rys_L10_Kernel); break;
-                        case 11: launch_eri(ci, QC_Fock_Rys_L11_Kernel); break;
-                        case 12: launch_eri(ci, QC_Fock_Rys_L12_Kernel); break;
-                        case 13: launch_eri(ci, QC_Fock_Rys_L13_Kernel); break;
-                        case 14: launch_eri(ci, QC_Fock_Rys_L14_Kernel); break;
-                        case 15: launch_eri(ci, QC_Fock_Rys_L15_Kernel); break;
-                        case 16: launch_eri(ci, QC_Fock_Rys_L16_Kernel); break;
+                        case  3: launch_eri(ci, QC_Launch_Rys_L3); break;
+                        case  4: launch_eri(ci, QC_Launch_Rys_L4); break;
+                        case  5: launch_eri(ci, QC_Launch_Rys_L5); break;
+                        case  6: launch_eri(ci, QC_Launch_Rys_L6); break;
+                        case  7: launch_eri(ci, QC_Launch_Rys_L7); break;
+                        case  8: launch_eri(ci, QC_Launch_Rys_L8); break;
+                        case  9: launch_eri(ci, QC_Launch_Rys_L9); break;
+                        case 10: launch_eri(ci, QC_Launch_Rys_L10); break;
+                        case 11: launch_eri(ci, QC_Launch_Rys_L11); break;
+                        case 12: launch_eri(ci, QC_Launch_Rys_L12); break;
+                        case 13: launch_eri(ci, QC_Launch_Rys_L13); break;
+                        case 14: launch_eri(ci, QC_Launch_Rys_L14); break;
+                        case 15: launch_eri(ci, QC_Launch_Rys_L15); break;
+                        case 16: launch_eri(ci, QC_Launch_Rys_L16); break;
                     }
                 }
                 break;

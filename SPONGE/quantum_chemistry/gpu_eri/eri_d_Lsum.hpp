@@ -11,7 +11,7 @@
 //
 // No #pragma once — designed for multiple inclusion.
 
-static __global__ void KERNEL_NAME(
+__global__ void KERNEL_NAME(
     const int n_tasks, const QC_ERI_TASK* __restrict__ tasks,
     const int* __restrict__ atm, const int* __restrict__ bas,
     const float* __restrict__ env,

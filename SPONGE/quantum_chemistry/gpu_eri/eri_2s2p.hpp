@@ -10,7 +10,7 @@
 
 #define _2S2P_IS_P(pos) ((pos) == P_POS0 || (pos) == P_POS1)
 
-static __global__ void KERNEL_NAME(
+__global__ void KERNEL_NAME(
     const int n_tasks, const QC_ERI_TASK* __restrict__ tasks,
     const int* __restrict__ atm, const int* __restrict__ bas,
     const float* __restrict__ env,

@@ -5,7 +5,7 @@
 // Each thread finds its combo via linear search in prefix sums,
 // generates the quartet on-the-fly, screens, and compacts to per-combo output.
 
-static __global__ void QC_Screen_All_Combos_Kernel(
+__global__ void QC_Screen_All_Combos_Kernel(
     const int n_total,
     const QC_INTEGRAL_TASKS::ScreenCombo* __restrict__ combos,
     const int* __restrict__ combo_prefix,

@@ -736,13 +736,12 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
                 c.pair_base_B = task_ctx.pair_type_offset[tB];
                 c.n_B = nB;
                 c.n_quartets = nq;
-                c.output_offset = output_off;
+                c.output_offset = 0; // set below after counting combos
                 c.same_type = same ? 1 : 0;
                 c.l0 = task_ctx.pair_type_l0[tA];
                 c.l1 = task_ctx.pair_type_l1[tA];
                 c.l2 = task_ctx.pair_type_l0[tB];
                 c.l3 = task_ctx.pair_type_l1[tB];
-                output_off += nq; // reserve worst case
                 task_ctx.n_combos++;
             }
         }
@@ -760,7 +759,12 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
         Device_Malloc_And_Copy_Safely(
             (void**)&task_ctx.d_combos, (void*)task_ctx.h_combos,
             sizeof(QC_INTEGRAL_TASKS::ScreenCombo) * task_ctx.n_combos);
-        task_ctx.screened_buf_capacity = output_off;
+        // Assign output offsets: equally divide buffer among combos
+        // Total buffer = n_eri_tasks (post-screening active tasks can't exceed this)
+        const int per_combo = std::max(1, task_ctx.n_eri_tasks / std::max(1, task_ctx.n_combos));
+        for (int i = 0; i < task_ctx.n_combos; i++)
+            task_ctx.h_combos[i].output_offset = i * per_combo;
+        task_ctx.screened_buf_capacity = task_ctx.n_eri_tasks;
         Device_Malloc_Safely((void**)&task_ctx.d_screened_tasks,
                              sizeof(QC_ERI_TASK) * task_ctx.screened_buf_capacity);
         Device_Malloc_Safely((void**)&task_ctx.d_screen_counts,

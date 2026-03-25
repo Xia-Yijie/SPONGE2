@@ -52,6 +52,9 @@ set(SPONGE_SOURCES
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_scf.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_dft.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_matrix.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_eri_sp.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_eri_md.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/quantum_chemistry_eri_rys.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/sto-3g.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/3-21g.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/pople/6-31g.cpp

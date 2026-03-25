@@ -44,7 +44,7 @@ struct QC_INTEGRAL_TASKS
     // Shell pairs grouped by (l_i, l_j) type.
     // pair_type_id = l_i * (max_l + 1) + l_j
     // sorted_pair_ids[pair_type_offset[t]..+pair_type_count[t]) = pair_ids of type t
-    static const int MAX_PAIR_TYPES = 16; // supports up to l=3 (f shells): 4*4=16
+    static const int MAX_PAIR_TYPES = 25; // supports up to l=4 (g shells): 5*5=25
     int n_pair_types = 0;       // actual number of types present
     int pair_type_offset[MAX_PAIR_TYPES] = {};
     int pair_type_count[MAX_PAIR_TYPES] = {};
