@@ -215,9 +215,9 @@ void QUANTUM_CHEMISTRY::Prepare_Integrals()
             task_ctx.eri_prim_screen_tol);
     }
     task_ctx.h_shell_pair_bounds.resize((size_t)task_ctx.n_shell_pairs);
-    deviceMemcpy(task_ctx.h_shell_pair_bounds.data(), task_ctx.d_shell_pair_bounds,
-                 sizeof(float) * task_ctx.n_shell_pairs,
-                 deviceMemcpyDeviceToHost);
+    deviceMemcpy(
+        task_ctx.h_shell_pair_bounds.data(), task_ctx.d_shell_pair_bounds,
+        sizeof(float) * task_ctx.n_shell_pairs, deviceMemcpyDeviceToHost);
 }
 
 // ========================= 重叠正交化矩阵 =========================

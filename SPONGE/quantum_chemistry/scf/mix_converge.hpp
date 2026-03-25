@@ -47,13 +47,14 @@ bool QUANTUM_CHEMISTRY::Mix_And_Check_Convergence(int iter, int md_step)
                 md_step, iter + 1, h_energy, h_delta_e);
         if (scf_ws.profile_stages)
         {
-            fprintf(out,
-                    " | t_pre=%.4fs | t_fock=%.4fs | t_filter=%.4fs | "
-                    "t_energy=%.4fs | t_diis=%.4fs | t_diag=%.4fs | quartets=%d",
-                    scf_ws.last_pre_scf_s, scf_ws.last_build_fock_s,
-                    scf_ws.last_fock_filter_s,
-                    scf_ws.last_accumulate_energy_s, scf_ws.last_apply_diis_s,
-                    scf_ws.last_diag_density_s, scf_ws.last_active_eri_tasks);
+            fprintf(
+                out,
+                " | t_pre=%.4fs | t_fock=%.4fs | t_filter=%.4fs | "
+                "t_energy=%.4fs | t_diis=%.4fs | t_diag=%.4fs | quartets=%d",
+                scf_ws.last_pre_scf_s, scf_ws.last_build_fock_s,
+                scf_ws.last_fock_filter_s, scf_ws.last_accumulate_energy_s,
+                scf_ws.last_apply_diis_s, scf_ws.last_diag_density_s,
+                scf_ws.last_active_eri_tasks);
         }
         fprintf(out, "\n");
         fflush(out);

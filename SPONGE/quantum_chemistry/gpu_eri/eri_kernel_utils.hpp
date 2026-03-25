@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // Utility functions shared by all ERI kernels.
 // Extracted from build_fock.hpp to enable separate compilation.
@@ -64,7 +64,10 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_Unique_Quartet(
         bool duplicate = false;
         for (int prev = 0; prev < n; prev++)
             if (QC_Same_Ordered_Fock_Term(j_terms[n], j_terms[prev]))
-            { duplicate = true; break; }
+            {
+                duplicate = true;
+                break;
+            }
         if (duplicate) continue;
         const int i = j_terms[n][0], j = j_terms[n][1];
         const int k = j_terms[n][2], l = j_terms[n][3];
@@ -80,7 +83,10 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_Unique_Quartet(
         bool duplicate = false;
         for (int prev = 0; prev < n; prev++)
             if (QC_Same_Ordered_Fock_Term(k_terms[n], k_terms[prev]))
-            { duplicate = true; break; }
+            {
+                duplicate = true;
+                break;
+            }
         if (duplicate) continue;
         const int i = k_terms[n][0], j = k_terms[n][1];
         const int k = k_terms[n][2], l = k_terms[n][3];
@@ -107,12 +113,16 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
     const float Ppq_sym = P_coul[pn + q] + P_coul[qn + p];
     const float Prs_sym = P_coul[rn + s] + P_coul[sn + r];
     const float j_pq = Prs_sym * value, j_rs = Ppq_sym * value;
-    QC_Fock_Add(&F_a[pn + q], j_pq); QC_Fock_Add(&F_a[qn + p], j_pq);
-    QC_Fock_Add(&F_a[rn + s], j_rs); QC_Fock_Add(&F_a[sn + r], j_rs);
+    QC_Fock_Add(&F_a[pn + q], j_pq);
+    QC_Fock_Add(&F_a[qn + p], j_pq);
+    QC_Fock_Add(&F_a[rn + s], j_rs);
+    QC_Fock_Add(&F_a[sn + r], j_rs);
     if (F_b != NULL)
     {
-        QC_Fock_Add(&F_b[pn + q], j_pq); QC_Fock_Add(&F_b[qn + p], j_pq);
-        QC_Fock_Add(&F_b[rn + s], j_rs); QC_Fock_Add(&F_b[sn + r], j_rs);
+        QC_Fock_Add(&F_b[pn + q], j_pq);
+        QC_Fock_Add(&F_b[qn + p], j_pq);
+        QC_Fock_Add(&F_b[rn + s], j_rs);
+        QC_Fock_Add(&F_b[sn + r], j_rs);
     }
     if (exx_scale_a != 0.0f)
     {

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // Single-launch GPU/CPU screening kernel with LaneGroup compaction.
 // Covers ALL pair-type combinations in one kernel launch.
@@ -8,22 +8,20 @@
 __global__ void QC_Screen_All_Combos_Kernel(
     const int n_total,
     const QC_INTEGRAL_TASKS::ScreenCombo* __restrict__ combos,
-    const int* __restrict__ combo_prefix,
-    const int n_combos,
+    const int* __restrict__ combo_prefix, const int n_combos,
     const int* __restrict__ sorted_pair_ids,
     const QC_ONE_E_TASK* __restrict__ shell_pairs,
     const float* __restrict__ shell_pair_bounds,
     const float* __restrict__ pair_density_coul,
     const float* __restrict__ pair_density_exx_a,
-    const float* __restrict__ pair_density_exx_b,
-    const float shell_screen_tol,
+    const float* __restrict__ pair_density_exx_b, const float shell_screen_tol,
     const float exx_scale_a, const float exx_scale_b,
-    QC_ERI_TASK* __restrict__ output_tasks,
-    int* __restrict__ output_counts)
+    QC_ERI_TASK* __restrict__ output_tasks, int* __restrict__ output_counts)
 {
     SIMPLE_DEVICE_FOR(global_idx, n_total)
     {
-        // --- Find which combo this thread belongs to (linear search, n_combos <= ~10) ---
+        // --- Find which combo this thread belongs to (linear search, n_combos
+        // <= ~10) ---
         int ci = 0;
         while (ci < n_combos - 1 && global_idx >= combo_prefix[ci + 1]) ci++;
         const auto& combo = combos[ci];
@@ -33,7 +31,8 @@ __global__ void QC_Screen_All_Combos_Kernel(
         int local_ij, local_kl;
         if (combo.same_type)
         {
-            local_ij = (int)floor((sqrt(8.0 * (double)local_idx + 1.0) - 1.0) * 0.5);
+            local_ij =
+                (int)floor((sqrt(8.0 * (double)local_idx + 1.0) - 1.0) * 0.5);
             local_kl = local_idx - local_ij * (local_ij + 1) / 2;
             if (local_ij * (local_ij + 1) / 2 + local_kl != local_idx)
             {
@@ -63,15 +62,17 @@ __global__ void QC_Screen_All_Combos_Kernel(
         const float sb = shell_pair_bounds[ij] * shell_pair_bounds[kl];
         float screen = sb * fmaxf(pair_density_coul[ij], pair_density_coul[kl]);
         if (exx_scale_a != 0.0f)
-            screen = fmaxf(screen,
+            screen = fmaxf(
+                screen,
                 sb * exx_scale_a *
-                QC_Max4(pair_density_exx_a[ik], pair_density_exx_a[il],
-                        pair_density_exx_a[jk], pair_density_exx_a[jl]));
+                    QC_Max4(pair_density_exx_a[ik], pair_density_exx_a[il],
+                            pair_density_exx_a[jk], pair_density_exx_a[jl]));
         if (pair_density_exx_b != NULL && exx_scale_b != 0.0f)
-            screen = fmaxf(screen,
+            screen = fmaxf(
+                screen,
                 sb * exx_scale_b *
-                QC_Max4(pair_density_exx_b[ik], pair_density_exx_b[il],
-                        pair_density_exx_b[jk], pair_density_exx_b[jl]));
+                    QC_Max4(pair_density_exx_b[ik], pair_density_exx_b[il],
+                            pair_density_exx_b[jk], pair_density_exx_b[jl]));
 
         const bool pass = (screen >= shell_screen_tol);
 
@@ -81,8 +82,8 @@ __global__ void QC_Screen_All_Combos_Kernel(
         if (pass)
         {
             const int slot = atomicAdd(&output_counts[ci], 1);
-            output_tasks[combo.output_offset + slot] =
-                {pij.x, pij.y, pkl.x, pkl.y};
+            output_tasks[combo.output_offset + slot] = {pij.x, pij.y, pkl.x,
+                                                        pkl.y};
         }
     }
 }

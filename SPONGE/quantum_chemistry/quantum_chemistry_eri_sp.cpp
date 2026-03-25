@@ -1,9 +1,12 @@
-// SP-shell ERI kernel definitions (s/p only, l_max <= 1).
+﻿// SP-shell ERI kernel definitions (s/p only, l_max <= 1).
 // Compiled independently from the SCF dispatch code.
 
+// clang-format off
+// Include order matters: quantum_chemistry.h provides macros/types needed by gpu_eri headers.
 #include "quantum_chemistry.h"
 #include "gpu_eri/eri_kernel_utils.hpp"
 #include "../common.h"
+// clang-format on
 
 // Common utilities
 #include "gpu_eri/eri_common.hpp"
@@ -120,5 +123,3 @@ DEFINE_ERI_LAUNCH(QC_Launch_pspp, QC_Fock_pspp_Kernel)
 DEFINE_ERI_LAUNCH(QC_Launch_ppsp, QC_Fock_ppsp_Kernel)
 DEFINE_ERI_LAUNCH(QC_Launch_ppps, QC_Fock_ppps_Kernel)
 DEFINE_ERI_LAUNCH(QC_Launch_pppp, QC_Fock_pppp_Kernel)
-
-

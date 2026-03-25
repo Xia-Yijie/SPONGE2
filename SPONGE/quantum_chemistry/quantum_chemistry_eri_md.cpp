@@ -1,11 +1,13 @@
-// McMurchie-Davidson d-shell ERI kernel definitions (l_max <= 2).
+﻿// McMurchie-Davidson d-shell ERI kernel definitions (l_max <= 2).
 // Compiled independently.
 
+// clang-format off
+// Include order matters: quantum_chemistry.h provides macros/types needed by gpu_eri headers.
 #include "quantum_chemistry.h"
 #include "gpu_eri/eri_kernel_utils.hpp"
 #include "../common.h"
-
 #include "gpu_eri/eri_common.hpp"
+// clang-format on
 
 // MD per-L_sum kernels for d-containing quartets
 #define ERI_LSUM 2

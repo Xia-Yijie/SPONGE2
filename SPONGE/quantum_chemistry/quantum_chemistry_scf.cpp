@@ -65,11 +65,12 @@ void QUANTUM_CHEMISTRY::Solve_SCF(const VECTOR* crd, const VECTOR box_length,
         scf_ws.last_fock_bench_total_s = omp_get_wtime() - t_bench_begin;
         if (CONTROLLER::MPI_rank == 0)
         {
-            printf("QC Fock benchmark | repeats=%d | total=%.6fs | avg=%.6fs | "
-                   "avg_active_quartets=%d\n",
-                   bench_repeats, scf_ws.last_fock_bench_total_s,
-                   scf_ws.last_fock_bench_total_s / bench_repeats,
-                   active_sum / bench_repeats);
+            printf(
+                "QC Fock benchmark | repeats=%d | total=%.6fs | avg=%.6fs | "
+                "avg_active_quartets=%d\n",
+                bench_repeats, scf_ws.last_fock_bench_total_s,
+                scf_ws.last_fock_bench_total_s / bench_repeats,
+                active_sum / bench_repeats);
         }
         return;
     }
@@ -78,27 +79,27 @@ void QUANTUM_CHEMISTRY::Solve_SCF(const VECTOR* crd, const VECTOR box_length,
     {
         double t_stage = omp_get_wtime();
         Build_Fock(iter);
- #ifdef USE_GPU
+#ifdef USE_GPU
         deviceStreamSynchronize(0);
- #endif
+#endif
         scf_ws.last_build_fock_s = omp_get_wtime() - t_stage;
         t_stage = omp_get_wtime();
         Accumulate_SCF_Energy(iter);
- #ifdef USE_GPU
+#ifdef USE_GPU
         deviceStreamSynchronize(0);
- #endif
+#endif
         scf_ws.last_accumulate_energy_s = omp_get_wtime() - t_stage;
         t_stage = omp_get_wtime();
         Apply_DIIS(iter);
- #ifdef USE_GPU
+#ifdef USE_GPU
         deviceStreamSynchronize(0);
- #endif
+#endif
         scf_ws.last_apply_diis_s = omp_get_wtime() - t_stage;
         t_stage = omp_get_wtime();
         Diagonalize_And_Build_Density();
- #ifdef USE_GPU
+#ifdef USE_GPU
         deviceStreamSynchronize(0);
- #endif
+#endif
         scf_ws.last_diag_density_s = omp_get_wtime() - t_stage;
         t_stage = omp_get_wtime();
         if (Mix_And_Check_Convergence(iter, md_step)) break;

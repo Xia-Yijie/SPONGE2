@@ -1,9 +1,10 @@
-#pragma once
+﻿#pragma once
 
 // Common utilities for register-only ERI kernels (s/p/d shells).
 // Boys function, compact R tensor, E-coefficient helpers, contraction.
 
-// ---- Get angular momentum on axis d for shell with l and Cartesian component c ----
+// ---- Get angular momentum on axis d for shell with l and Cartesian component
+// c ----
 static __device__ __forceinline__ int eri_get_l_axis(int l, int c, int axis)
 {
     if (l == 0) return 0;
@@ -18,8 +19,7 @@ static __device__ __forceinline__ int eri_get_l_axis(int l, int c, int axis)
 // ---- Boys function for max_m up to ~8 ----
 // Uses upward recursion for max_m <= 4 (fast, register-only).
 // Uses downward recursion for max_m > 4 (stable, needs small work array).
-static __device__ __forceinline__ void eri_boys(
-    double* F, float T, int max_m)
+static __device__ __forceinline__ void eri_boys(double* F, float T, int max_m)
 {
     const double td = (double)T;
     if (td < 1e-15)
@@ -33,7 +33,8 @@ static __device__ __forceinline__ void eri_boys(
 
     if (td > 30.0)
     {
-        // Upward recursion — stable for large T (exp(-T) is tiny, no cancellation)
+        // Upward recursion — stable for large T (exp(-T) is tiny, no
+        // cancellation)
         F[0] = f0;
         for (int m = 0; m < max_m; m++)
             F[m + 1] = ((2.0 * m + 1.0) * F[m] - exp_t) / (2.0 * td);
@@ -41,9 +42,10 @@ static __device__ __forceinline__ void eri_boys(
     }
 
     // Downward recursion (Miller's algorithm) — stable for T <= 30
-    // For large T, exp(-T) underflows and work[] becomes all-zero → scale = inf → NaN.
+    // For large T, exp(-T) underflows and work[] becomes all-zero → scale = inf
+    // → NaN.
     const int m_top = max_m + 25;
-    double work[48]; // max_m <= 16 → m_top <= 41
+    double work[48];  // max_m <= 16 → m_top <= 41
     work[m_top] = 0.0;
     for (int m = m_top - 1; m >= 0; m--)
         work[m] = (2.0 * td * work[m + 1] + exp_t) / (2.0 * m + 1.0);
@@ -63,7 +65,8 @@ static __device__ __forceinline__ int eri_T_count(int M)
     return (M + 1) * (M + 2) * (M + 3) / 6;
 }
 
-static __device__ __forceinline__ int eri_Rn_idx(int t, int u, int v, int n, int L)
+static __device__ __forceinline__ int eri_Rn_idx(int t, int u, int v, int n,
+                                                 int L)
 {
     int offset = 0;
     for (int i = 0; i < n; i++) offset += eri_T_count(L - i);
@@ -71,8 +74,8 @@ static __device__ __forceinline__ int eri_Rn_idx(int t, int u, int v, int n, int
 }
 
 // ---- Build R^0 tensor in registers ----
-static __device__ void eri_build_R0(
-    float* R0, float* Rw, const double* F, float alpha, const float* PQ, int L)
+static __device__ void eri_build_R0(float* R0, float* Rw, const double* F,
+                                    float alpha, const float* PQ, int L)
 {
     double m2a = -2.0 * (double)alpha;
     double fac = 1.0;
@@ -123,13 +126,28 @@ static __device__ void eri_build_R0(
 
 // ---- McMurchie-Davidson E-coefficient for one axis ----
 // Supports la, lb up to 2 (d shells). Returns number of terms.
-static __device__ __forceinline__ int eri_E_coeff(
-    float* e, int la, int lb, float shift_a, float shift_b, float inv2x)
+static __device__ __forceinline__ int eri_E_coeff(float* e, int la, int lb,
+                                                  float shift_a, float shift_b,
+                                                  float inv2x)
 {
     // Fast paths for common cases
-    if (la == 0 && lb == 0) { e[0] = 1.0f; return 1; }
-    if (la == 1 && lb == 0) { e[0] = shift_a; e[1] = inv2x; return 2; }
-    if (la == 0 && lb == 1) { e[0] = shift_b; e[1] = inv2x; return 2; }
+    if (la == 0 && lb == 0)
+    {
+        e[0] = 1.0f;
+        return 1;
+    }
+    if (la == 1 && lb == 0)
+    {
+        e[0] = shift_a;
+        e[1] = inv2x;
+        return 2;
+    }
+    if (la == 0 && lb == 1)
+    {
+        e[0] = shift_b;
+        e[1] = inv2x;
+        return 2;
+    }
     if (la == 1 && lb == 1)
     {
         e[0] = shift_a * shift_b + inv2x;
@@ -155,9 +173,24 @@ static __device__ __forceinline__ int eri_E_coeff(
     // Build E^{la,0} first, then step up lb times
     float prev[5];
     int n_prev;
-    if (la == 0) { prev[0] = 1.0f; n_prev = 1; }
-    else if (la == 1) { prev[0] = shift_a; prev[1] = inv2x; n_prev = 2; }
-    else { prev[0] = shift_a*shift_a+inv2x; prev[1] = 2.0f*shift_a*inv2x; prev[2] = inv2x*inv2x; n_prev = 3; }
+    if (la == 0)
+    {
+        prev[0] = 1.0f;
+        n_prev = 1;
+    }
+    else if (la == 1)
+    {
+        prev[0] = shift_a;
+        prev[1] = inv2x;
+        n_prev = 2;
+    }
+    else
+    {
+        prev[0] = shift_a * shift_a + inv2x;
+        prev[1] = 2.0f * shift_a * inv2x;
+        prev[2] = inv2x * inv2x;
+        n_prev = 3;
+    }
     for (int step = 0; step < lb; step++)
     {
         float next[5];
@@ -181,11 +214,10 @@ static __device__ __forceinline__ int eri_E_coeff(
 // General version: supports any l values via eri_get_l_axis lookup.
 // For l<=1, eri_get_l_axis inlines to (c==d)?1:0, same perf as before.
 static __device__ __forceinline__ float eri_contract(
-    const int* l, const int* c,
-    const float* PA, const float* PB, const float* QC, const float* QD,
-    float inv2p, float inv2q, const float* R0)
+    const int* l, const int* c, const float* PA, const float* PB,
+    const float* QC, const float* QD, float inv2p, float inv2q, const float* R0)
 {
-    float E_bra[3][5]; // max 5 terms per axis (la+lb up to 4)
+    float E_bra[3][5];  // max 5 terms per axis (la+lb up to 4)
     float E_ket[3][5];
     int n_bra[3], n_ket[3];
 

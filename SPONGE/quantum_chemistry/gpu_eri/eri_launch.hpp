@@ -1,27 +1,24 @@
-#pragma once
+﻿#pragma once
 
 // ERI kernel launch wrapper declarations.
-// Each wrapper is a host function that launches the corresponding __global__ kernel.
-// Allows kernels to be defined in separate .cpp files without -rdc=true.
+// Each wrapper is a host function that launches the corresponding __global__
+// kernel. Allows kernels to be defined in separate .cpp files without
+// -rdc=true.
 
 #include "../structure/integral_tasks.h"
 
 // Common ERI kernel parameter list (used by all ERI kernels)
-#define ERI_KERNEL_PARAMS \
-    int n_tasks, const QC_ERI_TASK* tasks, \
-    const int* atm, const int* bas, const float* env, \
-    const int* ao_offsets_cart, const int* ao_offsets_sph, \
-    const float* norms, const float* shell_pair_bounds, \
-    const float* pair_density_coul, const float* pair_density_exx_a, \
-    const float* pair_density_exx_b, \
-    float shell_screen_tol, \
-    const float* P_coul, const float* P_exx_a, const float* P_exx_b, \
-    float exx_scale_a, float exx_scale_b, \
-    int nao, int nao_sph, int is_spherical, \
-    const float* cart2sph_mat, \
-    float* F_a, float* F_b, \
-    float* global_hr_pool, int hr_base, int hr_size, \
-    int shell_buf_size, float prim_screen_tol
+#define ERI_KERNEL_PARAMS                                                     \
+    int n_tasks, const QC_ERI_TASK *tasks, const int *atm, const int *bas,    \
+        const float *env, const int *ao_offsets_cart,                         \
+        const int *ao_offsets_sph, const float *norms,                        \
+        const float *shell_pair_bounds, const float *pair_density_coul,       \
+        const float *pair_density_exx_a, const float *pair_density_exx_b,     \
+        float shell_screen_tol, const float *P_coul, const float *P_exx_a,    \
+        const float *P_exx_b, float exx_scale_a, float exx_scale_b, int nao,  \
+        int nao_sph, int is_spherical, const float *cart2sph_mat, float *F_a, \
+        float *F_b, float *global_hr_pool, int hr_base, int hr_size,          \
+        int shell_buf_size, float prim_screen_tol
 
 // SP kernel launchers
 void QC_Launch_ssss(ERI_KERNEL_PARAMS);
@@ -69,32 +66,24 @@ void QC_Launch_Rys_L16(ERI_KERNEL_PARAMS);
 
 // Screening kernel launcher
 void QC_Launch_Screen(
-    int n_total,
-    const QC_INTEGRAL_TASKS::ScreenCombo* combos,
-    const int* combo_prefix,
-    int n_combos,
-    const int* sorted_pair_ids,
-    const QC_ONE_E_TASK* shell_pairs,
-    const float* shell_pair_bounds,
-    const float* pair_density_coul,
-    const float* pair_density_exx_a,
-    const float* pair_density_exx_b,
-    float shell_screen_tol,
-    float exx_scale_a, float exx_scale_b,
-    QC_ERI_TASK* output_tasks,
-    int* output_counts);
+    int n_total, const QC_INTEGRAL_TASKS::ScreenCombo* combos,
+    const int* combo_prefix, int n_combos, const int* sorted_pair_ids,
+    const QC_ONE_E_TASK* shell_pairs, const float* shell_pair_bounds,
+    const float* pair_density_coul, const float* pair_density_exx_a,
+    const float* pair_density_exx_b, float shell_screen_tol, float exx_scale_a,
+    float exx_scale_b, QC_ERI_TASK* output_tasks, int* output_counts);
 
 // Macro to define a wrapper function that launches a kernel
-#define DEFINE_ERI_LAUNCH(launch_name, kernel_name) \
-void launch_name(ERI_KERNEL_PARAMS) { \
-    const int threads = 256; \
-    Launch_Device_Kernel(kernel_name, \
-        (n_tasks + threads - 1) / threads, threads, 0, 0, \
-        n_tasks, tasks, atm, bas, env, \
-        ao_offsets_cart, ao_offsets_sph, norms, shell_pair_bounds, \
-        pair_density_coul, pair_density_exx_a, pair_density_exx_b, \
-        shell_screen_tol, P_coul, P_exx_a, P_exx_b, \
-        exx_scale_a, exx_scale_b, nao, nao_sph, is_spherical, \
-        cart2sph_mat, F_a, F_b, global_hr_pool, hr_base, hr_size, \
-        shell_buf_size, prim_screen_tol); \
-}
+#define DEFINE_ERI_LAUNCH(launch_name, kernel_name)                          \
+    void launch_name(ERI_KERNEL_PARAMS)                                      \
+    {                                                                        \
+        const int threads = 256;                                             \
+        Launch_Device_Kernel(                                                \
+            kernel_name, (n_tasks + threads - 1) / threads, threads, 0, 0,   \
+            n_tasks, tasks, atm, bas, env, ao_offsets_cart, ao_offsets_sph,  \
+            norms, shell_pair_bounds, pair_density_coul, pair_density_exx_a, \
+            pair_density_exx_b, shell_screen_tol, P_coul, P_exx_a, P_exx_b,  \
+            exx_scale_a, exx_scale_b, nao, nao_sph, is_spherical,            \
+            cart2sph_mat, F_a, F_b, global_hr_pool, hr_base, hr_size,        \
+            shell_buf_size, prim_screen_tol);                                \
+    }

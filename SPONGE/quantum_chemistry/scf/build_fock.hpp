@@ -123,24 +123,24 @@ static inline float QC_Exact_Quartet_Screen_Host(
 
     const float shell_bound =
         shell_pair_bounds[pair_ij] * shell_pair_bounds[pair_kl];
-    const float coul_screen = shell_bound *
-                              std::max(pair_density_coul[pair_ij],
-                                       pair_density_coul[pair_kl]);
+    const float coul_screen =
+        shell_bound *
+        std::max(pair_density_coul[pair_ij], pair_density_coul[pair_kl]);
     const float exx_screen_a =
         exx_scale_a == 0.0f
             ? 0.0f
             : shell_bound * exx_scale_a *
-                  QC_Max4_Host(pair_density_exx_a[ik_pair],
-                               pair_density_exx_a[il_pair],
-                               pair_density_exx_a[jk_pair],
-                               pair_density_exx_a[jl_pair]);
+                  QC_Max4_Host(
+                      pair_density_exx_a[ik_pair], pair_density_exx_a[il_pair],
+                      pair_density_exx_a[jk_pair], pair_density_exx_a[jl_pair]);
     float exx_screen_b = 0.0f;
     if (pair_density_exx_b != NULL && exx_scale_b != 0.0f)
     {
-        exx_screen_b =
-            shell_bound * exx_scale_b *
-            QC_Max4_Host(pair_density_exx_b[ik_pair], pair_density_exx_b[il_pair],
-                         pair_density_exx_b[jk_pair], pair_density_exx_b[jl_pair]);
+        exx_screen_b = shell_bound * exx_scale_b *
+                       QC_Max4_Host(pair_density_exx_b[ik_pair],
+                                    pair_density_exx_b[il_pair],
+                                    pair_density_exx_b[jk_pair],
+                                    pair_density_exx_b[jl_pair]);
     }
     return std::max(coul_screen, std::max(exx_screen_a, exx_screen_b));
 }
@@ -184,19 +184,17 @@ static inline int QC_Build_Filtered_ERI_Tasks_Host(
         const float exx_anchor_a =
             exx_scale_a == 0.0f
                 ? 0.0f
-                : exx_scale_a *
-                      std::max(shell_max_exx_a[(size_t)pair.x],
-                               shell_max_exx_a[(size_t)pair.y]);
+                : exx_scale_a * std::max(shell_max_exx_a[(size_t)pair.x],
+                                         shell_max_exx_a[(size_t)pair.y]);
         const float exx_anchor_b =
             (pair_density_exx_b == NULL || exx_scale_b == 0.0f)
                 ? 0.0f
-                : exx_scale_b *
-                      std::max(shell_max_exx_b[(size_t)pair.x],
-                               shell_max_exx_b[(size_t)pair.y]);
+                : exx_scale_b * std::max(shell_max_exx_b[(size_t)pair.x],
+                                         shell_max_exx_b[(size_t)pair.y]);
         anchor_activity[(size_t)pair_id] =
             shell_pair_bounds[pair_id] *
-            QC_Max4_Host(pair_density_coul[pair_id], exx_anchor_a,
-                         exx_anchor_b, 0.0f);
+            QC_Max4_Host(pair_density_coul[pair_id], exx_anchor_a, exx_anchor_b,
+                         0.0f);
         sorted_pair_ids[(size_t)pair_id] = pair_id;
     }
 
@@ -218,8 +216,8 @@ static inline int QC_Build_Filtered_ERI_Tasks_Host(
     std::vector<int> partner_marks((size_t)n_pairs, -1);
     std::vector<int> candidate_partners;
     candidate_partners.reserve(256);
-    filtered_tasks.reserve(std::min(task_ctx.n_eri_tasks,
-                                    std::max(1024, n_pairs * 16)));
+    filtered_tasks.reserve(
+        std::min(task_ctx.n_eri_tasks, std::max(1024, n_pairs * 16)));
 
     for (int pair_ij = 0; pair_ij < n_pairs; pair_ij++)
     {
@@ -248,10 +246,10 @@ static inline int QC_Build_Filtered_ERI_Tasks_Host(
             }
         }
 
-        const float activity_threshold = shell_pair_bounds[pair_ij] > 0.0f
-                                             ? (shell_screen_tol /
-                                                shell_pair_bounds[pair_ij])
-                                             : std::numeric_limits<float>::max();
+        const float activity_threshold =
+            shell_pair_bounds[pair_ij] > 0.0f
+                ? (shell_screen_tol / shell_pair_bounds[pair_ij])
+                : std::numeric_limits<float>::max();
         const int activity_count = QC_Count_Active_Partners_By_Activity_Host(
             sorted_activity_ids, anchor_activity.data(), activity_threshold);
         for (int rank = 0; rank < activity_count; rank++)
@@ -266,9 +264,9 @@ static inline int QC_Build_Filtered_ERI_Tasks_Host(
         for (const int pair_kl : candidate_partners)
         {
             const float exact_screen = QC_Exact_Quartet_Screen_Host(
-                task_ctx, pair_ij, pair_kl, shell_pair_bounds, pair_density_coul,
-                pair_density_exx_a, pair_density_exx_b, exx_scale_a,
-                exx_scale_b);
+                task_ctx, pair_ij, pair_kl, shell_pair_bounds,
+                pair_density_coul, pair_density_exx_a, pair_density_exx_b,
+                exx_scale_a, exx_scale_b);
             if (exact_screen < shell_screen_tol) continue;
 
             const QC_ONE_E_TASK& ij = task_ctx.h_shell_pairs[(size_t)pair_ij];
@@ -880,8 +878,7 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
     const float exx_scale_a =
         scf_ws.unrestricted ? dft.exx_fraction : (0.5f * dft.exx_fraction);
     const float exx_scale_b = scf_ws.unrestricted ? dft.exx_fraction : 0.0f;
-    const bool fast_test_mode =
-        scf_ws.fast_test_mode || scf_ws.bench_fock_only;
+    const bool fast_test_mode = scf_ws.fast_test_mode || scf_ws.bench_fock_only;
     const float shell_screen_tol = QC_Effective_Shell_Screen_Tol(
         task_ctx.eri_shell_screen_tol, iter, fast_test_mode,
         scf_ws.fast_test_shell_screen_tol);
@@ -898,27 +895,25 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
     DEBUG_screen_timer.Start();
 
     // 1. Zero all per-combo counters
-    deviceMemset(task_ctx.d_screen_counts, 0,
-                 sizeof(int) * task_ctx.n_combos);
+    deviceMemset(task_ctx.d_screen_counts, 0, sizeof(int) * task_ctx.n_combos);
 
     // 2. Single screening kernel launch for ALL combos
     {
         // Upload combo prefix sums to device (small, could be cached)
         int* d_combo_prefix = NULL;
-        Device_Malloc_And_Copy_Safely(
-            (void**)&d_combo_prefix, (void*)task_ctx.combo_prefix,
-            sizeof(int) * (task_ctx.n_combos + 1));
+        Device_Malloc_And_Copy_Safely((void**)&d_combo_prefix,
+                                      (void*)task_ctx.combo_prefix,
+                                      sizeof(int) * (task_ctx.n_combos + 1));
 
-        QC_Launch_Screen(
-            task_ctx.total_quartets, task_ctx.d_combos, d_combo_prefix,
-            task_ctx.n_combos,
-            task_ctx.d_sorted_pair_ids, task_ctx.d_shell_pairs,
-            task_ctx.d_shell_pair_bounds,
-            scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
-            scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
-                                : (const float*)nullptr,
-            shell_screen_tol, exx_scale_a, exx_scale_b,
-            task_ctx.d_screened_tasks, task_ctx.d_screen_counts);
+        QC_Launch_Screen(task_ctx.total_quartets, task_ctx.d_combos,
+                         d_combo_prefix, task_ctx.n_combos,
+                         task_ctx.d_sorted_pair_ids, task_ctx.d_shell_pairs,
+                         task_ctx.d_shell_pair_bounds,
+                         scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
+                         scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
+                                             : (const float*)nullptr,
+                         shell_screen_tol, exx_scale_a, exx_scale_b,
+                         task_ctx.d_screened_tasks, task_ctx.d_screen_counts);
 
         deviceFree(d_combo_prefix);
     }
@@ -929,7 +924,8 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
                  sizeof(int) * task_ctx.n_combos, deviceMemcpyDeviceToHost);
 
     int total_screened = 0;
-    for (int ci = 0; ci < task_ctx.n_combos; ci++) total_screened += h_counts[ci];
+    for (int ci = 0; ci < task_ctx.n_combos; ci++)
+        total_screened += h_counts[ci];
 
     DEBUG_screen_timer.Stop();
 
@@ -938,65 +934,112 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
 
     // Helper: launch ERI kernel for a given combo
     // launch_eri: calls a wrapper function that launches the kernel
-    using LaunchFunc = void(*)(ERI_KERNEL_PARAMS);
-    auto launch_eri = [&](int ci, LaunchFunc func) {
+    using LaunchFunc = void (*)(ERI_KERNEL_PARAMS);
+    auto launch_eri = [&](int ci, LaunchFunc func)
+    {
         const int n = h_counts[ci];
         if (n == 0) return;
         func(n, task_ctx.d_screened_tasks + task_ctx.h_combos[ci].output_offset,
-             mol.d_atm, mol.d_bas, mol.d_env,
-             mol.d_ao_offsets, mol.d_ao_offsets_sph,
-             scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
+             mol.d_atm, mol.d_bas, mol.d_env, mol.d_ao_offsets,
+             mol.d_ao_offsets_sph, scf_ws.d_norms, task_ctx.d_shell_pair_bounds,
              scf_ws.d_pair_density_coul, scf_ws.d_pair_density_exx,
              scf_ws.unrestricted ? scf_ws.d_pair_density_exx_b
                                  : (const float*)nullptr,
              shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
              scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
-             exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph,
-             mol.is_spherical, cart2sph.d_cart2sph_mat, d_F_build,
-             d_F_b_build, d_hr_pool, task_ctx.eri_hr_base,
-             task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
-             prim_screen_tol);
+             exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph, mol.is_spherical,
+             cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build, d_hr_pool,
+             task_ctx.eri_hr_base, task_ctx.eri_hr_size,
+             task_ctx.eri_shell_buf_size, prim_screen_tol);
     };
 
     for (int ci = 0; ci < task_ctx.n_combos; ci++)
     {
         if (h_counts[ci] == 0) continue;
         const auto& combo = task_ctx.h_combos[ci];
-        const int lkey = combo.l0*1000 + combo.l1*100 + combo.l2*10 + combo.l3;
+        const int lkey =
+            combo.l0 * 1000 + combo.l1 * 100 + combo.l2 * 10 + combo.l3;
         switch (lkey)
         {
-            case    0: launch_eri(ci, QC_Launch_ssss); break;
-            case 1000: launch_eri(ci, QC_Launch_psss); break;
-            case  100: launch_eri(ci, QC_Launch_spss); break;
-            case   10: launch_eri(ci, QC_Launch_ssps); break;
-            case    1: launch_eri(ci, QC_Launch_sssp); break;
-            case 1100: launch_eri(ci, QC_Launch_ppss); break;
-            case 1010: launch_eri(ci, QC_Launch_psps); break;
-            case 1001: launch_eri(ci, QC_Launch_pssp); break;
-            case  110: launch_eri(ci, QC_Launch_spps); break;
-            case  101: launch_eri(ci, QC_Launch_spsp); break;
-            case   11: launch_eri(ci, QC_Launch_sspp); break;
-            case  111: launch_eri(ci, QC_Launch_sppp); break;
-            case 1011: launch_eri(ci, QC_Launch_pspp); break;
-            case 1101: launch_eri(ci, QC_Launch_ppsp); break;
-            case 1110: launch_eri(ci, QC_Launch_ppps); break;
-            case 1111: launch_eri(ci, QC_Launch_pppp); break;
+            case 0:
+                launch_eri(ci, QC_Launch_ssss);
+                break;
+            case 1000:
+                launch_eri(ci, QC_Launch_psss);
+                break;
+            case 100:
+                launch_eri(ci, QC_Launch_spss);
+                break;
+            case 10:
+                launch_eri(ci, QC_Launch_ssps);
+                break;
+            case 1:
+                launch_eri(ci, QC_Launch_sssp);
+                break;
+            case 1100:
+                launch_eri(ci, QC_Launch_ppss);
+                break;
+            case 1010:
+                launch_eri(ci, QC_Launch_psps);
+                break;
+            case 1001:
+                launch_eri(ci, QC_Launch_pssp);
+                break;
+            case 110:
+                launch_eri(ci, QC_Launch_spps);
+                break;
+            case 101:
+                launch_eri(ci, QC_Launch_spsp);
+                break;
+            case 11:
+                launch_eri(ci, QC_Launch_sspp);
+                break;
+            case 111:
+                launch_eri(ci, QC_Launch_sppp);
+                break;
+            case 1011:
+                launch_eri(ci, QC_Launch_pspp);
+                break;
+            case 1101:
+                launch_eri(ci, QC_Launch_ppsp);
+                break;
+            case 1110:
+                launch_eri(ci, QC_Launch_ppps);
+                break;
+            case 1111:
+                launch_eri(ci, QC_Launch_pppp);
+                break;
             default:
             {
-                const int l_max = std::max({combo.l0, combo.l1, combo.l2, combo.l3});
+                const int l_max =
+                    std::max({combo.l0, combo.l1, combo.l2, combo.l3});
                 const int l_sum = combo.l0 + combo.l1 + combo.l2 + combo.l3;
                 if (l_max <= 2)
                 {
                     // d-containing: MD per-L_sum
                     switch (l_sum)
                     {
-                        case 2: launch_eri(ci, QC_Launch_D_L2); break;
-                        case 3: launch_eri(ci, QC_Launch_D_L3); break;
-                        case 4: launch_eri(ci, QC_Launch_D_L4); break;
-                        case 5: launch_eri(ci, QC_Launch_D_L5); break;
-                        case 6: launch_eri(ci, QC_Launch_D_L6); break;
-                        case 7: launch_eri(ci, QC_Launch_D_L7); break;
-                        case 8: launch_eri(ci, QC_Launch_D_L8); break;
+                        case 2:
+                            launch_eri(ci, QC_Launch_D_L2);
+                            break;
+                        case 3:
+                            launch_eri(ci, QC_Launch_D_L3);
+                            break;
+                        case 4:
+                            launch_eri(ci, QC_Launch_D_L4);
+                            break;
+                        case 5:
+                            launch_eri(ci, QC_Launch_D_L5);
+                            break;
+                        case 6:
+                            launch_eri(ci, QC_Launch_D_L6);
+                            break;
+                        case 7:
+                            launch_eri(ci, QC_Launch_D_L7);
+                            break;
+                        case 8:
+                            launch_eri(ci, QC_Launch_D_L8);
+                            break;
                     }
                 }
                 else
@@ -1004,20 +1047,48 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
                     // f/g shells: Rys quadrature per-L_sum (single launch)
                     switch (l_sum)
                     {
-                        case  3: launch_eri(ci, QC_Launch_Rys_L3); break;
-                        case  4: launch_eri(ci, QC_Launch_Rys_L4); break;
-                        case  5: launch_eri(ci, QC_Launch_Rys_L5); break;
-                        case  6: launch_eri(ci, QC_Launch_Rys_L6); break;
-                        case  7: launch_eri(ci, QC_Launch_Rys_L7); break;
-                        case  8: launch_eri(ci, QC_Launch_Rys_L8); break;
-                        case  9: launch_eri(ci, QC_Launch_Rys_L9); break;
-                        case 10: launch_eri(ci, QC_Launch_Rys_L10); break;
-                        case 11: launch_eri(ci, QC_Launch_Rys_L11); break;
-                        case 12: launch_eri(ci, QC_Launch_Rys_L12); break;
-                        case 13: launch_eri(ci, QC_Launch_Rys_L13); break;
-                        case 14: launch_eri(ci, QC_Launch_Rys_L14); break;
-                        case 15: launch_eri(ci, QC_Launch_Rys_L15); break;
-                        case 16: launch_eri(ci, QC_Launch_Rys_L16); break;
+                        case 3:
+                            launch_eri(ci, QC_Launch_Rys_L3);
+                            break;
+                        case 4:
+                            launch_eri(ci, QC_Launch_Rys_L4);
+                            break;
+                        case 5:
+                            launch_eri(ci, QC_Launch_Rys_L5);
+                            break;
+                        case 6:
+                            launch_eri(ci, QC_Launch_Rys_L6);
+                            break;
+                        case 7:
+                            launch_eri(ci, QC_Launch_Rys_L7);
+                            break;
+                        case 8:
+                            launch_eri(ci, QC_Launch_Rys_L8);
+                            break;
+                        case 9:
+                            launch_eri(ci, QC_Launch_Rys_L9);
+                            break;
+                        case 10:
+                            launch_eri(ci, QC_Launch_Rys_L10);
+                            break;
+                        case 11:
+                            launch_eri(ci, QC_Launch_Rys_L11);
+                            break;
+                        case 12:
+                            launch_eri(ci, QC_Launch_Rys_L12);
+                            break;
+                        case 13:
+                            launch_eri(ci, QC_Launch_Rys_L13);
+                            break;
+                        case 14:
+                            launch_eri(ci, QC_Launch_Rys_L14);
+                            break;
+                        case 15:
+                            launch_eri(ci, QC_Launch_Rys_L15);
+                            break;
+                        case 16:
+                            launch_eri(ci, QC_Launch_Rys_L16);
+                            break;
                     }
                 }
                 break;
@@ -1029,8 +1100,8 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
 
     fprintf(stderr,
             "    [DEBUG_FOCK] iter=%d screened=%d t_screen=%.6fs t_eri=%.6fs\n",
-            iter + 1, total_screened,
-            DEBUG_screen_timer.time, DEBUG_eri_timer.time);
+            iter + 1, total_screened, DEBUG_screen_timer.time,
+            DEBUG_eri_timer.time);
     if (scf_ws.d_F_double != NULL)
         QC_Float_To_Double_Copy(total, scf_ws.d_F, scf_ws.d_F_double);
     if (scf_ws.unrestricted && scf_ws.d_F_b_double != NULL)

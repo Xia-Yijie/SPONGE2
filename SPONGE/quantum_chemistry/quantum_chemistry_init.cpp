@@ -1,7 +1,8 @@
-﻿#include "basis/basis.h"
-#include "quantum_chemistry.h"
-#include <fstream>
+﻿#include <fstream>
 #include <sstream>
+
+#include "basis/basis.h"
+#include "quantum_chemistry.h"
 
 // Workaround: glibc 2.38+ redirects atoi/strtol to __isoc23_strtol
 // which the conda GCC 11.4 toolchain cannot resolve at link time.
@@ -9,29 +10,58 @@
 // recurse back to us via glibc's inline redirect).
 #ifdef __linux__
 #include <cerrno>
-extern "C" {
-    long __isoc23_strtol(const char* nptr, char** endptr, int base) {
+extern "C"
+{
+    long __isoc23_strtol(const char* nptr, char** endptr, int base)
+    {
         const char* s = nptr;
         while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r' ||
-               *s == '\f' || *s == '\v') s++;
+               *s == '\f' || *s == '\v')
+            s++;
         int sign = 1;
-        if (*s == '-') { sign = -1; s++; }
-        else if (*s == '+') { s++; }
-        if (base == 0) {
-            if (*s == '0' && (s[1] == 'x' || s[1] == 'X')) { base = 16; s += 2; }
-            else if (*s == '0') { base = 8; s++; }
-            else { base = 10; }
-        } else if (base == 16 && *s == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        if (*s == '-')
+        {
+            sign = -1;
+            s++;
+        }
+        else if (*s == '+')
+        {
+            s++;
+        }
+        if (base == 0)
+        {
+            if (*s == '0' && (s[1] == 'x' || s[1] == 'X'))
+            {
+                base = 16;
+                s += 2;
+            }
+            else if (*s == '0')
+            {
+                base = 8;
+                s++;
+            }
+            else
+            {
+                base = 10;
+            }
+        }
+        else if (base == 16 && *s == '0' && (s[1] == 'x' || s[1] == 'X'))
+        {
             s += 2;
         }
         long result = 0;
         const char* start = s;
-        while (*s) {
+        while (*s)
+        {
             int digit;
-            if (*s >= '0' && *s <= '9') digit = *s - '0';
-            else if (*s >= 'a' && *s <= 'z') digit = *s - 'a' + 10;
-            else if (*s >= 'A' && *s <= 'Z') digit = *s - 'A' + 10;
-            else break;
+            if (*s >= '0' && *s <= '9')
+                digit = *s - '0';
+            else if (*s >= 'a' && *s <= 'z')
+                digit = *s - 'a' + 10;
+            else if (*s >= 'A' && *s <= 'Z')
+                digit = *s - 'A' + 10;
+            else
+                break;
             if (digit >= base) break;
             result = result * base + digit;
             s++;
@@ -673,7 +703,7 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
     // Build pair type index for on-the-fly dispatch
     {
         const int max_l = *std::max_element(mol.h_l_list.begin(),
-                                             mol.h_l_list.begin() + mol.nbas);
+                                            mol.h_l_list.begin() + mol.nbas);
         const int stride = max_l + 1;
         const int n_types = stride * stride;
 
@@ -694,7 +724,8 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
         {
             if (type_lists[tid].empty()) continue;
             int slot = task_ctx.n_pair_types++;
-            task_ctx.pair_type_offset[slot] = (int)task_ctx.h_sorted_pair_ids.size();
+            task_ctx.pair_type_offset[slot] =
+                (int)task_ctx.h_sorted_pair_ids.size();
             task_ctx.pair_type_count[slot] = (int)type_lists[tid].size();
             task_ctx.pair_type_l0[slot] = tid / stride;
             task_ctx.pair_type_l1[slot] = tid % stride;
@@ -702,7 +733,8 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
                 task_ctx.h_sorted_pair_ids.push_back(pid);
         }
 
-        fprintf(stderr, "    [Pair types] max_l=%d types=%d:", max_l, task_ctx.n_pair_types);
+        fprintf(stderr, "    [Pair types] max_l=%d types=%d:", max_l,
+                task_ctx.n_pair_types);
         for (int t = 0; t < task_ctx.n_pair_types; t++)
             fprintf(stderr, " (%d,%d)=%d", task_ctx.pair_type_l0[t],
                     task_ctx.pair_type_l1[t], task_ctx.pair_type_count[t]);
@@ -712,7 +744,6 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
             (void**)&task_ctx.d_sorted_pair_ids,
             (void*)task_ctx.h_sorted_pair_ids.data(),
             sizeof(int) * task_ctx.h_sorted_pair_ids.size());
-
     }
 
     // Build screening combos: one per pair-type combination (A >= B)
@@ -736,7 +767,7 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
                 c.pair_base_B = task_ctx.pair_type_offset[tB];
                 c.n_B = nB;
                 c.n_quartets = nq;
-                c.output_offset = 0; // set below after counting combos
+                c.output_offset = 0;  // set below after counting combos
                 c.same_type = same ? 1 : 0;
                 c.l0 = task_ctx.pair_type_l0[tA];
                 c.l1 = task_ctx.pair_type_l1[tA];
@@ -785,26 +816,30 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
     // Combos share buffer proportionally to their n_quartets.
     {
         task_ctx.screened_buf_capacity = task_ctx.n_eri_tasks;
-        const long long total_q = task_ctx.total_quartets > 0 ? task_ctx.total_quartets : 1;
+        const long long total_q =
+            task_ctx.total_quartets > 0 ? task_ctx.total_quartets : 1;
         int output_off = 0;
         for (int i = 0; i < task_ctx.n_combos; i++)
         {
             task_ctx.h_combos[i].output_offset = output_off;
-            // Proportional share: this combo gets (n_quartets/total_quartets) * capacity
+            // Proportional share: this combo gets (n_quartets/total_quartets) *
+            // capacity
             const int share = (int)((long long)task_ctx.h_combos[i].n_quartets *
-                              task_ctx.screened_buf_capacity / total_q);
+                                    task_ctx.screened_buf_capacity / total_q);
             output_off += std::max(share, 1);
         }
         // Clamp to capacity (rounding might exceed slightly)
         if (output_off > task_ctx.screened_buf_capacity)
             task_ctx.screened_buf_capacity = output_off;
-        Device_Malloc_Safely((void**)&task_ctx.d_screened_tasks,
-                             sizeof(QC_ERI_TASK) * task_ctx.screened_buf_capacity);
+        Device_Malloc_Safely(
+            (void**)&task_ctx.d_screened_tasks,
+            sizeof(QC_ERI_TASK) * task_ctx.screened_buf_capacity);
         Device_Malloc_Safely((void**)&task_ctx.d_screen_counts,
                              sizeof(int) * QC_INTEGRAL_TASKS::MAX_COMBOS);
         // Re-upload combos with updated offsets
         if (task_ctx.d_combos != NULL)
-            deviceMemcpy(task_ctx.d_combos, task_ctx.h_combos,
+            deviceMemcpy(
+                task_ctx.d_combos, task_ctx.h_combos,
                 sizeof(QC_INTEGRAL_TASKS::ScreenCombo) * task_ctx.n_combos,
                 deviceMemcpyHostToDevice);
     }
@@ -815,42 +850,50 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
     // Pre-bin ERI tasks by shell type and sort in-place.
     // Bucket layout: 4s(1) | 3s1p×4 | 2s2p×6 | 1s3p×4 | 4p(1) | generic(1)
     {
-        auto get_bucket = [&](const QC_ERI_TASK& t) -> int {
+        auto get_bucket = [&](const QC_ERI_TASK& t) -> int
+        {
             const int la = mol.h_l_list[t.x], lb = mol.h_l_list[t.y];
             const int lc = mol.h_l_list[t.z], ld = mol.h_l_list[t.w];
             const int l_sum = la + lb + lc + ld;
             const int l_max = std::max({la, lb, lc, ld});
-            if (l_sum == 0) return 0; // 4s
-            if (l_sum == 1) {
+            if (l_sum == 0) return 0;  // 4s
+            if (l_sum == 1)
+            {
                 // 3s1p: bucket 1-4 by p position
                 if (la == 1) return 1;
                 if (lb == 1) return 2;
                 if (lc == 1) return 3;
                 return 4;
             }
-            if (l_sum == 2 && l_max <= 1) {
+            if (l_sum == 2 && l_max <= 1)
+            {
                 // 2s2p: bucket 5-10 by (p0,p1) pair
                 // positions of the two p shells
-                int p0 = (la==1)?0:(lb==1)?1:(lc==1)?2:3;
-                int p1 = (ld==1)?3:(lc==1&&p0!=2)?2:(lb==1&&p0!=1)?1:0;
+                int p0 = (la == 1) ? 0 : (lb == 1) ? 1 : (lc == 1) ? 2 : 3;
+                int p1 = (ld == 1)              ? 3
+                         : (lc == 1 && p0 != 2) ? 2
+                         : (lb == 1 && p0 != 1) ? 1
+                                                : 0;
                 // find p1 properly: second p position
                 int pp[2], pi = 0;
-                if (la==1) pp[pi++] = 0;
-                if (lb==1) pp[pi++] = 1;
-                if (lc==1) pp[pi++] = 2;
-                if (ld==1) pp[pi++] = 3;
-                static const int pair_idx[4][4] = {{-1,0,1,2},{0,-1,3,4},{1,3,-1,5},{2,4,5,-1}};
+                if (la == 1) pp[pi++] = 0;
+                if (lb == 1) pp[pi++] = 1;
+                if (lc == 1) pp[pi++] = 2;
+                if (ld == 1) pp[pi++] = 3;
+                static const int pair_idx[4][4] = {
+                    {-1, 0, 1, 2}, {0, -1, 3, 4}, {1, 3, -1, 5}, {2, 4, 5, -1}};
                 return 5 + pair_idx[pp[0]][pp[1]];
             }
-            if (l_sum == 3 && l_max <= 1) {
+            if (l_sum == 3 && l_max <= 1)
+            {
                 // 1s3p: bucket 11-14 by s position
                 if (la == 0) return 11;
                 if (lb == 0) return 12;
                 if (lc == 0) return 13;
                 return 14;
             }
-            if (l_sum == 4 && l_max <= 1) return 15; // 4p
-            return 16; // generic
+            if (l_sum == 4 && l_max <= 1) return 15;  // 4p
+            return 16;                                // generic
         };
 
         // Count tasks per bucket
@@ -862,7 +905,8 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
         // Compute offsets (prefix sum)
         task_ctx.bucket_offset[0] = 0;
         for (int b = 1; b < QC_INTEGRAL_TASKS::N_BUCKETS; b++)
-            task_ctx.bucket_offset[b] = task_ctx.bucket_offset[b-1] + task_ctx.bucket_count[b-1];
+            task_ctx.bucket_offset[b] =
+                task_ctx.bucket_offset[b - 1] + task_ctx.bucket_count[b - 1];
 
         // Sort by bucket using a temporary array
         std::vector<QC_ERI_TASK> sorted(task_ctx.n_eri_tasks);
@@ -874,9 +918,9 @@ void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
         task_ctx.h_eri_tasks = std::move(sorted);
 
         fprintf(stderr, "    [ERI pre-bin] total=%d", task_ctx.n_eri_tasks);
-        const char* names[] = {"4s","psss","spss","ssps","sssp",
-            "ppss","psps","pssp","spps","spsp","sspp",
-            "sppp","pspp","ppsp","ppps","4p","generic"};
+        const char* names[] = {"4s",   "psss", "spss", "ssps", "sssp",   "ppss",
+                               "psps", "pssp", "spps", "spsp", "sspp",   "sppp",
+                               "pspp", "ppsp", "ppps", "4p",   "generic"};
         for (int b = 0; b < QC_INTEGRAL_TASKS::N_BUCKETS; b++)
             if (task_ctx.bucket_count[b] > 0)
                 fprintf(stderr, " %s=%d", names[b], task_ctx.bucket_count[b]);
