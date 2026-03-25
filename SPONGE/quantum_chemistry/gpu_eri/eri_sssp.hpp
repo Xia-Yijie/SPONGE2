@@ -17,7 +17,7 @@
 
 // Lightweight Boys F0,F1 for L_sum=1.  No arrays — pure register computation.
 // Returns F0 and (-2*alpha)*F1 directly for the R-tensor contraction.
-static __device__ __forceinline__ void sssp_boys_01(
+static __device__ __forceinline__ void sseri_boys_01(
     float& out_F0, float& out_m2a_F1, float t_arg, float alpha)
 {
     const double td = (double)t_arg;
@@ -189,7 +189,7 @@ static __global__ void QC_Fock_sssp_Kernel(
 
                         // Boys F0(T) and (-2α)F1(T) — register-only, no arrays
                         float F0, m2a_F1;
-                        sssp_boys_01(F0, m2a_F1, T, alpha);
+                        sseri_boys_01(F0, m2a_F1, T, alpha);
 
                         // Determine shift vector and recurrence coefficient
                         // Bra positions (0,1): shift = PA or PB, rcoeff = +1/(2p)

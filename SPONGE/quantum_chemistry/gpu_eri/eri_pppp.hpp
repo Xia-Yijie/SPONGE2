@@ -156,11 +156,11 @@ static __global__ void QC_Fock_pppp_Kernel(
 
                         // Boys F0..F4
                         double F_boys[5];
-                        sp_boys(F_boys, T, 4);
+                        eri_boys(F_boys, T, 4);
 
                         // R^0 tensor (35 elements for L=4, workspace 70)
                         float R0[35], Rw[70];
-                        sp_build_R0(R0, Rw, F_boys, alpha, PQ, 4);
+                        eri_build_R0(R0, Rw, F_boys, alpha, PQ, 4);
 
                         // Contract for each Cartesian component
                         int idx = 0;
@@ -171,7 +171,7 @@ static __global__ void QC_Fock_pppp_Kernel(
                               {
                                   const int cv[4] = {c0, c1, c2, c3};
                                   eri_cart[idx++] += n_abcd *
-                                      sp_contract_eri(l, cv, PA, PB, QCv, QD,
+                                      eri_contract(l, cv, PA, PB, QCv, QD,
                                                       inv2p, inv2q, R0);
                               }
                     }

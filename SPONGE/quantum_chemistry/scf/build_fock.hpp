@@ -820,7 +820,7 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 
 #include "build_fock_cpu.hpp"
 #include "build_fock_gpu.hpp"
-#include "../gpu_eri/eri_sp_common.hpp"
+#include "../gpu_eri/eri_common.hpp"
 #include "../gpu_eri/eri_ssss.hpp"
 
 // Single-launch screening kernel for all pair-type combinations

@@ -1,7 +1,7 @@
 #pragma once
 
 // Generic register-only Fock kernel for d-containing shell quartets (l_max <= 2).
-// Runtime L_sum (2..8), uses sp_common utilities with d-shell extensions.
+// Runtime L_sum (2..8), uses eri_common utilities with d-shell extensions.
 // No scratch buffers. Used as fallback for all pair-type combos involving d shells.
 
 static __global__ void QC_Fock_D_Generic_Kernel(
@@ -131,9 +131,9 @@ static __global__ void QC_Fock_D_Generic_Kernel(
             const float T = alpha*(PQ[0]*PQ[0]+PQ[1]*PQ[1]+PQ[2]*PQ[2]);
 
             double F_boys[9]; // max L_sum=8
-            sp_boys(F_boys, T, L_sum);
+            eri_boys(F_boys, T, L_sum);
             float R0[165], Rw[495]; // max for L_sum=8
-            sp_build_R0(R0, Rw, F_boys, alpha, PQ, L_sum);
+            eri_build_R0(R0, Rw, F_boys, alpha, PQ, L_sum);
 
             int idx = 0;
             for (int c0 = 0; c0 < dim_cart[0]; c0++)
@@ -143,7 +143,7 @@ static __global__ void QC_Fock_D_Generic_Kernel(
                   {
                       const int cv[4] = {c0,c1,c2,c3};
                       eri_cart[idx++] += n_abcd *
-                          sp_contract_eri(l, cv, PA, PB, QCv, QD, inv2p, inv2q, R0);
+                          eri_contract(l, cv, PA, PB, QCv, QD, inv2p, inv2q, R0);
                   }
         }}}}
 

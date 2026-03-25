@@ -132,9 +132,9 @@ static __global__ void KERNEL_NAME(
             const float T = alpha*(PQ[0]*PQ[0]+PQ[1]*PQ[1]+PQ[2]*PQ[2]);
 
             double F_boys[4];
-            sp_boys(F_boys, T, 3);
+            eri_boys(F_boys, T, 3);
             float R0[20], Rw[35];
-            sp_build_R0(R0, Rw, F_boys, alpha, PQ, 3);
+            eri_build_R0(R0, Rw, F_boys, alpha, PQ, 3);
 
             int idx = 0;
             for (int c0 = 0; c0 < dim_c[0]; c0++)
@@ -143,7 +143,7 @@ static __global__ void KERNEL_NAME(
                   for (int c3 = 0; c3 < dim_c[3]; c3++) {
                       const int cv[4] = {c0,c1,c2,c3};
                       eri_cart[idx++] += n_abcd *
-                          sp_contract_eri(l, cv, PA, PB, QCv, QD, inv2p, inv2q, R0);
+                          eri_contract(l, cv, PA, PB, QCv, QD, inv2p, inv2q, R0);
                   }
         }}}}
 

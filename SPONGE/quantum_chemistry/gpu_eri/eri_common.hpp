@@ -4,7 +4,7 @@
 // Boys function, compact R tensor, E-coefficient helpers, contraction.
 
 // ---- Get angular momentum on axis d for shell with l and Cartesian component c ----
-static __device__ __forceinline__ int sp_get_l_axis(int l, int c, int axis)
+static __device__ __forceinline__ int eri_get_l_axis(int l, int c, int axis)
 {
     if (l == 0) return 0;
     if (l == 1) return (c == axis) ? 1 : 0;
@@ -18,7 +18,7 @@ static __device__ __forceinline__ int sp_get_l_axis(int l, int c, int axis)
 // ---- Boys function for max_m up to ~8 ----
 // Uses upward recursion for max_m <= 4 (fast, register-only).
 // Uses downward recursion for max_m > 4 (stable, needs small work array).
-static __device__ __forceinline__ void sp_boys(
+static __device__ __forceinline__ void eri_boys(
     double* F, float T, int max_m)
 {
     const double td = (double)T;
@@ -51,33 +51,33 @@ static __device__ __forceinline__ void sp_boys(
 }
 
 // ---- Compact R^0 tensor index ----
-static __device__ __forceinline__ int sp_R0_idx(int t, int u, int v)
+static __device__ __forceinline__ int eri_R0_idx(int t, int u, int v)
 {
     const int N = t + u + v;
     return N * (N + 1) * (N + 2) / 6 + (N - t) * (N - t + 1) / 2 + (N - t - u);
 }
 
-static __device__ __forceinline__ int sp_T_count(int M)
+static __device__ __forceinline__ int eri_T_count(int M)
 {
     return (M + 1) * (M + 2) * (M + 3) / 6;
 }
 
-static __device__ __forceinline__ int sp_Rn_idx(int t, int u, int v, int n, int L)
+static __device__ __forceinline__ int eri_Rn_idx(int t, int u, int v, int n, int L)
 {
     int offset = 0;
-    for (int i = 0; i < n; i++) offset += sp_T_count(L - i);
-    return offset + sp_R0_idx(t, u, v);
+    for (int i = 0; i < n; i++) offset += eri_T_count(L - i);
+    return offset + eri_R0_idx(t, u, v);
 }
 
 // ---- Build R^0 tensor in registers ----
-static __device__ void sp_build_R0(
+static __device__ void eri_build_R0(
     float* R0, float* Rw, const double* F, float alpha, const float* PQ, int L)
 {
     double m2a = -2.0 * (double)alpha;
     double fac = 1.0;
     for (int n = 0; n <= L; n++)
     {
-        Rw[sp_Rn_idx(0, 0, 0, n, L)] = (float)(fac * F[n]);
+        Rw[eri_Rn_idx(0, 0, 0, n, L)] = (float)(fac * F[n]);
         fac *= m2a;
     }
     for (int N = 1; N <= L; N++)
@@ -92,37 +92,37 @@ static __device__ void sp_build_R0(
                     float val = 0.0f;
                     if (t > 0)
                     {
-                        val = PQ[0] * Rw[sp_Rn_idx(t - 1, u, v, n + 1, L)];
+                        val = PQ[0] * Rw[eri_Rn_idx(t - 1, u, v, n + 1, L)];
                         if (t > 1)
                             val += (float)(t - 1) *
-                                   Rw[sp_Rn_idx(t - 2, u, v, n + 1, L)];
+                                   Rw[eri_Rn_idx(t - 2, u, v, n + 1, L)];
                     }
                     else if (u > 0)
                     {
-                        val = PQ[1] * Rw[sp_Rn_idx(t, u - 1, v, n + 1, L)];
+                        val = PQ[1] * Rw[eri_Rn_idx(t, u - 1, v, n + 1, L)];
                         if (u > 1)
                             val += (float)(u - 1) *
-                                   Rw[sp_Rn_idx(t, u - 2, v, n + 1, L)];
+                                   Rw[eri_Rn_idx(t, u - 2, v, n + 1, L)];
                     }
                     else
                     {
-                        val = PQ[2] * Rw[sp_Rn_idx(t, u, v - 1, n + 1, L)];
+                        val = PQ[2] * Rw[eri_Rn_idx(t, u, v - 1, n + 1, L)];
                         if (v > 1)
                             val += (float)(v - 1) *
-                                   Rw[sp_Rn_idx(t, u, v - 2, n + 1, L)];
+                                   Rw[eri_Rn_idx(t, u, v - 2, n + 1, L)];
                     }
-                    Rw[sp_Rn_idx(t, u, v, n, L)] = val;
+                    Rw[eri_Rn_idx(t, u, v, n, L)] = val;
                 }
             }
         }
     }
-    const int n0 = sp_T_count(L);
+    const int n0 = eri_T_count(L);
     for (int i = 0; i < n0; i++) R0[i] = Rw[i];
 }
 
 // ---- McMurchie-Davidson E-coefficient for one axis ----
 // Supports la, lb up to 2 (d shells). Returns number of terms.
-static __device__ __forceinline__ int sp_E_coeff(
+static __device__ __forceinline__ int eri_E_coeff(
     float* e, int la, int lb, float shift_a, float shift_b, float inv2x)
 {
     // Fast paths for common cases
@@ -177,9 +177,9 @@ static __device__ __forceinline__ int sp_E_coeff(
 }
 
 // ---- Contract E-coefficients with R^0 tensor ----
-// General version: supports any l values via sp_get_l_axis lookup.
-// For l<=1, sp_get_l_axis inlines to (c==d)?1:0, same perf as before.
-static __device__ __forceinline__ float sp_contract_eri(
+// General version: supports any l values via eri_get_l_axis lookup.
+// For l<=1, eri_get_l_axis inlines to (c==d)?1:0, same perf as before.
+static __device__ __forceinline__ float eri_contract(
     const int* l, const int* c,
     const float* PA, const float* PB, const float* QC, const float* QD,
     float inv2p, float inv2q, const float* R0)
@@ -190,12 +190,12 @@ static __device__ __forceinline__ float sp_contract_eri(
 
     for (int d = 0; d < 3; d++)
     {
-        const int la_d = sp_get_l_axis(l[0], c[0], d);
-        const int lb_d = sp_get_l_axis(l[1], c[1], d);
-        const int lc_d = sp_get_l_axis(l[2], c[2], d);
-        const int ld_d = sp_get_l_axis(l[3], c[3], d);
-        n_bra[d] = sp_E_coeff(E_bra[d], la_d, lb_d, PA[d], PB[d], inv2p);
-        n_ket[d] = sp_E_coeff(E_ket[d], lc_d, ld_d, QC[d], QD[d], inv2q);
+        const int la_d = eri_get_l_axis(l[0], c[0], d);
+        const int lb_d = eri_get_l_axis(l[1], c[1], d);
+        const int lc_d = eri_get_l_axis(l[2], c[2], d);
+        const int ld_d = eri_get_l_axis(l[3], c[3], d);
+        n_bra[d] = eri_E_coeff(E_bra[d], la_d, lb_d, PA[d], PB[d], inv2p);
+        n_ket[d] = eri_E_coeff(E_ket[d], lc_d, ld_d, QC[d], QD[d], inv2q);
     }
 
     float eri = 0.0f;
@@ -215,7 +215,7 @@ static __device__ __forceinline__ float sp_contract_eri(
                             const float sign =
                                 ((nx + ny + nz) % 2 == 0) ? 1.0f : -1.0f;
                             eri += e_bra * e_ket * sign *
-                                   R0[sp_R0_idx(mx + nx, my + ny, mz + nz)];
+                                   R0[eri_R0_idx(mx + nx, my + ny, mz + nz)];
                         }
             }
     return eri;
