@@ -36,7 +36,7 @@ struct META
     {
         Hill(const Axis& centers, const Axis& inv_w, const Axis& period,
              const float& theight);
-        const Gdata& CalcHill(const Axis& values);
+        const Gdata& Calc_Hill(const Axis& values);
         std::vector<GaussianSF> gsf;
         float height;
         float potential;
@@ -106,6 +106,14 @@ struct META
     Axis est_values_;
     Gdata est_sum_force_;
 
+    float* d_hill_centers = nullptr;
+    float* d_hill_inv_w = nullptr;
+    float* d_hill_periods = nullptr;
+
+    float* d_reduce_buf = nullptr;
+    float* h_reduce_buf = nullptr;
+    int reduce_num_blocks = 0;
+
     float rct = 0.;
     float rbias = 0.;
     float bias = 0.;
@@ -124,32 +132,32 @@ struct META
                                            int need_pressure,
                                            float* d_potential,
                                            LTMatrix3* d_virial);
-    void Potential_and_derivative(const int need_potential);
-    void Border_derivative(float* upper, float* lower, float* cutoff,
+    void Potential_And_Derivative(const int need_potential);
+    void Border_Derivative(float* upper, float* lower, float* cutoff,
                            float* Dpotential_local);
-    void Setgrid(CONTROLLER* controller);
+    void Set_Grid(CONTROLLER* controller);
     void Estimate(const Axis& values, const bool need_potential,
                   const bool need_force);
-    void AddPotential(float sys_temp, int steps);
-    void getHeight(const Axis& values);
-    void getReweightingBias(float temp);
-    float CalcVshift(const Axis& values);
+    void Add_Potential(float sys_temp, int steps);
+    void Get_Height(const Axis& values);
+    void Get_Reweighting_Bias(float temp);
+    float Calc_V_Shift(const Axis& values);
     float Normalization(const Axis& values, float factor, bool do_normalise);
     void Read_Potential(CONTROLLER* controller);
 
-    bool ReadEdgeFile(const char* file_name, std::vector<float>& potential);
-    void PickScatter(const std::string fn);
-    int LoadHills(const std::string& fn);
-    float CalcHill(const Axis& values, const int i);
-    float Sumhills(int history_freq);
-    void EdgeEffect(const int dim, const int size);
+    bool Read_Edge_File(const char* file_name, std::vector<float>& potential);
+    void Pick_Scatter(const std::string fn);
+    int Load_Hills(const std::string& fn);
+    float Calc_Hill(const Axis& values, const int i);
+    float Sum_Hills(int history_freq);
+    void Edge_Effect(const int dim, const int size);
 
-    Axis RotateVector(const Axis& tang_vector, bool do_debug);
-    void Cartesian2Path(const Axis& Cartesian_values, Axis& Path_values);
-    double TangVector(Gdata& tang_vector, const Axis& values,
-                      const Axis& neighbor);
-    float ProjectToPath(const Gdata& tang_vector, const Axis& values,
-                        const Axis& Cartesian);
+    Axis Rotate_Vector(const Axis& tang_vector, bool do_debug);
+    void Cartesian_To_Path(const Axis& Cartesian_values, Axis& Path_values);
+    double Tang_Vector(Gdata& tang_vector, const Axis& values,
+                       const Axis& neighbor);
+    float Project_To_Path(const Gdata& tang_vector, const Axis& values,
+                          const Axis& Cartesian);
 };
 
 #endif

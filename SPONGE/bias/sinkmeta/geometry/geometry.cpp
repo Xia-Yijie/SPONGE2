@@ -58,7 +58,7 @@ float determinant(const std::vector<std::vector<float>>& matrix)
     return det;
 }
 
-META::Axis META::RotateVector(const Axis& tang_vector, bool do_debug)
+META::Axis META::Rotate_Vector(const Axis& tang_vector, bool do_debug)
 {
     if (do_debug)
     {
@@ -116,7 +116,7 @@ META::Axis META::RotateVector(const Axis& tang_vector, bool do_debug)
     return jb;
 }
 
-void META::Cartesian2Path(const Axis& Cartesian_values, Axis& Path_values)
+void META::Cartesian_To_Path(const Axis& Cartesian_values, Axis& Path_values)
 {
     double cumulative_s = 0.0;
     bool do_debug = false;
@@ -128,23 +128,23 @@ void META::Cartesian2Path(const Axis& Cartesian_values, Axis& Path_values)
     const Axis& neighbor = (index < scatter_size - 1)
         ? mscatter->Get_Coordinate(index + 1)
         : mscatter->Get_Coordinate(index);
-    TangVector(tang_vector, values, neighbor);
+    Tang_Vector(tang_vector, values, neighbor);
     double projected_last =
-        ProjectToPath(tang_vector, neighbor, Cartesian_values);
+        Project_To_Path(tang_vector, neighbor, Cartesian_values);
     Path_values.push_back(cumulative_s + projected_last);
-    Axis normal_vector = RotateVector(tang_vector, do_debug);
+    Axis normal_vector = Rotate_Vector(tang_vector, do_debug);
     Path_values.push_back(
-        ProjectToPath(normal_vector, values, Cartesian_values));
+        Project_To_Path(normal_vector, values, Cartesian_values));
     if (ndim == 3)
     {
         Axis binormal_vector =
             normalize(crossProduct(tang_vector, normal_vector));
         Path_values.push_back(
-            ProjectToPath(binormal_vector, values, Cartesian_values));
+            Project_To_Path(binormal_vector, values, Cartesian_values));
     }
 }
 
-float META::ProjectToPath(const Gdata& tang_vector, const Axis& values,
+float META::Project_To_Path(const Gdata& tang_vector, const Axis& values,
                           const Axis& Cartesian)
 {
     float projected_s = 0.;
@@ -155,7 +155,7 @@ float META::ProjectToPath(const Gdata& tang_vector, const Axis& values,
     return projected_s;
 }
 
-double META::TangVector(Gdata& tang_vector, const Axis& values,
+double META::Tang_Vector(Gdata& tang_vector, const Axis& values,
                         const Axis& neighbor)
 {
     double square = 0;

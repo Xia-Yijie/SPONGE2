@@ -25,6 +25,10 @@ struct MetaGrid
     float* d_normal_lse = nullptr;
     float* d_normal_force = nullptr;
 
+    int* d_num_points = nullptr;
+    float* d_lower = nullptr;
+    float* d_spacing = nullptr;
+
     void Initial(const std::vector<int>& npts, const std::vector<float>& lo,
                  const std::vector<float>& up, const std::vector<bool>& periodic)
     {
@@ -76,6 +80,18 @@ struct MetaGrid
             Device_Malloc_And_Copy_Safely((void**)&d_normal_force,
                                           normal_force.data(),
                                           sizeof(float) * normal_force.size());
+        if (ndim > 0)
+        {
+            Device_Malloc_And_Copy_Safely((void**)&d_num_points,
+                                          num_points.data(),
+                                          sizeof(int) * ndim);
+            Device_Malloc_And_Copy_Safely((void**)&d_lower,
+                                          lower.data(),
+                                          sizeof(float) * ndim);
+            Device_Malloc_And_Copy_Safely((void**)&d_spacing,
+                                          spacing.data(),
+                                          sizeof(float) * ndim);
+        }
     }
 
     void Sync_To_Device()

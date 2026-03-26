@@ -1,5 +1,5 @@
 #include "../meta.h"
-void META::Setgrid(CONTROLLER* controller)  //
+void META::Set_Grid(CONTROLLER* controller)  //
 {
     std::vector<int> ngrid;
     std::vector<float> lower, upper, periodic;
@@ -8,6 +8,9 @@ void META::Setgrid(CONTROLLER* controller)  //
     border_lower.resize(ndim);
     est_values_.resize(ndim);
     est_sum_force_.resize(ndim);
+    Device_Malloc_Safely((void**)&d_hill_centers, sizeof(float) * ndim);
+    Device_Malloc_Safely((void**)&d_hill_inv_w, sizeof(float) * ndim);
+    Device_Malloc_Safely((void**)&d_hill_periods, sizeof(float) * ndim);
     for (size_t i = 0; i < ndim; ++i)
     {
         ngrid.push_back(n_grids[i]);
@@ -31,7 +34,7 @@ void META::Setgrid(CONTROLLER* controller)  //
         }
         mgrid->normal_lse.assign(mgrid->total_size, log(normalization));
         mscatter = nullptr;
-        Sumhills(history_freq);
+        Sum_Hills(history_freq);
         mgrid->Alloc_Device();
     }
     else if (use_scatter)
@@ -79,7 +82,7 @@ void META::Setgrid(CONTROLLER* controller)  //
                 const Axis& values = mscatter->Get_Coordinate(index);
                 const Axis& neighbor = mscatter->Get_Coordinate(index + 1);
                 Gdata tang(ndim, 0.0f);
-                double temp_s = TangVector(tang, values, neighbor);
+                double temp_s = Tang_Vector(tang, values, neighbor);
                 for (int d = 0; d < ndim; ++d)
                 {
                     mscatter->rotate_v[index * ndim + d] = tang[d];
@@ -88,7 +91,7 @@ void META::Setgrid(CONTROLLER* controller)  //
             {
                 Gdata tang(ndim, 0.0f);
                 double temp_sp =
-                    TangVector(tang,
+                    Tang_Vector(tang,
                                mscatter->Get_Coordinate(scatter_size - 2),
                                mscatter->Get_Coordinate(scatter_size - 1));
                 for (int d = 0; d < ndim; ++d)
@@ -103,14 +106,14 @@ void META::Setgrid(CONTROLLER* controller)  //
                 const Axis& values = mscatter->Get_Coordinate(index);
                 const Axis& neighbor = mscatter->Get_Coordinate(index + 1);
                 Axis tang_vector(ndim, 0.);
-                double segment_s = TangVector(tang_vector, values, neighbor);
+                double segment_s = Tang_Vector(tang_vector, values, neighbor);
                 int base = index * ndim * ndim;
                 int pos = 0;
                 for (int d = 0; d < ndim; ++d)
                 {
                     mscatter->rotate_matrix[base + pos++] = tang_vector[d];
                 }
-                Axis normal_vector = RotateVector(tang_vector, false);
+                Axis normal_vector = Rotate_Vector(tang_vector, false);
                 for (int d = 0; d < ndim; ++d)
                 {
                     mscatter->rotate_matrix[base + pos++] = normal_vector[d];
@@ -132,8 +135,8 @@ void META::Setgrid(CONTROLLER* controller)  //
                     mscatter->rotate_matrix[(scatter_size - 2) * rm_stride + j];
             }
         }
-        EdgeEffect(1, scatter_size);
-        Sumhills(history_freq);
+        Edge_Effect(1, scatter_size);
+        Sum_Hills(history_freq);
         mgrid->Alloc_Device();
         mscatter->Alloc_Device();
     }
@@ -141,6 +144,21 @@ void META::Setgrid(CONTROLLER* controller)  //
     {
         printf("Warning! No grid version is very slow\n");
         mscatter = nullptr;
+    }
+    if (mgrid != nullptr)
+    {
+#ifdef CPU_ARCH_NAME
+        reduce_num_blocks = 1;
+#else
+        int block_size = 256;
+        reduce_num_blocks = (mgrid->total_size + block_size * 2 - 1) /
+                            (block_size * 2);
+        if (reduce_num_blocks < 1) reduce_num_blocks = 1;
+#endif
+        Device_Malloc_Safely((void**)&d_reduce_buf,
+                             sizeof(float) * reduce_num_blocks);
+        Malloc_Safely((void**)&h_reduce_buf,
+                      sizeof(float) * reduce_num_blocks);
     }
 }
 void META::Estimate(const Axis& values, const bool need_potential,
@@ -192,7 +210,7 @@ void META::Estimate(const Axis& values, const bool need_potential,
             for (auto index : indices)
             {
                 const Axis& neighbor = mscatter->Get_Coordinate(index);
-                const Gdata& tder = hill.CalcHill(neighbor);
+                const Gdata& tder = hill.Calc_Hill(neighbor);
                 normalforce_sum += hill.potential;
                 float factor = (mask > 0)
                                     ? mgrid->potential[mgrid->Get_Flat_Index(neighbor)]
@@ -214,7 +232,7 @@ void META::Estimate(const Axis& values, const bool need_potential,
             potential_backup = (mask > 0)
                                     ? mgrid->potential[mgrid->Get_Flat_Index(values)]
                                     : mscatter->potential[sidx];
-            potential_local = potential_backup - CalcVshift(values);
+            potential_local = potential_backup - Calc_V_Shift(values);
             if (need_force)
             {
                 int fidx = (mask > 0) ? mgrid->Get_Flat_Index(values) : sidx;
@@ -253,7 +271,7 @@ void META::Estimate(const Axis& values, const bool need_potential,
             int index = 0;
             while (index >= 0)
             {
-                const Gdata& tder = hill.CalcHill(loop_flag);
+                const Gdata& tder = hill.Calc_Hill(loop_flag);
                 float factor = mgrid->potential[mgrid->Get_Flat_Index(loop_flag)];
                 potential_backup += factor * hill.potential;
                 if (need_force)
@@ -302,7 +320,7 @@ void META::Estimate(const Axis& values, const bool need_potential,
     }
     if (need_potential)
     {
-        potential_local = potential_backup - CalcVshift(values);
+        potential_local = potential_backup - Calc_V_Shift(values);
     }
     if (need_force)
     {

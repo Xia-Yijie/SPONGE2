@@ -270,7 +270,7 @@ void META::Initial(CONTROLLER* controller,
             }
             cv_deltas.push_back((cv_maxs[i] - cv_mins[i]) / n_grids[i]);
         }
-        Setgrid(controller);
+        Set_Grid(controller);
     }
     height_0 = 1.0;
     if (cv_controller->Command_Exist(this->module_name, "height"))

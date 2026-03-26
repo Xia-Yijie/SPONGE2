@@ -99,7 +99,7 @@ void META::Write_Potential(void)
             {
                 ostringstream ss;
                 const Axis coor = mgrid->Get_Coordinates(idx);
-                float vshift = CalcVshift(coor);
+                float vshift = Calc_V_Shift(coor);
                 for (const float& v : coor)
                 {
                     ss << v << "\t";
@@ -119,7 +119,7 @@ void META::Write_Potential(void)
             {
                 ostringstream ss;
                 const Axis& coor = mscatter->Get_Coordinate(iter);
-                float vshift = CalcVshift(coor);
+                float vshift = Calc_V_Shift(coor);
                 for (auto& v : coor)
                 {
                     ss << v << "\t";
@@ -323,7 +323,7 @@ void META::Read_Potential(CONTROLLER* controller)
         }
     }
     fclose(temp_file);
-    Setgrid(controller);
+    Set_Grid(controller);
     vector<float>::iterator max_it =
         max_element(potential_from_file.begin(), potential_from_file.end());
     potential_max = *max_it;

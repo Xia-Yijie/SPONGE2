@@ -15,7 +15,7 @@ META::Hill::Hill(const Axis& centers, const Axis& inv_w, const Axis& period,
     tder_.resize(n);
 }
 
-const META::Gdata& META::Hill::CalcHill(const Axis& values)
+const META::Gdata& META::Hill::Calc_Hill(const Axis& values)
 {
     const int n = static_cast<int>(values.size());
     for (int i = 0; i < n; ++i)
@@ -53,7 +53,7 @@ static __global__ void Add_Frc(const int atom_numbers, VECTOR* frc,
     }
 }
 
-static __global__ void Add_Potential(float* d_potential, const float to_add)
+static __global__ void Add_Potential_Kernel(float* d_potential, const float to_add)
 {
     d_potential[0] += to_add;
 }
@@ -74,7 +74,7 @@ static void Add_Frc(const int atom_numbers, VECTOR* frc, VECTOR* cv_grad,
     }
 }
 
-static void Add_Potential(float* d_potential, const float to_add)
+static void Add_Potential_Kernel(float* d_potential, const float to_add)
 {
     d_potential[0] += to_add;
 }
@@ -96,10 +96,10 @@ void META::Meta_Force_With_Energy_And_Virial(int atom_numbers, VECTOR* frc,
     {
         return;
     }
-    Potential_and_derivative(need_potential);
+    Potential_And_Derivative(need_potential);
     if (do_borderwall)
     {
-        Border_derivative(border_upper.data(), border_lower.data(), cutoff,
+        Border_Derivative(border_upper.data(), border_lower.data(), cutoff,
                           Dpotential_local);
     }
 
@@ -116,12 +116,12 @@ void META::Meta_Force_With_Energy_And_Virial(int atom_numbers, VECTOR* frc,
     }
     if (need_potential)
     {
-        Launch_Device_Kernel(Add_Potential, 1, 1, 0, NULL, d_potential,
+        Launch_Device_Kernel(Add_Potential_Kernel, 1, 1, 0, NULL, d_potential,
                              potential_local);
     }
 }
 
-void META::Potential_and_derivative(const int need_potential)
+void META::Potential_And_Derivative(const int need_potential)
 {
     if (!is_initialized)
     {
@@ -135,7 +135,7 @@ void META::Potential_and_derivative(const int need_potential)
     Estimate(est_values_, need_potential, true);
 }
 
-void META::Border_derivative(float* border_upper, float* border_lower,
+void META::Border_Derivative(float* border_upper, float* border_lower,
                              float* cutoff, float* Dpotential_local)
 {
     for (int i = 0; i < cvs.size(); ++i)
@@ -184,6 +184,6 @@ void META::Do_Metadynamics(int atom_numbers, VECTOR* crd, LTMatrix3 cell,
         temperature = sys_temp;
         Meta_Force_With_Energy_And_Virial(atom_numbers, frc, need_potential,
                                           need_pressure, d_potential, d_virial);
-        AddPotential(sys_temp, step);
+        Add_Potential(sys_temp, step);
     }
 }
