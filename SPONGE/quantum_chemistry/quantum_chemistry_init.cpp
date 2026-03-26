@@ -270,7 +270,7 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
-    scf_ws.unrestricted = false;
+    scf_ws.runtime.unrestricted = false;
     if (controller->Command_Exist("qc_restricted"))
     {
         controller->Check_Int("qc_restricted", "QUANTUM_CHEMISTRY::Initial");
@@ -282,15 +282,16 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
                 "Reason:\n    qc_restricted must be 0 or 1, got \"%s\"\n",
                 controller->Command("qc_restricted"));
         }
-        scf_ws.unrestricted = (qc_restricted == 0);
+        scf_ws.runtime.unrestricted = (qc_restricted == 0);
     }
 
-    scf_ws.max_scf_iter = 100;
+    scf_ws.runtime.max_scf_iter = 100;
     if (controller->Command_Exist("qc_scf_max_iter"))
     {
         controller->Check_Int("qc_scf_max_iter", "QUANTUM_CHEMISTRY::Initial");
-        scf_ws.max_scf_iter = atoi(controller->Command("qc_scf_max_iter"));
-        if (scf_ws.max_scf_iter < 1)
+        scf_ws.runtime.max_scf_iter =
+            atoi(controller->Command("qc_scf_max_iter"));
+        if (scf_ws.runtime.max_scf_iter < 1)
         {
             controller->Throw_Formatted_SPONGE_Error(
                 spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
@@ -299,7 +300,7 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
-    scf_ws.use_diis = true;
+    scf_ws.runtime.use_diis = true;
     if (controller->Command_Exist("qc_diis"))
     {
         controller->Check_Int("qc_diis", "QUANTUM_CHEMISTRY::Initial");
@@ -311,15 +312,16 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
                 "Reason:\n    qc_diis must be 0 or 1, got \"%s\"\n",
                 controller->Command("qc_diis"));
         }
-        scf_ws.use_diis = (qc_diis != 0);
+        scf_ws.runtime.use_diis = (qc_diis != 0);
     }
 
-    scf_ws.diis_start_iter = 2;
+    scf_ws.runtime.diis_start_iter = 2;
     if (controller->Command_Exist("qc_diis_start"))
     {
         controller->Check_Int("qc_diis_start", "QUANTUM_CHEMISTRY::Initial");
-        scf_ws.diis_start_iter = atoi(controller->Command("qc_diis_start"));
-        if (scf_ws.diis_start_iter < 1)
+        scf_ws.runtime.diis_start_iter =
+            atoi(controller->Command("qc_diis_start"));
+        if (scf_ws.runtime.diis_start_iter < 1)
         {
             controller->Throw_Formatted_SPONGE_Error(
                 spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
@@ -328,12 +330,12 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
-    scf_ws.diis_space = 6;
+    scf_ws.runtime.diis_space = 6;
     if (controller->Command_Exist("qc_diis_space"))
     {
         controller->Check_Int("qc_diis_space", "QUANTUM_CHEMISTRY::Initial");
-        scf_ws.diis_space = atoi(controller->Command("qc_diis_space"));
-        if (scf_ws.diis_space < 2)
+        scf_ws.runtime.diis_space = atoi(controller->Command("qc_diis_space"));
+        if (scf_ws.runtime.diis_space < 2)
         {
             controller->Throw_Formatted_SPONGE_Error(
                 spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
@@ -342,12 +344,14 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
-    scf_ws.density_mixing = 0.20f;
+    scf_ws.runtime.density_mixing = 0.20f;
     if (controller->Command_Exist("qc_diis_damp"))
     {
         controller->Check_Float("qc_diis_damp", "QUANTUM_CHEMISTRY::Initial");
-        scf_ws.density_mixing = atof(controller->Command("qc_diis_damp"));
-        if (scf_ws.density_mixing < 0.0f || scf_ws.density_mixing > 1.0f)
+        scf_ws.runtime.density_mixing =
+            atof(controller->Command("qc_diis_damp"));
+        if (scf_ws.runtime.density_mixing < 0.0f ||
+            scf_ws.runtime.density_mixing > 1.0f)
         {
             controller->Throw_Formatted_SPONGE_Error(
                 spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
@@ -356,12 +360,12 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
-    scf_ws.diis_reg = 1e-10;
+    scf_ws.runtime.diis_reg = 1e-10;
     if (controller->Command_Exist("qc_diis_reg"))
     {
         controller->Check_Float("qc_diis_reg", "QUANTUM_CHEMISTRY::Initial");
-        scf_ws.diis_reg = atof(controller->Command("qc_diis_reg"));
-        if (scf_ws.diis_reg < 0.0)
+        scf_ws.runtime.diis_reg = atof(controller->Command("qc_diis_reg"));
+        if (scf_ws.runtime.diis_reg < 0.0)
         {
             controller->Throw_Formatted_SPONGE_Error(
                 spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
@@ -370,13 +374,14 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
-    scf_ws.energy_tol = 1e-6;
+    scf_ws.runtime.energy_tol = 1e-6;
     if (controller->Command_Exist("qc_scf_energy_tol"))
     {
         controller->Check_Float("qc_scf_energy_tol",
                                 "QUANTUM_CHEMISTRY::Initial");
-        scf_ws.energy_tol = atof(controller->Command("qc_scf_energy_tol"));
-        if (scf_ws.energy_tol <= 0.0)
+        scf_ws.runtime.energy_tol =
+            atof(controller->Command("qc_scf_energy_tol"));
+        if (scf_ws.runtime.energy_tol <= 0.0)
         {
             controller->Throw_Formatted_SPONGE_Error(
                 spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
@@ -385,7 +390,7 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         }
     }
 
-    scf_ws.print_iter = false;
+    scf_ws.runtime.print_iter = false;
     if (controller->Command_Exist("qc_scf_print_iter"))
     {
         controller->Check_Int("qc_scf_print_iter",
@@ -399,12 +404,12 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
                 "Reason:\n    qc_scf_print_iter must be 0 or 1, got \"%s\"\n",
                 controller->Command("qc_scf_print_iter"));
         }
-        scf_ws.print_iter = (qc_scf_print_iter != 0);
+        scf_ws.runtime.print_iter = (qc_scf_print_iter != 0);
     }
 
     if (controller->Command_Exist("qc_level_shift"))
     {
-        scf_ws.level_shift = atof(controller->Command("qc_level_shift"));
+        scf_ws.runtime.level_shift = atof(controller->Command("qc_level_shift"));
     }
 
     if (controller->Command_Exist("qc_scf_output"))
@@ -555,7 +560,7 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
             "multiplicity=%d\n",
             mol.nelectron, mol.multiplicity);
     }
-    if (!scf_ws.unrestricted)
+    if (!scf_ws.runtime.unrestricted)
     {
         if (spin_e != 0)
         {
@@ -753,15 +758,17 @@ void QUANTUM_CHEMISTRY::Initial(CONTROLLER* controller, const int atom_numbers,
 
 void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
 {
-    Device_Malloc_Safely((void**)&scf_ws.d_S, sizeof(float) * mol.nao2);
-    Device_Malloc_Safely((void**)&scf_ws.d_T, sizeof(float) * mol.nao2);
-    Device_Malloc_Safely((void**)&scf_ws.d_V, sizeof(float) * mol.nao2);
-    Device_Malloc_Safely((void**)&scf_ws.d_H_core, sizeof(float) * mol.nao2);
-    Device_Malloc_Safely((void**)&scf_ws.d_scf_energy, sizeof(double));
-    Device_Malloc_Safely((void**)&scf_ws.d_nuc_energy_dev, sizeof(double));
+    Device_Malloc_Safely((void**)&scf_ws.core.d_S, sizeof(float) * mol.nao2);
+    Device_Malloc_Safely((void**)&scf_ws.core.d_T, sizeof(float) * mol.nao2);
+    Device_Malloc_Safely((void**)&scf_ws.core.d_V, sizeof(float) * mol.nao2);
+    Device_Malloc_Safely((void**)&scf_ws.core.d_H_core,
+                         sizeof(float) * mol.nao2);
+    Device_Malloc_Safely((void**)&scf_ws.core.d_scf_energy, sizeof(double));
+    Device_Malloc_Safely((void**)&scf_ws.core.d_nuc_energy_dev,
+                         sizeof(double));
     Device_Malloc_Safely((void**)&dft.d_exc_total, sizeof(double));
-    deviceMemset(scf_ws.d_scf_energy, 0, sizeof(double));
-    deviceMemset(scf_ws.d_nuc_energy_dev, 0, sizeof(double));
+    deviceMemset(scf_ws.core.d_scf_energy, 0, sizeof(double));
+    deviceMemset(scf_ws.core.d_nuc_energy_dev, 0, sizeof(double));
     deviceMemset(dft.d_exc_total, 0, sizeof(double));
 
     if (mol.is_spherical)
@@ -782,7 +789,7 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
     hr_pool_tasks = std::max(1, omp_get_max_threads());
 #endif
     Device_Malloc_Safely(
-        (void**)&scf_ws.d_hr_pool,
+        (void**)&scf_ws.direct.d_hr_pool,
         (int)hr_pool_tasks *
             (task_ctx.params.eri_hr_size + 2 * task_ctx.params.eri_shell_buf_size) *
             sizeof(float));
@@ -814,7 +821,7 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
             (void**)&dft.d_grid_weights, (void*)dft.h_grid_weights.data(),
             sizeof(float) * dft.h_grid_weights.size());
         Device_Malloc_Safely((void**)&dft.d_Vxc, sizeof(float) * mol.nao2);
-        if (scf_ws.unrestricted)
+        if (scf_ws.runtime.unrestricted)
         {
             Device_Malloc_Safely((void**)&dft.d_Vxc_beta,
                                  sizeof(float) * mol.nao2);
@@ -857,10 +864,10 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
 void QUANTUM_CHEMISTRY::Step_Print(CONTROLLER* controller)
 {
     if (!is_initialized) return;
-    if (scf_ws.d_scf_energy)
+    if (scf_ws.core.d_scf_energy)
     {
         double h_energy = 0.0;
-        deviceMemcpy(&h_energy, scf_ws.d_scf_energy, sizeof(double),
+        deviceMemcpy(&h_energy, scf_ws.core.d_scf_energy, sizeof(double),
                      deviceMemcpyDeviceToHost);
         scf_energy = (float)h_energy;
     }

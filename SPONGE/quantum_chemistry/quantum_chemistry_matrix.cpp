@@ -587,7 +587,7 @@ void QUANTUM_CHEMISTRY::Cart2Sph_OneE_Integrals()
                              nao_s, nao_s, nao_c, cart2sph.d_cart2sph_mat,
                              cart2sph.d_cart2sph_1e_tmp, d_dst);
     };
-    cart2sph_1e(cart2sph.d_S_cart, scf_ws.d_S);
-    cart2sph_1e(cart2sph.d_T_cart, scf_ws.d_T);
-    cart2sph_1e(cart2sph.d_V_cart, scf_ws.d_V);
+    cart2sph_1e(cart2sph.d_S_cart, scf_ws.core.d_S);
+    cart2sph_1e(cart2sph.d_T_cart, scf_ws.core.d_T);
+    cart2sph_1e(cart2sph.d_V_cart, scf_ws.core.d_V);
 }

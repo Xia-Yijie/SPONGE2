@@ -23,7 +23,7 @@ void QUANTUM_CHEMISTRY::Solve_SCF(const VECTOR* crd, const VECTOR box_length,
     Prepare_Integrals();
     Build_Overlap_X();
 
-    for (int iter = 0; iter < scf_ws.max_scf_iter; ++iter)
+    for (int iter = 0; iter < scf_ws.runtime.max_scf_iter; ++iter)
     {
         Build_Fock(iter);
         Accumulate_SCF_Energy(iter);
