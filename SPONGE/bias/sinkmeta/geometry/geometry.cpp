@@ -11,7 +11,7 @@ std::vector<float> normalize(const std::vector<float>& v)
     {
         throw std::runtime_error("Zero-length vector cannot be normalized.");
     }
-    vector<float> new_v;
+    std::vector<float> new_v;
     for (int i = 0; i < v.size(); ++i)
     {
         new_v.push_back(v[i] / sqrt(norm));
@@ -19,7 +19,7 @@ std::vector<float> normalize(const std::vector<float>& v)
     return new_v;
 }
 
-std::vector<float> crossProduct(const std::vector<float>& a,
+std::vector<float> cross_product(const std::vector<float>& a,
                                 const std::vector<float>& b)
 {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
@@ -69,7 +69,7 @@ META::Axis META::Rotate_Vector(const Axis& tang_vector, bool do_debug)
         }
         printf(")\n");
     }
-    vector<float> normal_vector;
+    std::vector<float> normal_vector;
     int reference_axis = 0;
     if (fabs(tang_vector[reference_axis]) > 0.99)
     {
@@ -109,7 +109,7 @@ META::Axis META::Rotate_Vector(const Axis& tang_vector, bool do_debug)
     }
     if (ndim == 2)
     {
-        vector<vector<float>> determinant_v = vector<Axis>{tang_vector, jb};
+        std::vector<std::vector<float>> determinant_v = std::vector<Axis>{tang_vector, jb};
         float sign = determinant(determinant_v);
         return Axis{jb[0] * sign, jb[1] * sign};
     }
@@ -138,7 +138,7 @@ void META::Cartesian_To_Path(const Axis& Cartesian_values, Axis& Path_values)
     if (ndim == 3)
     {
         Axis binormal_vector =
-            normalize(crossProduct(tang_vector, normal_vector));
+            normalize(cross_product(tang_vector, normal_vector));
         Path_values.push_back(
             Project_To_Path(binormal_vector, values, Cartesian_values));
     }

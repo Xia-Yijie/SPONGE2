@@ -7,7 +7,6 @@
 #ifndef __SWITCHFUCNTION_H__
 #define __SWITCHFUCNTION_H__
 
-using namespace std;
 /**
  * @brief The continuous function mimicing
  *        naturely discrete CVs.
@@ -39,9 +38,6 @@ class SwitchFunction
      *
      * \return Pointer to new SwitchFunction.
      */
-    // static SwitchFunction* Build(const Value& json);
-
-    //! Destructor
     virtual ~SwitchFunction(void);
 };
 /**
@@ -107,8 +103,6 @@ class RationalSF : public SwitchFunction
     RationalSF(void);
 
     float Evaluate(const float& rij, float& df) const override;
-
-    // static RationalSF* Build(const Value& json);
 
    private:
     float d0;      ///< Minimum linear shift value.

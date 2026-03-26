@@ -121,7 +121,7 @@ void META::Set_Grid(CONTROLLER* controller)  //
                 if (ndim == 3)
                 {
                     Axis binormal_vector =
-                        normalize(crossProduct(tang_vector, normal_vector));
+                        normalize(cross_product(tang_vector, normal_vector));
                     for (int d = 0; d < ndim; ++d)
                     {
                         mscatter->rotate_matrix[base + pos++] = binormal_vector[d];
@@ -188,7 +188,7 @@ void META::Estimate(const Axis& values, const bool need_potential,
         Dpotential_local[i] = 0.0;
         force_max += fabs(mgrid->normal_force[nf_idx * ndim + i]);
     }
-    if (force_max > maxforce && need_force && mask)
+    if (force_max > max_force && need_force && mask)
     {
         exit_tag += 1.0;
     }
@@ -197,15 +197,15 @@ void META::Estimate(const Axis& values, const bool need_potential,
         if (subhill)
         {
             Hill hill = Hill(values, sigmas, periods, 1.0);
-            vector<int> indices;
+            std::vector<int> indices;
             if (do_cutoff)
             {
                 indices = mscatter->Get_Neighbor(values, cutoff);
             }
             else
             {
-                indices = vector<int>(scatter_size);
-                iota(indices.begin(), indices.end(), 0);
+                indices = std::vector<int>(scatter_size);
+                std::iota(indices.begin(), indices.end(), 0);
             }
             for (auto index : indices)
             {

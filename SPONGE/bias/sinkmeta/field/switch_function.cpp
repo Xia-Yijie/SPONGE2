@@ -7,7 +7,6 @@
 #include "switch_function.h"
 
 #include <cmath>
-using namespace std;
 
 SwitchFunction::~SwitchFunction(void) {}
 

@@ -41,8 +41,8 @@ void META::Write_Potential(void)
                 fprintf(temp_file, "\tpotential_raw");
             }
             fprintf(temp_file, "\n");
-            vector<float> loop_flag(ndim, 0);
-            vector<float> loop_floor(ndim, 0);
+            std::vector<float> loop_flag(ndim, 0);
+            std::vector<float> loop_floor(ndim, 0);
             for (int i = 0; i < ndim; ++i)
             {
                 loop_floor[i] = cv_mins[i] + 0.5 * cv_deltas[i];
@@ -52,7 +52,7 @@ void META::Write_Potential(void)
             while (i >= 0)
             {
                 Estimate(loop_flag, true, false);  // get potential
-                ostringstream ss;
+                std::ostringstream ss;
                 for (const float& v : loop_flag)
                 {
                     ss << v << "\t";
@@ -97,7 +97,7 @@ void META::Write_Potential(void)
             fprintf(temp_file, "potential_raw\tpotential_shifted\tvshift\n");
             for (int idx = 0; idx < mgrid->total_size; ++idx)
             {
-                ostringstream ss;
+                std::ostringstream ss;
                 const Axis coor = mgrid->Get_Coordinates(idx);
                 float vshift = Calc_V_Shift(coor);
                 for (const float& v : coor)
@@ -117,7 +117,7 @@ void META::Write_Potential(void)
             fprintf(temp_file, "potential_raw\tpotential_shifted\n");
             for (int iter = 0; iter < scatter_size; ++iter)
             {
-                ostringstream ss;
+                std::ostringstream ss;
                 const Axis& coor = mscatter->Get_Coordinate(iter);
                 float vshift = Calc_V_Shift(coor);
                 for (auto& v : coor)
@@ -142,10 +142,10 @@ void META::Write_Directly(void)
     {
         FILE* temp_file = NULL;
         Open_File_Safely(&temp_file, write_directly_file_name, "w");
-        string meta_type;
+        std::string meta_type;
         if (do_negative)
         {
-            string pm = to_string(potential_max);
+            std::string pm = std::to_string(potential_max);
             meta_type += "sink(kcal): " + pm;
         }
         if (mask)
@@ -179,7 +179,7 @@ void META::Write_Directly(void)
             fprintf(temp_file, "%d\n", scatter_size);
             for (int iter = 0; iter < scatter_size; ++iter)
             {
-                ostringstream ss;
+                std::ostringstream ss;
                 const Axis& coor = mscatter->Get_Coordinate(iter);
                 Estimate(coor, true, false);  // get potential
                 for (auto& v : coor)
@@ -211,8 +211,8 @@ void META::Write_Directly(void)
             fprintf(temp_file, "%d\n", mgrid->total_size);
             for (int idx = 0; idx < mgrid->total_size; ++idx)
             {
-                ostringstream ss;
-                vector<float> coor = mgrid->Get_Coordinates(idx);
+                std::ostringstream ss;
+                std::vector<float> coor = mgrid->Get_Coordinates(idx);
                 Estimate(coor, true, false);  // get potential
                 for (auto& v : coor)
                 {
@@ -274,8 +274,8 @@ void META::Read_Potential(CONTROLLER* controller)
         Malloc_Safely((void**)&ttoorr, sizeof(float) * scatter_size);
         tcoor.push_back(ttoorr);
     }
-    vector<float> potential_from_file;
-    vector<Gdata> force_from_file;
+    std::vector<float> potential_from_file;
+    std::vector<Gdata> force_from_file;
     sigma_s = cv_sigmas[0];
     for (int j = 0; j < scatter_size; ++j)
     {
@@ -324,8 +324,8 @@ void META::Read_Potential(CONTROLLER* controller)
     }
     fclose(temp_file);
     Set_Grid(controller);
-    vector<float>::iterator max_it =
-        max_element(potential_from_file.begin(), potential_from_file.end());
+    auto max_it =
+        std::max_element(potential_from_file.begin(), potential_from_file.end());
     potential_max = *max_it;
     if (usegrid)
     {
@@ -347,7 +347,7 @@ void META::Read_Potential(CONTROLLER* controller)
         mscatter->potential = potential_from_file;
         if (convmeta)
         {
-            max_index = distance(potential_from_file.begin(), max_it);
+            max_index = std::distance(potential_from_file.begin(), max_it);
         }
         if (!subhill)
         {

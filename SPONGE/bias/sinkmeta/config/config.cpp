@@ -116,10 +116,10 @@ void META::Initial(CONTROLLER* controller,
         if (mask)
         {
             printf("reading mask dimension meta: %d\n", mask);
-            if (cv_controller->Command_Exist(this->module_name, "maxforce"))
+            if (cv_controller->Command_Exist(this->module_name, "max_force"))
             {
-                maxforce = cv_controller->Ask_For_Float_Parameter(
-                    this->module_name, "maxforce", 1)[0];
+                max_force = cv_controller->Ask_For_Float_Parameter(
+                    this->module_name, "max_force", 1)[0];
             }
         }
     }

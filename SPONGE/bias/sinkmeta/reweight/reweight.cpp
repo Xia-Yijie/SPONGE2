@@ -26,15 +26,15 @@ float exp_added(float a, const float b)
 }
 using TimePoint = std::chrono::time_point<std::chrono::system_clock>;
 
-string GetTime(TimePoint& local_time)
+std::string GetTime(TimePoint& local_time)
 {
     local_time = std::chrono::system_clock::now();
     time_t now_time = std::chrono::system_clock::to_time_t(local_time);
-    string time_str(asctime(localtime(&now_time)));
+    std::string time_str(asctime(localtime(&now_time)));
     return time_str.substr(0, time_str.find('\n'));
 }
 
-string GetDuration(const TimePoint& late_time, const TimePoint& early_time,
+std::string GetDuration(const TimePoint& late_time, const TimePoint& early_time,
                    float& duration)
 {
     // Some constants.
@@ -59,7 +59,7 @@ string GetDuration(const TimePoint& late_time, const TimePoint& early_time,
             static_cast<unsigned long>(min), static_cast<unsigned long>(second),
             microseconds * 0.001);
     duration = milliseconds * 0.000001;  // From millisecond to second.
-    return string(buffer);
+    return std::string(buffer);
 }
 struct Zdiff
 {
@@ -239,9 +239,9 @@ float PartitionFunction(const float factor, float& i_max,
 #endif
     return maxVal + logf(sum);
 }
-float logSumExp(const vector<float>& values)
+float logSumExp(const std::vector<float>& values)
 {
-    if (values.empty()) return -numeric_limits<float>::infinity();
+    if (values.empty()) return -std::numeric_limits<float>::infinity();
 
 #ifdef USE_GPU
     DeviceDoubleVector d_values(values.begin(), values.end());
@@ -261,13 +261,13 @@ float logSumExp(const vector<float>& values)
     return maxVal + logf(sum);
 }
 
-void hilllog(const string fn, const vector<float>& hillcenter,
-             const vector<float>& hillheight)
+void hilllog(const std::string fn, const std::vector<float>& hillcenter,
+             const std::vector<float>& hillheight)
 {
     if (!fn.empty())
     {
-        ofstream hillsout;
-        hillsout.open(fn.c_str(), fstream::app);
+        std::ofstream hillsout;
+        hillsout.open(fn.c_str(), std::fstream::app);
         hillsout.precision(8);
         for (auto& gauss : hillcenter)
         {
@@ -277,7 +277,7 @@ void hilllog(const string fn, const vector<float>& hillcenter,
         {
             hillsout << hh << "\t";
         }
-        hillsout << endl;
+        hillsout << std::endl;
         hillsout.close();
     }
 }
@@ -299,13 +299,13 @@ void showProgressBar(int progress, int total, int barWidth = 70)
     std::cout << "] " << int(percentage * 100.0) << " %\r";
     std::cout.flush();
 }
-bool META::Read_Edge_File(const char* file_name, vector<float>& potential)
+bool META::Read_Edge_File(const char* file_name, std::vector<float>& potential)
 {
     FILE* temp_file = NULL;
     int grid_size = 0;
     bool readsuccess = true;
     int total = mgrid->total_size;
-    vector<Gdata> force_from_file;
+    std::vector<Gdata> force_from_file;
     printf("Reading %d grid of edge effect\n", total);
     temp_file = fopen(file_name, "r+");
     if (temp_file != NULL)
@@ -372,25 +372,24 @@ bool META::Read_Edge_File(const char* file_name, vector<float>& potential)
     return readsuccess;
 }
 // Load hills from output file.
-int META::Load_Hills(const string& fn)  //, const vector<double>& widths)
+int META::Load_Hills(const std::string& fn)
 {
-    ifstream hillsin(fn.c_str(), ios::in);
+    std::ifstream hillsin(fn.c_str(), std::ios::in);
     if (!hillsin.is_open())
     {
-        // ErrorTermination("Cannot open Hills file \"%s\".", fn.c_str());
         printf("Warning, No record of hills\n");
         return 0;
     }
-    const string file_content((istreambuf_iterator<char>(hillsin)),
-                              istreambuf_iterator<char>());
+    const std::string file_content((std::istreambuf_iterator<char>(hillsin)),
+                                   std::istreambuf_iterator<char>());
     hillsin.close();
 
     const int& cvsize = ndim;
-    istringstream iss(file_content);
-    string tstr;
-    vector<string> words;
+    std::istringstream iss(file_content);
+    std::string tstr;
+    std::vector<std::string> words;
     int num_hills = 0;
-    while (getline(iss, tstr, '\n'))
+    while (std::getline(iss, tstr, '\n'))
     {
         Axis values;
         split_sentence(tstr, words);
@@ -401,14 +400,14 @@ int META::Load_Hills(const string& fn)  //, const vector<double>& widths)
         }
         for (int i = 0; i < cvsize; ++i)
         {
-            float center = stof(words[i]);
+            float center = std::stof(words[i]);
             values.push_back(center);
         }
-        float theight = stof(words[cvsize]);
+        float theight = std::stof(words[cvsize]);
         if (do_negative || use_scatter)
         {
-            float p_max = stof(words[cvsize + 1]);
-            int p_id = stoi(words[cvsize + 2]);
+            float p_max = std::stof(words[cvsize + 1]);
+            int p_id = std::stoi(words[cvsize + 2]);
             if (p_id < scatter_size)
             {
                 float Phi_s = expf(mgrid->normal_lse[mgrid->Get_Flat_Index(values)]);
@@ -456,9 +455,9 @@ float META::Sum_Hills(int history_freq)
     Open_File_Safely(&temp_file, "history.log", "w");
     // first loop: history
     float old_potential;
-    minusBetaFplusV =
+    minus_beta_f_plus_v =
         1. / (welltemp_factor - 1.) / CONSTANT_kB / temperature;  /// 300K
-    minusBetaF = welltemp_factor * minusBetaFplusV;
+    minus_beta_f = welltemp_factor * minus_beta_f_plus_v;
     float total_gputime = 0.;
     for (int i = 0; i < nhills; ++i)
     {
@@ -508,8 +507,8 @@ float META::Sum_Hills(int history_freq)
             GetTime(tend);
             GetDuration(tend, tstart, gputime);
             total_gputime += gputime;
-            float Z_0 = PartitionFunction(minusBetaF, potential_max, d);
-            float Z_V = PartitionFunction(minusBetaFplusV, potential_max, d);
+            float Z_0 = PartitionFunction(minus_beta_f, potential_max, d);
+            float Z_V = PartitionFunction(minus_beta_f_plus_v, potential_max, d);
             rct = CONSTANT_kB * temperature * (Z_0 - Z_V);
             float rbias = old_potential - rct;
             fprintf(temp_file, "%f\t%f\t%f\t%f\n", old_potential, rbias, rct,
@@ -531,7 +530,7 @@ float META::Sum_Hills(int history_freq)
 }
 void META::Edge_Effect(const int dim, const int scatter_size)
 {
-    vector<float> potential_from_file;
+    std::vector<float> potential_from_file;
     const char* file_name = edge_file_name;
 
     int total = mgrid->total_size;
@@ -563,7 +562,7 @@ void META::Edge_Effect(const int dim, const int scatter_size)
             showProgressBar(++it_progress, total);
             const Axis values = mgrid->Get_Coordinates(gidx);
             double sum_hills = 0.;
-            vector<float> prefactor;
+            std::vector<float> prefactor;
             if (catheter)
             {
                 float R = sqrtf(sigma_s * sigma_s -
@@ -574,15 +573,15 @@ void META::Edge_Effect(const int dim, const int scatter_size)
                 }
             }
             Hill hill = Hill(values, esigmas, periods, 1.0);
-            vector<int> indices;
+            std::vector<int> indices;
             if (do_cutoff)
             {
                 indices = mscatter->Get_Neighbor(values, cutoff);
             }
             else
             {
-                indices = vector<int>(scatter_size);
-                iota(indices.begin(), indices.end(), 0);
+                indices = std::vector<int>(scatter_size);
+                std::iota(indices.begin(), indices.end(), 0);
             }
             for (auto index : indices)
             {
@@ -641,7 +640,7 @@ void META::Edge_Effect(const int dim, const int scatter_size)
 
             float logsumhills = logSumExp(prefactor);
             sum_max = fmaxf(logsumhills, sum_max);
-            vector<float> sum_potential(1 + ndim, expf(logsumhills));
+            std::vector<float> sum_potential(1 + ndim, expf(logsumhills));
             mgrid->normal_lse[gidx] = logsumhills;
             if (do_negative)
             {
@@ -669,16 +668,16 @@ void META::Edge_Effect(const int dim, const int scatter_size)
     }
 }
 
-void META::Pick_Scatter(const string fn)
+void META::Pick_Scatter(const std::string fn)
 {
-    ofstream hillsout;
-    hillsout.open(fn.c_str(), fstream::out);
+    std::ofstream hillsout;
+    hillsout.open(fn.c_str(), std::fstream::out);
     hillsout.precision(8);
     for (int index = 0; index < scatter_size; ++index)
     {
         const Axis& neighbor = mscatter->Get_Coordinate(index);
         float lnbias = mgrid->normal_lse[mgrid->Get_Flat_Index(neighbor)];
-        hillsout << index << "\t" << lnbias << "\t" << exp(lnbias) << endl;
+        hillsout << index << "\t" << lnbias << "\t" << exp(lnbias) << std::endl;
     }
     hillsout.close();
 }
@@ -746,8 +745,8 @@ void META::Get_Reweighting_Bias(float temp)
         return;  // avoid /0 = nan
     }
     float beta = 1.0 / CONSTANT_kB / temperature;
-    minusBetaFplusV = beta / (welltemp_factor - 1.);
-    minusBetaF = welltemp_factor * minusBetaFplusV;
+    minus_beta_f_plus_v = beta / (welltemp_factor - 1.);
+    minus_beta_f = welltemp_factor * minus_beta_f_plus_v;
     bias = potential_local;
     rbias = potential_backup;
     float Z_0_sink = 0.;
@@ -758,8 +757,8 @@ void META::Get_Reweighting_Bias(float temp)
         {
             const Axis& coor = mscatter->Get_Coordinate(iter);
             Estimate(coor, true, false);
-            Z_0_sink = exp_added(Z_0_sink, minusBetaF * potential_backup);
-            Z_V_sink = exp_added(Z_V_sink, minusBetaFplusV * potential_backup +
+            Z_0_sink = exp_added(Z_0_sink, minus_beta_f * potential_backup);
+            Z_V_sink = exp_added(Z_V_sink, minus_beta_f_plus_v * potential_backup +
                                                beta * Calc_V_Shift(coor));
             if (potential_backup > potential_max)
             {
@@ -849,9 +848,6 @@ void META::Add_Potential(float temp, int steps)
         if (mscatter != nullptr)
         {
             hillinfo.push_back(mscatter->Get_Index(values));
-            if (mask)
-            {
-            }
         }
         hilllog("myhill.log", values, hillinfo);
         exit_tag = 0.0;
@@ -872,7 +868,7 @@ void META::Add_Potential(float temp, int steps)
         }
         float factor = Normalization(values, height,
                                      kde);  // height with normalized factor
-        vector<int> indices;
+        std::vector<int> indices;
         if (use_scatter)
         {
             if (do_cutoff)
@@ -881,69 +877,66 @@ void META::Add_Potential(float temp, int steps)
             }
             else
             {
-                indices = vector<int>(scatter_size);
-                iota(indices.begin(), indices.end(), 0);
+                indices = std::vector<int>(scatter_size);
+                std::iota(indices.begin(), indices.end(), 0);
             }
             for (auto index : indices)
             {
                 const Axis& coord = mscatter->Get_Coordinate(index);
                 float* data = &mscatter->force[index * ndim];
                 const Gdata& tder = hill.Calc_Hill(coord);
-                if (1)
+                if (catheter == 3)
                 {
-                    if (catheter == 3)
+                    float* v = &mscatter->rotate_v[index * ndim];
+                    float s = Project_To_Path(
+                        Gdata(v, v + ndim), coord, values);
+                    float dss = delta_sigma[index] * s * s;
+                    for (int i = 0; i < ndim; ++i)
                     {
-                        float* v = &mscatter->rotate_v[index * ndim];
-                        float s = Project_To_Path(
-                            Gdata(v, v + ndim), coord, values);
-                        float dss = delta_sigma[index] * s * s;
-                        for (int i = 0; i < ndim; ++i)
+                        for (int j = 0; j < ndim; ++j)
                         {
-                            for (int j = 0; j < ndim; ++j)
-                            {
-                                data[i] += factor * 2 * (values[i] - coord[i]) *
-                                           delta_sigma[index] * v[i] * v[j] *
-                                           hill.potential * expf(-dss);
-                            }
-                            data[i] += factor * tder[i];
+                            data[i] += factor * 2 * (values[i] - coord[i]) *
+                                       delta_sigma[index] * v[i] * v[j] *
+                                       hill.potential * expf(-dss);
                         }
+                        data[i] += factor * tder[i];
                     }
-                    else if (catheter == 2)
+                }
+                else if (catheter == 2)
+                {
+                    Axis values2, coord2;
+                    Cartesian_To_Path(values, values2);
+                    Cartesian_To_Path(coord, coord2);
+                    Hill hill2 = Hill(values2, sigmas, periods, height);
+                    Gdata tder2 = hill2.Calc_Hill(coord2);
+                    float* R = &mscatter->rotate_matrix[index * ndim * ndim];
+                    float* v = &mscatter->rotate_v[index * ndim];
+                    float s = Project_To_Path(
+                        Gdata(v, v + ndim), coord, values);
+                    float dss = delta_sigma[index] * s * s;
+                    for (int i = 0; i < ndim; ++i)
                     {
-                        Axis values2, coord2;
-                        Cartesian_To_Path(values, values2);
-                        Cartesian_To_Path(coord, coord2);
-                        Hill hill2 = Hill(values2, sigmas, periods, height);
-                        Gdata tder2 = hill2.Calc_Hill(coord2);
-                        float* R = &mscatter->rotate_matrix[index * ndim * ndim];
-                        float* v = &mscatter->rotate_v[index * ndim];
-                        float s = Project_To_Path(
-                            Gdata(v, v + ndim), coord, values);
-                        float dss = delta_sigma[index] * s * s;
-                        for (int i = 0; i < ndim; ++i)
+                        float delta1 = 0.0;
+                        float delta2 =
+                            tder[i] + 2 * delta_sigma[index] * s * v[i] *
+                                          hill.potential * expf(-dss);
+                        float delta3 = tder[i];
+                        float dx = values[i] - coord[i];
+                        for (int j = 0; j < ndim; ++j)
                         {
-                            float delta1 = 0.0;
-                            float delta2 =
-                                tder[i] + 2 * delta_sigma[index] * s * v[i] *
-                                              hill.potential * expf(-dss);
-                            float delta3 = tder[i];
-                            float dx = values[i] - coord[i];
-                            for (int j = 0; j < ndim; ++j)
-                            {
-                                float R_ij = R[i + j * ndim];
-                                delta1 += R_ij * tder2[j];
-                                delta3 += 2 * delta_sigma[index] * v[i] * v[j] *
-                                          dx * hill.potential * expf(-dss);
-                            }
-                            data[i] += factor * delta3;
+                            float R_ij = R[i + j * ndim];
+                            delta1 += R_ij * tder2[j];
+                            delta3 += 2 * delta_sigma[index] * v[i] * v[j] *
+                                      dx * hill.potential * expf(-dss);
                         }
+                        data[i] += factor * delta3;
                     }
-                    else
+                }
+                else
+                {
+                    for (size_t i = 0; i < ndim; ++i)
                     {
-                        for (size_t i = 0; i < ndim; ++i)
-                        {
-                            data[i] += factor * tder[i];
-                        }
+                        data[i] += factor * tder[i];
                     }
                 }
                 float potential_temp = factor * hill.potential;

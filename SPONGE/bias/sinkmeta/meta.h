@@ -8,8 +8,8 @@
 #include "../../collective_variable/collective_variable.h"
 
 std::vector<float> normalize(const std::vector<float>& v);
-std::vector<float> crossProduct(const std::vector<float>& a,
-                                const std::vector<float>& b);
+std::vector<float> cross_product(const std::vector<float>& a,
+                                 const std::vector<float>& b);
 float determinant(const std::vector<std::vector<float>>& matrix);
 
 struct META
@@ -17,6 +17,7 @@ struct META
     using Gdata = std::vector<float>;
     using Axis = std::vector<float>;
 
+    // ---- public interface ----
     char module_name[CHAR_LENGTH_MAX];
     int is_initialized = 0;
     int last_modify_date = 20260326;
@@ -32,6 +33,7 @@ struct META
     void Write_Potential(void);
     void Write_Directly(void);
 
+    // ---- internal type ----
     struct Hill
     {
         Hill(const Axis& centers, const Axis& inv_w, const Axis& period,
@@ -44,6 +46,7 @@ struct META
         Gdata tder_;
     };
 
+    // ---- CV configuration ----
     CV_LIST cvs;
     int ndim = 1;
     float* cv_mins;
@@ -56,13 +59,16 @@ struct META
     std::vector<float> cv_deltas;
     float* cutoff;
 
+    // ---- grid / scatter storage ----
     MetaGrid* mgrid = nullptr;
     MetaScatter* mscatter = nullptr;
 
+    // ---- hill storage ----
     std::vector<Hill> hills;
     Axis vsink;
     int history_freq = 0;
 
+    // ---- flags ----
     bool usegrid = true;
     bool use_scatter = false;
     bool do_borderwall = false;
@@ -75,24 +81,27 @@ struct META
     int grw = 0;
     int catheter = 0;
 
+    // ---- height / well-tempered parameters ----
     float height;
     float height_0;
     float dip = 0.0;
-
     float welltemp_factor = 1000000000.;
     int is_welltemp = 0;
     float temperature = 300;
 
+    // ---- scatter / catheter parameters ----
     int scatter_size = 0;
     std::vector<float*> tcoor;
     std::vector<float> delta_sigma;
     float sigma_s;
     float sigma_r;
 
+    // ---- border wall ----
     float border_potential_height = 1000.;
     std::vector<float> border_lower;
     std::vector<float> border_upper;
 
+    // ---- runtime state ----
     float potential_local = 0.;
     float potential_backup = 0.;
     float potential_max = 0.;
@@ -100,26 +109,27 @@ struct META
     float sum_max = 0.0;
     float new_max = 0.;
     int max_index;
-    float maxforce = 0.1;
+    float max_force = 0.1;
     float exit_tag;
-
     Axis est_values_;
     Gdata est_sum_force_;
 
+    // ---- reweighting state ----
+    float rct = 0.;
+    float rbias = 0.;
+    float bias = 0.;
+    float minus_beta_f = 1.0;
+    float minus_beta_f_plus_v = 0;
+
+    // ---- device buffers ----
     float* d_hill_centers = nullptr;
     float* d_hill_inv_w = nullptr;
     float* d_hill_periods = nullptr;
-
     float* d_reduce_buf = nullptr;
     float* h_reduce_buf = nullptr;
     int reduce_num_blocks = 0;
 
-    float rct = 0.;
-    float rbias = 0.;
-    float bias = 0.;
-    float minusBetaF = 1.0;
-    float minusBetaFplusV = 0;
-
+    // ---- IO ----
     char read_potential_file_name[256];
     char write_potential_file_name[256];
     char write_directly_file_name[256];
@@ -127,6 +137,7 @@ struct META
     int potential_update_interval;
     int write_information_interval;
 
+    // ---- internal methods ----
     void Meta_Force_With_Energy_And_Virial(int atom_numbers, VECTOR* frc,
                                            int need_potential,
                                            int need_pressure,
@@ -144,14 +155,12 @@ struct META
     float Calc_V_Shift(const Axis& values);
     float Normalization(const Axis& values, float factor, bool do_normalise);
     void Read_Potential(CONTROLLER* controller);
-
     bool Read_Edge_File(const char* file_name, std::vector<float>& potential);
     void Pick_Scatter(const std::string fn);
     int Load_Hills(const std::string& fn);
     float Calc_Hill(const Axis& values, const int i);
     float Sum_Hills(int history_freq);
     void Edge_Effect(const int dim, const int size);
-
     Axis Rotate_Vector(const Axis& tang_vector, bool do_debug);
     void Cartesian_To_Path(const Axis& Cartesian_values, Axis& Path_values);
     double Tang_Vector(Gdata& tang_vector, const Axis& values,
