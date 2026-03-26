@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 struct QC_Angular_Term_CPU
 {
