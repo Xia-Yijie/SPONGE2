@@ -103,8 +103,6 @@ typedef void* HMODULE;
 // Tensor概念
 #include "utils/tensor.hpp"
 
-// omp参数设置
-extern int max_omp_threads;
 const int CACHE_LINE = 64;
 
 // 释放无host对应的device指针
