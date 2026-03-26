@@ -145,6 +145,18 @@ void QUANTUM_CHEMISTRY::Build_SCF_Workspace()
     {
         scf_ws.direct.d_F_b_thread = NULL;
     }
+    const size_t term_capacity = (size_t)scf_ws.direct.fock_thread_count *
+                                 (size_t)QC_MAX_CART_PAIR_COUNT_CPU *
+                                 (size_t)QC_MAX_PAIR_TERM_COUNT_CPU;
+    scf_ws.direct.h_cpu_bra_terms =
+        malloc(sizeof(QC_Angular_Term_CPU) * term_capacity);
+    scf_ws.direct.h_cpu_ket_terms =
+        malloc(sizeof(QC_Angular_Term_CPU) * term_capacity);
+    if (scf_ws.direct.h_cpu_bra_terms == NULL ||
+        scf_ws.direct.h_cpu_ket_terms == NULL)
+    {
+        throw std::runtime_error("malloc direct CPU angular scratch failed");
+    }
     alloc_zero_double(&scf_ws.alpha.d_F_double, nao2);
     if (unrestricted)
         alloc_zero_double(&scf_ws.beta.d_F_double, nao2);

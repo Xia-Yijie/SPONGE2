@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "cpu/direct_fock.hpp"
 

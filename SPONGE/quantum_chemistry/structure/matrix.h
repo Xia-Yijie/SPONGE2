@@ -65,7 +65,8 @@ void QC_Double_Dot(int n, const double* A, const double* B, double* out_sum);
 void QC_Double_Axpy(int n, double coeff, const double* src, double* dst);
 void QC_Double_Sub(int n, const double* A, const double* B, double* dst);
 
-// ====================== Common SCF matrix utility wrappers ======================
+// ====================== Common SCF matrix utility wrappers
+// ======================
 
 void QC_Elec_Energy_Accumulate(int nao2, const float* P, const float* H_core,
                                const float* F, double* out_sum);

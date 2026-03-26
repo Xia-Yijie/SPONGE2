@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "direct_fock_terms.hpp"
+
 #ifndef USE_GPU
 static inline int QC_Count_Active_Partners_By_Bound(
     const std::vector<int>& sorted_pair_ids, const float* shell_pair_bounds,
@@ -97,12 +99,6 @@ struct QC_Bra_Prim_Cache_CPU
     float E_bra[3][5][5][9];
 };
 
-struct QC_Angular_Term_CPU
-{
-    unsigned short hr_offset;
-    float coeff;
-};
-
 struct QC_Cart_Pair_Geom_CPU
 {
     unsigned short c0x, c0y, c0z;
@@ -117,9 +113,6 @@ struct QC_Generic_Pair_View_CPU
     int term_count;
     int shell_offset;
 };
-
-constexpr int QC_MAX_PAIR_TERM_COUNT_CPU = 9 * 9 * 9;
-constexpr int QC_MAX_CART_PAIR_COUNT_CPU = MAX_CART_SHELL * MAX_CART_SHELL;
 
 static inline int QC_Build_Angular_Terms_CPU(
     const float* ex_row, const float* ey_row, const float* ez_row,
@@ -278,7 +271,8 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
     const float* env, const float* norms, const int is_spherical,
     const float* cart2sph_mat, const int nao_sph,
     const std::vector<QC_Bra_Prim_Cache_CPU>& bra_prims, float* HR,
-    float* shell_eri, float* shell_tmp, int hr_base, int shell_buf_size,
+    float* shell_eri, float* shell_tmp, QC_Angular_Term_CPU* bra_terms_buf,
+    QC_Angular_Term_CPU* ket_terms_buf, int hr_base, int shell_buf_size,
     float prim_screen_tol, int* dims_eff, int* off_eff)
 {
     const int dims_cart[4] = {bra.dims_cart[0], bra.dims_cart[1],
@@ -352,11 +346,7 @@ static inline bool QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
     const bool low_l_fast_path =
         (bra.l[0] <= 1 && bra.l[1] <= 1 && ket.l[0] <= 1 && ket.l[1] <= 1);
 
-    QC_Angular_Term_CPU
-        bra_terms_buf[QC_MAX_CART_PAIR_COUNT_CPU * QC_MAX_PAIR_TERM_COUNT_CPU];
     int bra_term_counts[QC_MAX_CART_PAIR_COUNT_CPU];
-    QC_Angular_Term_CPU
-        ket_terms_buf[QC_MAX_CART_PAIR_COUNT_CPU * QC_MAX_PAIR_TERM_COUNT_CPU];
     int ket_term_counts[QC_MAX_CART_PAIR_COUNT_CPU];
 
     float E_ket[3][5][5][9];
@@ -625,8 +615,9 @@ static inline void QC_Build_Fock_Direct_CPU(
     const float* P_exx_b, const float exx_scale_a, const float exx_scale_b,
     const int nao, const int nao_sph, const int is_spherical,
     const float* cart2sph_mat, double* F_a, double* F_b, float* global_hr_pool,
-    int hr_base, int hr_size, int shell_buf_size, float prim_screen_tol,
-    const int fock_thread_count)
+    QC_Angular_Term_CPU* global_bra_terms,
+    QC_Angular_Term_CPU* global_ket_terms, int hr_base, int hr_size,
+    int shell_buf_size, float prim_screen_tol, const int fock_thread_count)
 {
     const int n_pairs = task_ctx.topo.n_shell_pairs;
     if (n_pairs <= 0) return;
@@ -707,6 +698,12 @@ static inline void QC_Build_Fock_Direct_CPU(
         float* HR = task_pool;
         float* shell_eri = task_pool + hr_size;
         float* shell_tmp = shell_eri + shell_buf_size;
+        QC_Angular_Term_CPU* bra_terms_buf =
+            global_bra_terms + (size_t)tid * QC_MAX_CART_PAIR_COUNT_CPU *
+                                   QC_MAX_PAIR_TERM_COUNT_CPU;
+        QC_Angular_Term_CPU* ket_terms_buf =
+            global_ket_terms + (size_t)tid * QC_MAX_CART_PAIR_COUNT_CPU *
+                                   QC_MAX_PAIR_TERM_COUNT_CPU;
         std::vector<int> partner_marks((size_t)n_pairs, -1);
         std::vector<int> candidate_partners;
         candidate_partners.reserve(256);
@@ -777,8 +774,8 @@ static inline void QC_Build_Fock_Direct_CPU(
                     QC_Compute_Shell_Quartet_ERI_Buffer_CPU_BraCached(
                         bra_meta, ket_meta, env, norms, is_spherical,
                         cart2sph_mat, nao_sph, bra_prims, HR, shell_eri,
-                        shell_tmp, hr_base, shell_buf_size, prim_screen_tol,
-                        dims_eff, off_eff);
+                        shell_tmp, bra_terms_buf, ket_terms_buf, hr_base,
+                        shell_buf_size, prim_screen_tol, dims_eff, off_eff);
                 if (!eri_ok) continue;
 
                 const bool jk_same_bra = (ij.x == ij.y);

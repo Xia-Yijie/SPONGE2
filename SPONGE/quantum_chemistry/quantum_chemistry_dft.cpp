@@ -16,10 +16,9 @@ void QUANTUM_CHEMISTRY::Build_DFT_VXC()
             mol.d_l_list, mol.d_exps, mol.d_coeffs, mol.d_shell_offsets,
             mol.d_shell_sizes, mol.d_ao_offsets, scf_ws.ortho.d_norms,
             scf_ws.alpha.d_P, scf_ws.beta.d_P, dft.d_ao_vals_cart,
-            dft.d_ao_grad_x_cart,
-            dft.d_ao_grad_y_cart, dft.d_ao_grad_z_cart, dft.d_ao_vals,
-            dft.d_ao_grad_x, dft.d_ao_grad_y, dft.d_ao_grad_z, dft.d_exc_total,
-            dft.d_Vxc, dft.d_Vxc_beta);
+            dft.d_ao_grad_x_cart, dft.d_ao_grad_y_cart, dft.d_ao_grad_z_cart,
+            dft.d_ao_vals, dft.d_ao_grad_x, dft.d_ao_grad_y, dft.d_ao_grad_z,
+            dft.d_exc_total, dft.d_Vxc, dft.d_Vxc_beta);
     }
     else
     {
@@ -29,10 +28,10 @@ void QUANTUM_CHEMISTRY::Build_DFT_VXC()
             dft.d_grid_weights, cart2sph.d_cart2sph_mat, mol.d_centers,
             mol.d_l_list, mol.d_exps, mol.d_coeffs, mol.d_shell_offsets,
             mol.d_shell_sizes, mol.d_ao_offsets, scf_ws.ortho.d_norms,
-            scf_ws.alpha.d_P,
-            dft.d_ao_vals_cart, dft.d_ao_grad_x_cart, dft.d_ao_grad_y_cart,
-            dft.d_ao_grad_z_cart, dft.d_ao_vals, dft.d_ao_grad_x,
-            dft.d_ao_grad_y, dft.d_ao_grad_z, dft.d_rho, dft.d_sigma, dft.d_exc,
-            dft.d_vrho, dft.d_vsigma, dft.d_exc_total, dft.d_Vxc);
+            scf_ws.alpha.d_P, dft.d_ao_vals_cart, dft.d_ao_grad_x_cart,
+            dft.d_ao_grad_y_cart, dft.d_ao_grad_z_cart, dft.d_ao_vals,
+            dft.d_ao_grad_x, dft.d_ao_grad_y, dft.d_ao_grad_z, dft.d_rho,
+            dft.d_sigma, dft.d_exc, dft.d_vrho, dft.d_vsigma, dft.d_exc_total,
+            dft.d_Vxc);
     }
 }

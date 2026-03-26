@@ -12,8 +12,8 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
     if (dft.enable_dft) Build_DFT_VXC();
 
     Launch_Device_Kernel(QC_Init_Fock_Kernel, (total + threads - 1) / threads,
-                         threads, 0, 0, total, scf_ws.core.d_H_core,
-                         dft.d_Vxc, dft.enable_dft, scf_ws.alpha.d_F);
+                         threads, 0, 0, total, scf_ws.core.d_H_core, dft.d_Vxc,
+                         dft.enable_dft, scf_ws.alpha.d_F);
     if (scf_ws.runtime.unrestricted)
     {
         Launch_Device_Kernel(QC_Init_Fock_Kernel,
@@ -42,9 +42,9 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         deviceMemset(scf_ws.direct.d_F_b_thread, 0,
                      sizeof(double) * thread_total);
     double* d_F_build = scf_ws.direct.d_F_thread;
-    double* d_F_b_build =
-        scf_ws.runtime.unrestricted ? scf_ws.direct.d_F_b_thread
-                                    : (double*)nullptr;
+    double* d_F_b_build = scf_ws.runtime.unrestricted
+                              ? scf_ws.direct.d_F_b_thread
+                              : (double*)nullptr;
 #endif
 
     Launch_Device_Kernel(
@@ -57,9 +57,9 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         scf_ws.runtime.unrestricted ? scf_ws.beta.d_P : (const float*)nullptr,
         scf_ws.direct.d_pair_density_exx_b);
 
-    const float exx_scale_a =
-        scf_ws.runtime.unrestricted ? dft.exx_fraction
-                                    : (0.5f * dft.exx_fraction);
+    const float exx_scale_a = scf_ws.runtime.unrestricted
+                                  ? dft.exx_fraction
+                                  : (0.5f * dft.exx_fraction);
     const float exx_scale_b =
         scf_ws.runtime.unrestricted ? dft.exx_fraction : 0.0f;
     const float shell_screen_tol = QC_Effective_Shell_Screen_Tol(
@@ -74,7 +74,7 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         task_ctx.buffers.d_shell_pair_bounds, scf_ws.direct.d_pair_density_coul,
         scf_ws.direct.d_pair_density_exx,
         scf_ws.runtime.unrestricted ? scf_ws.direct.d_pair_density_exx_b
-                            : (const float*)nullptr,
+                                    : (const float*)nullptr,
         shell_screen_tol, scf_ws.direct.d_P_coul, scf_ws.alpha.d_P,
         scf_ws.runtime.unrestricted ? scf_ws.beta.d_P : (const float*)nullptr,
         exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph, mol.is_spherical,
@@ -85,8 +85,7 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         QC_Float_To_Double_Copy(total, scf_ws.alpha.d_F,
                                 scf_ws.alpha.d_F_double);
     if (scf_ws.runtime.unrestricted && scf_ws.beta.d_F_double != NULL)
-        QC_Float_To_Double_Copy(total, scf_ws.beta.d_F,
-                                scf_ws.beta.d_F_double);
+        QC_Float_To_Double_Copy(total, scf_ws.beta.d_F, scf_ws.beta.d_F_double);
 #else
     QC_Build_Fock_Direct_CPU(
         task_ctx, mol.nbas, mol.d_atm, mol.d_bas, mol.d_env, mol.d_ao_offsets,
@@ -94,30 +93,31 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         task_ctx.buffers.d_shell_pair_bounds, scf_ws.direct.d_pair_density_coul,
         scf_ws.direct.d_pair_density_exx,
         scf_ws.runtime.unrestricted ? scf_ws.direct.d_pair_density_exx_b
-                            : (const float*)nullptr,
+                                    : (const float*)nullptr,
         shell_screen_tol, scf_ws.direct.d_P_coul, scf_ws.alpha.d_P,
         scf_ws.runtime.unrestricted ? scf_ws.beta.d_P : (const float*)nullptr,
         exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph, mol.is_spherical,
         cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build,
         scf_ws.direct.d_hr_pool,
+        (QC_Angular_Term_CPU*)scf_ws.direct.h_cpu_bra_terms,
+        (QC_Angular_Term_CPU*)scf_ws.direct.h_cpu_ket_terms,
         task_ctx.params.eri_hr_base, task_ctx.params.eri_hr_size,
         task_ctx.params.eri_shell_buf_size, prim_screen_tol,
         scf_ws.direct.fock_thread_count);
 #endif
 
 #ifndef USE_GPU
-    Launch_Device_Kernel(QC_Reduce_Thread_Fock_Kernel,
-                         (total + threads - 1) / threads, threads, 0, 0, total,
-                         scf_ws.direct.fock_thread_count,
-                         scf_ws.direct.d_F_thread, scf_ws.alpha.d_F,
-                         scf_ws.alpha.d_F_double);
+    Launch_Device_Kernel(
+        QC_Reduce_Thread_Fock_Kernel, (total + threads - 1) / threads, threads,
+        0, 0, total, scf_ws.direct.fock_thread_count, scf_ws.direct.d_F_thread,
+        scf_ws.alpha.d_F, scf_ws.alpha.d_F_double);
     if (scf_ws.runtime.unrestricted)
     {
-        Launch_Device_Kernel(
-            QC_Reduce_Thread_Fock_Kernel, (total + threads - 1) / threads,
-            threads, 0, 0, total, scf_ws.direct.fock_thread_count,
-            scf_ws.direct.d_F_b_thread, scf_ws.beta.d_F,
-            scf_ws.beta.d_F_double);
+        Launch_Device_Kernel(QC_Reduce_Thread_Fock_Kernel,
+                             (total + threads - 1) / threads, threads, 0, 0,
+                             total, scf_ws.direct.fock_thread_count,
+                             scf_ws.direct.d_F_b_thread, scf_ws.beta.d_F,
+                             scf_ws.beta.d_F_double);
     }
 #endif
 }

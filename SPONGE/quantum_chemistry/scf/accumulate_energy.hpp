@@ -51,17 +51,15 @@ void QUANTUM_CHEMISTRY::Accumulate_SCF_Energy(int iter)
         }
     }
 
-    Launch_Device_Kernel(
-        QC_Combine_SCF_Energy_Kernel, 1, 1, 0, 0, dft.enable_dft,
-        scf_ws.runtime.d_e,
-        scf_ws.runtime.unrestricted ? scf_ws.runtime.d_e_b
-                                    : (const double*)nullptr,
-        scf_ws.core.d_nuc_energy_dev, dft.d_exc_total, scf_ws.runtime.d_pvxc,
-        scf_ws.core.d_scf_energy);
+    Launch_Device_Kernel(QC_Combine_SCF_Energy_Kernel, 1, 1, 0, 0,
+                         dft.enable_dft, scf_ws.runtime.d_e,
+                         scf_ws.runtime.unrestricted ? scf_ws.runtime.d_e_b
+                                                     : (const double*)nullptr,
+                         scf_ws.core.d_nuc_energy_dev, dft.d_exc_total,
+                         scf_ws.runtime.d_pvxc, scf_ws.core.d_scf_energy);
 
     Launch_Device_Kernel(QC_Update_Convergence_Flag_Kernel, 1, 1, 0, 0, iter,
                          scf_ws.runtime.energy_tol, scf_ws.core.d_scf_energy,
-                         scf_ws.runtime.d_prev_energy,
-                         scf_ws.runtime.d_delta_e,
+                         scf_ws.runtime.d_prev_energy, scf_ws.runtime.d_delta_e,
                          scf_ws.runtime.d_converged);
 }

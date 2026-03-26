@@ -163,8 +163,8 @@ struct CONTROLLER
     void Throw_SPONGE_Error(const int error_number, const char* error_by = NULL,
                             const char* extra_error_string = NULL);
     void Throw_Formatted_SPONGE_Error(const int error_number,
-                                      const char* error_by,
-                                      const char* format, ...);
+                                      const char* error_by, const char* format,
+                                      ...);
 
     // 警告
     StringVector warnings;

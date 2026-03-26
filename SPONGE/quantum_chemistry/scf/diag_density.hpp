@@ -35,20 +35,20 @@ void QUANTUM_CHEMISTRY::Diagonalize_And_Build_Density()
 
     // Tmp = F * X
     double* dTmp = scf_ws.ortho.d_dwork_nao2_2;  // nao*ne <= nao2
-    QC_Dgemm_NN(blas_handle, nao, ne, nao, dF, nao, scf_ws.ortho.d_X, nao,
-                dTmp, ne);
+    QC_Dgemm_NN(blas_handle, nao, ne, nao, dF, nao, scf_ws.ortho.d_X, nao, dTmp,
+                ne);
 
     // Fp = X^T * F * X
     double* dFp = scf_ws.ortho.d_dwork_nao2_3;  // ne*ne <= nao2
-    QC_Dgemm_TN(blas_handle, ne, ne, nao, scf_ws.ortho.d_X, nao, dTmp, ne,
-                dFp, ne);
+    QC_Dgemm_TN(blas_handle, ne, ne, nao, scf_ws.ortho.d_X, nao, dTmp, ne, dFp,
+                ne);
 
     // 对正交化表象下的 Fp 做本征分解
     double* dW = scf_ws.ortho.d_dW_double;
     int info = 0;
-    QC_Diagonalize_Double(
-        solver_handle, ne, dFp, dW, scf_ws.ortho.d_solver_work_double,
-        scf_ws.ortho.lwork_double, &info);
+    QC_Diagonalize_Double(solver_handle, ne, dFp, dW,
+                          scf_ws.ortho.d_solver_work_double,
+                          scf_ws.ortho.lwork_double, &info);
 
     // 保存分子轨道本征值
     QC_Double_To_Float(ne, dW, scf_ws.ortho.d_W);
@@ -77,13 +77,13 @@ void QUANTUM_CHEMISTRY::Diagonalize_And_Build_Density()
     else
         QC_Float_To_Double(nao2, scf_ws.beta.d_F, dF);
 
-    QC_Dgemm_NN(blas_handle, nao, ne, nao, dF, nao, scf_ws.ortho.d_X, nao,
-                dTmp, ne);
-    QC_Dgemm_TN(blas_handle, ne, ne, nao, scf_ws.ortho.d_X, nao, dTmp, ne,
-                dFp, ne);
-    QC_Diagonalize_Double(
-        solver_handle, ne, dFp, dW, scf_ws.ortho.d_solver_work_double,
-        scf_ws.ortho.lwork_double, &info);
+    QC_Dgemm_NN(blas_handle, nao, ne, nao, dF, nao, scf_ws.ortho.d_X, nao, dTmp,
+                ne);
+    QC_Dgemm_TN(blas_handle, ne, ne, nao, scf_ws.ortho.d_X, nao, dTmp, ne, dFp,
+                ne);
+    QC_Diagonalize_Double(solver_handle, ne, dFp, dW,
+                          scf_ws.ortho.d_solver_work_double,
+                          scf_ws.ortho.lwork_double, &info);
     QC_Double_To_Float(ne, dW, scf_ws.ortho.d_W);
     QC_Dgemm_NT(blas_handle, nao, ne, ne, scf_ws.ortho.d_X, nao, dFp, ne, dC,
                 ne);

@@ -1,4 +1,4 @@
-#ifndef QC_STRUCTURE_SCF_WORKSPACE_H
+﻿#ifndef QC_STRUCTURE_SCF_WORKSPACE_H
 #define QC_STRUCTURE_SCF_WORKSPACE_H
 
 #include "../../common.h"
@@ -87,6 +87,8 @@ struct QC_SCF_Direct_Workspace
     float* d_pair_density_exx = NULL;
     float* d_pair_density_exx_b = NULL;
     float* d_hr_pool = NULL;
+    void* h_cpu_bra_terms = NULL;
+    void* h_cpu_ket_terms = NULL;
 
     int fock_thread_count = 1;
     double* d_F_thread = NULL;

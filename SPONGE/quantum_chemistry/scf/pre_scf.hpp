@@ -191,9 +191,8 @@ void QUANTUM_CHEMISTRY::Prepare_Integrals()
                          scf_ws.core.d_S, scf_ws.ortho.d_norms);
     Launch_Device_Kernel(QC_Scale_OneE_And_Build_Hcore_Kernel,
                          (nao2 + threads - 1) / threads, threads, 0, 0, nao,
-                         scf_ws.ortho.d_norms, scf_ws.core.d_S,
-                         scf_ws.core.d_T, scf_ws.core.d_V,
-                         scf_ws.core.d_H_core);
+                         scf_ws.ortho.d_norms, scf_ws.core.d_S, scf_ws.core.d_T,
+                         scf_ws.core.d_V, scf_ws.core.d_H_core);
 
     if (task_ctx.topo.n_shell_pairs <= 0) return;
 
@@ -209,20 +208,19 @@ void QUANTUM_CHEMISTRY::Prepare_Integrals()
             QC_Build_Shell_Pair_Bounds_Kernel,
             (current_chunk + threads - 1) / threads, threads, 0, 0,
             current_chunk, task_ctx.buffers.d_shell_pairs + i, mol.d_atm,
-            mol.d_bas,
-            mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
-            scf_ws.ortho.d_norms,
-            mol.is_spherical, cart2sph.d_cart2sph_mat, mol.nao_sph,
-            task_ctx.buffers.d_shell_pair_bounds + i, scf_ws.direct.d_hr_pool,
-            task_ctx.params.eri_hr_base, task_ctx.params.eri_hr_size,
-            task_ctx.params.eri_shell_buf_size,
+            mol.d_bas, mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph,
+            scf_ws.ortho.d_norms, mol.is_spherical, cart2sph.d_cart2sph_mat,
+            mol.nao_sph, task_ctx.buffers.d_shell_pair_bounds + i,
+            scf_ws.direct.d_hr_pool, task_ctx.params.eri_hr_base,
+            task_ctx.params.eri_hr_size, task_ctx.params.eri_shell_buf_size,
             task_ctx.params.eri_prim_screen_tol);
     }
-    task_ctx.topo.h_shell_pair_bounds.resize((size_t)task_ctx.topo.n_shell_pairs);
-    deviceMemcpy(
-        task_ctx.topo.h_shell_pair_bounds.data(),
-        task_ctx.buffers.d_shell_pair_bounds,
-        sizeof(float) * task_ctx.topo.n_shell_pairs, deviceMemcpyDeviceToHost);
+    task_ctx.topo.h_shell_pair_bounds.resize(
+        (size_t)task_ctx.topo.n_shell_pairs);
+    deviceMemcpy(task_ctx.topo.h_shell_pair_bounds.data(),
+                 task_ctx.buffers.d_shell_pair_bounds,
+                 sizeof(float) * task_ctx.topo.n_shell_pairs,
+                 deviceMemcpyDeviceToHost);
 }
 
 // ========================= 重叠正交化矩阵 =========================
@@ -236,10 +234,10 @@ void QUANTUM_CHEMISTRY::Build_Overlap_X()
     QC_Float_To_Double(nao2, scf_ws.core.d_S, scf_ws.ortho.d_dwork_nao2_1);
 
     int info = 0;
-    QC_Diagonalize_Double(
-        solver_handle, nao, scf_ws.ortho.d_dwork_nao2_1,
-        scf_ws.ortho.d_dW_double, scf_ws.ortho.d_solver_work_double,
-        scf_ws.ortho.lwork_double, &info);
+    QC_Diagonalize_Double(solver_handle, nao, scf_ws.ortho.d_dwork_nao2_1,
+                          scf_ws.ortho.d_dW_double,
+                          scf_ws.ortho.d_solver_work_double,
+                          scf_ws.ortho.lwork_double, &info);
 
     QC_Double_To_Float(nao, scf_ws.ortho.d_dW_double, scf_ws.ortho.d_W);
 

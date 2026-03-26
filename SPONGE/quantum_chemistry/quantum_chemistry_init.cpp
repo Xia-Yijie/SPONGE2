@@ -14,10 +14,9 @@ static void Init_ERI_Workspace_Params(QUANTUM_CHEMISTRY* qc,
             "hr_base=%d, supported <=%d)\n",
             max_l, qc->task_ctx.params.eri_hr_base, HR_BASE_MAX);
     }
-    qc->task_ctx.params.eri_hr_size = qc->task_ctx.params.eri_hr_base *
-                                      qc->task_ctx.params.eri_hr_base *
-                                      qc->task_ctx.params.eri_hr_base *
-                                      qc->task_ctx.params.eri_hr_base;
+    qc->task_ctx.params.eri_hr_size =
+        qc->task_ctx.params.eri_hr_base * qc->task_ctx.params.eri_hr_base *
+        qc->task_ctx.params.eri_hr_base * qc->task_ctx.params.eri_hr_base;
 
     const int max_cart = (max_l + 1) * (max_l + 2) / 2;
     qc->task_ctx.params.eri_shell_buf_size =
@@ -33,7 +32,8 @@ static void Build_Shell_Pairs_And_Pair_Types(QUANTUM_CHEMISTRY* qc, int max_l)
 
     task_ctx.topo.h_shell_pairs.clear();
     for (int i = 0; i < mol.nbas; i++)
-        for (int j = 0; j <= i; j++) task_ctx.topo.h_shell_pairs.push_back({i, j});
+        for (int j = 0; j <= i; j++)
+            task_ctx.topo.h_shell_pairs.push_back({i, j});
     task_ctx.topo.n_shell_pairs = task_ctx.topo.h_shell_pairs.size();
 
     const int stride = max_l + 1;
@@ -63,10 +63,10 @@ static void Build_Shell_Pairs_And_Pair_Types(QUANTUM_CHEMISTRY* qc, int max_l)
             task_ctx.topo.h_sorted_pair_ids.push_back(pid);
     }
 
-    Device_Malloc_And_Copy_Safely((void**)&task_ctx.buffers.d_sorted_pair_ids,
-                                  (void*)task_ctx.topo.h_sorted_pair_ids.data(),
-                                  sizeof(int) *
-                                      task_ctx.topo.h_sorted_pair_ids.size());
+    Device_Malloc_And_Copy_Safely(
+        (void**)&task_ctx.buffers.d_sorted_pair_ids,
+        (void*)task_ctx.topo.h_sorted_pair_ids.data(),
+        sizeof(int) * task_ctx.topo.h_sorted_pair_ids.size());
 }
 
 static void Build_Screening_Combos_And_Task_Buffers(QUANTUM_CHEMISTRY* qc)
@@ -104,15 +104,15 @@ static void Build_Screening_Combos_And_Task_Buffers(QUANTUM_CHEMISTRY* qc)
 
     task_ctx.topo.combo_prefix[0] = 0;
     for (int i = 0; i < task_ctx.topo.n_combos; i++)
-        task_ctx.topo.combo_prefix[i + 1] = task_ctx.topo.combo_prefix[i] +
-                                            task_ctx.topo.h_combos[i].n_quartets;
+        task_ctx.topo.combo_prefix[i + 1] =
+            task_ctx.topo.combo_prefix[i] +
+            task_ctx.topo.h_combos[i].n_quartets;
     task_ctx.topo.total_quartets =
         task_ctx.topo.combo_prefix[task_ctx.topo.n_combos];
 
-    Device_Malloc_And_Copy_Safely((void**)&task_ctx.buffers.d_combos,
-                                  (void*)task_ctx.topo.h_combos,
-                                  sizeof(QC_INTEGRAL_TASKS::ScreenCombo) *
-                                      task_ctx.topo.n_combos);
+    Device_Malloc_And_Copy_Safely(
+        (void**)&task_ctx.buffers.d_combos, (void*)task_ctx.topo.h_combos,
+        sizeof(QC_INTEGRAL_TASKS::ScreenCombo) * task_ctx.topo.n_combos);
 
     task_ctx.buffers.screened_buf_capacity =
         std::max(1, task_ctx.topo.total_quartets);
@@ -120,30 +120,30 @@ static void Build_Screening_Combos_And_Task_Buffers(QUANTUM_CHEMISTRY* qc)
     {
         task_ctx.topo.h_combos[i].output_offset = task_ctx.topo.combo_prefix[i];
     }
-    Device_Malloc_Safely((void**)&task_ctx.buffers.d_screened_tasks,
-                         sizeof(QC_ERI_TASK) *
-                             task_ctx.buffers.screened_buf_capacity);
+    Device_Malloc_Safely(
+        (void**)&task_ctx.buffers.d_screened_tasks,
+        sizeof(QC_ERI_TASK) * task_ctx.buffers.screened_buf_capacity);
     Device_Malloc_Safely((void**)&task_ctx.buffers.d_screen_counts,
                          sizeof(int) * std::max(1, task_ctx.topo.n_combos));
     if (task_ctx.buffers.d_combos != NULL)
-        deviceMemcpy(task_ctx.buffers.d_combos, task_ctx.topo.h_combos,
-                     sizeof(QC_INTEGRAL_TASKS::ScreenCombo) *
-                         task_ctx.topo.n_combos,
-                     deviceMemcpyHostToDevice);
+        deviceMemcpy(
+            task_ctx.buffers.d_combos, task_ctx.topo.h_combos,
+            sizeof(QC_INTEGRAL_TASKS::ScreenCombo) * task_ctx.topo.n_combos,
+            deviceMemcpyHostToDevice);
 
     for (int i = 0; i < mol.nbas; i++)
         for (int j = 0; j < mol.nbas; j++)
             task_ctx.topo.h_1e_tasks.push_back({i, j});
     task_ctx.topo.n_1e_tasks = task_ctx.topo.h_1e_tasks.size();
 
-    Device_Malloc_And_Copy_Safely((void**)&task_ctx.buffers.d_1e_tasks,
-                                  (void*)task_ctx.topo.h_1e_tasks.data(),
-                                  sizeof(QC_ONE_E_TASK) *
-                                      task_ctx.topo.h_1e_tasks.size());
-    Device_Malloc_And_Copy_Safely((void**)&task_ctx.buffers.d_shell_pairs,
-                                  (void*)task_ctx.topo.h_shell_pairs.data(),
-                                  sizeof(QC_ONE_E_TASK) *
-                                      task_ctx.topo.h_shell_pairs.size());
+    Device_Malloc_And_Copy_Safely(
+        (void**)&task_ctx.buffers.d_1e_tasks,
+        (void*)task_ctx.topo.h_1e_tasks.data(),
+        sizeof(QC_ONE_E_TASK) * task_ctx.topo.h_1e_tasks.size());
+    Device_Malloc_And_Copy_Safely(
+        (void**)&task_ctx.buffers.d_shell_pairs,
+        (void*)task_ctx.topo.h_shell_pairs.data(),
+        sizeof(QC_ONE_E_TASK) * task_ctx.topo.h_shell_pairs.size());
 }
 
 bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
@@ -409,7 +409,8 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
 
     if (controller->Command_Exist("qc_level_shift"))
     {
-        scf_ws.runtime.level_shift = atof(controller->Command("qc_level_shift"));
+        scf_ws.runtime.level_shift =
+            atof(controller->Command("qc_level_shift"));
     }
 
     if (controller->Command_Exist("qc_scf_output"))
@@ -718,8 +719,8 @@ void QUANTUM_CHEMISTRY::Initial_Molecule(CONTROLLER* controller,
 
 void QUANTUM_CHEMISTRY::Initial_Integral_Tasks(CONTROLLER* controller)
 {
-    const int max_l =
-        *std::max_element(mol.h_l_list.begin(), mol.h_l_list.begin() + mol.nbas);
+    const int max_l = *std::max_element(mol.h_l_list.begin(),
+                                        mol.h_l_list.begin() + mol.nbas);
 
     Init_ERI_Workspace_Params(this, controller, max_l);
     Build_Shell_Pairs_And_Pair_Types(this, max_l);
@@ -764,8 +765,7 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
     Device_Malloc_Safely((void**)&scf_ws.core.d_H_core,
                          sizeof(float) * mol.nao2);
     Device_Malloc_Safely((void**)&scf_ws.core.d_scf_energy, sizeof(double));
-    Device_Malloc_Safely((void**)&scf_ws.core.d_nuc_energy_dev,
-                         sizeof(double));
+    Device_Malloc_Safely((void**)&scf_ws.core.d_nuc_energy_dev, sizeof(double));
     Device_Malloc_Safely((void**)&dft.d_exc_total, sizeof(double));
     deviceMemset(scf_ws.core.d_scf_energy, 0, sizeof(double));
     deviceMemset(scf_ws.core.d_nuc_energy_dev, 0, sizeof(double));
@@ -788,11 +788,11 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
 #ifndef USE_GPU
     hr_pool_tasks = std::max(1, omp_get_max_threads());
 #endif
-    Device_Malloc_Safely(
-        (void**)&scf_ws.direct.d_hr_pool,
-        (int)hr_pool_tasks *
-            (task_ctx.params.eri_hr_size + 2 * task_ctx.params.eri_shell_buf_size) *
-            sizeof(float));
+    Device_Malloc_Safely((void**)&scf_ws.direct.d_hr_pool,
+                         (int)hr_pool_tasks *
+                             (task_ctx.params.eri_hr_size +
+                              2 * task_ctx.params.eri_shell_buf_size) *
+                             sizeof(float));
     Device_Malloc_Safely((void**)&task_ctx.buffers.d_shell_pair_bounds,
                          sizeof(float) * task_ctx.topo.n_shell_pairs);
     deviceMemset(task_ctx.buffers.d_shell_pair_bounds, 0,
@@ -806,7 +806,8 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
         {
             controller->Throw_Formatted_SPONGE_Error(
                 spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
-                "Reason:\n    invalid DFT grid capacity: %d (natm=%d, radial=%d, "
+                "Reason:\n    invalid DFT grid capacity: %d (natm=%d, "
+                "radial=%d, "
                 "angular=%d)\n",
                 dft.max_grid_capacity, mol.natm, dft.dft_radial_points,
                 dft.dft_angular_points);
