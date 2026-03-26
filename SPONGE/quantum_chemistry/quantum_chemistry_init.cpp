@@ -896,7 +896,7 @@ void QUANTUM_CHEMISTRY::Memory_Allocate(CONTROLLER* controller)
     hr_pool_tasks = std::max(1, omp_get_max_threads());
 #endif
     Device_Malloc_Safely(
-        (void**)&d_hr_pool,
+        (void**)&scf_ws.d_hr_pool,
         (int)hr_pool_tasks *
             (task_ctx.eri_hr_size + 2 * task_ctx.eri_shell_buf_size) *
             sizeof(float));

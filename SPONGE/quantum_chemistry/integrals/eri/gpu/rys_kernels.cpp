@@ -2,13 +2,14 @@
 // Compiled independently. Includes Rys data tables + per-L_sum kernels.
 
 // clang-format off
-// Include order matters: quantum_chemistry.h provides macros/types needed by gpu_eri headers.
-#include "quantum_chemistry.h"
-#include "gpu_eri/eri_kernel_utils.hpp"
-#include "../common.h"
-#include "gpu_eri/eri_common.hpp"
-#include "gpu_eri/eri_rys.hpp"
-#include "gpu_eri/eri_screen_compact.hpp"
+// Include order matters: quantum_chemistry.h provides macros/types needed by
+// ERI GPU headers.
+#include "../../../quantum_chemistry.h"
+#include "../common/eri_kernel_utils.hpp"
+#include "../../../../common.h"
+#include "../common/eri_common.hpp"
+#include "../common/eri_rys.hpp"
+#include "eri_screen_compact.hpp"
 // clang-format on
 
 // Rys per-L_sum kernels (L2..L16)
@@ -19,7 +20,7 @@
 #define ERI_MAX_G 4
 #define ERI_MAX_CART 6
 #define KERNEL_NAME QC_Fock_Rys_L2_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -28,7 +29,7 @@
 #define ERI_MAX_G 6
 #define ERI_MAX_CART 18
 #define KERNEL_NAME QC_Fock_Rys_L3_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -37,7 +38,7 @@
 #define ERI_MAX_G 9
 #define ERI_MAX_CART 54
 #define KERNEL_NAME QC_Fock_Rys_L4_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -46,7 +47,7 @@
 #define ERI_MAX_G 12
 #define ERI_MAX_CART 162
 #define KERNEL_NAME QC_Fock_Rys_L5_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -55,7 +56,7 @@
 #define ERI_MAX_G 16
 #define ERI_MAX_CART 324
 #define KERNEL_NAME QC_Fock_Rys_L6_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -64,7 +65,7 @@
 #define ERI_MAX_G 20
 #define ERI_MAX_CART 648
 #define KERNEL_NAME QC_Fock_Rys_L7_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -73,7 +74,7 @@
 #define ERI_MAX_G 25
 #define ERI_MAX_CART 1296
 #define KERNEL_NAME QC_Fock_Rys_L8_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -82,7 +83,7 @@
 #define ERI_MAX_G 30
 #define ERI_MAX_CART 2160
 #define KERNEL_NAME QC_Fock_Rys_L9_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -91,7 +92,7 @@
 #define ERI_MAX_G 36
 #define ERI_MAX_CART 3600
 #define KERNEL_NAME QC_Fock_Rys_L10_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -100,7 +101,7 @@
 #define ERI_MAX_G 42
 #define ERI_MAX_CART 6000
 #define KERNEL_NAME QC_Fock_Rys_L11_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -109,7 +110,7 @@
 #define ERI_MAX_G 49
 #define ERI_MAX_CART 10000
 #define KERNEL_NAME QC_Fock_Rys_L12_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -118,7 +119,7 @@
 #define ERI_MAX_G 56
 #define ERI_MAX_CART 15000
 #define KERNEL_NAME QC_Fock_Rys_L13_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -127,7 +128,7 @@
 #define ERI_MAX_G 64
 #define ERI_MAX_CART 22500
 #define KERNEL_NAME QC_Fock_Rys_L14_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -136,7 +137,7 @@
 #define ERI_MAX_G 72
 #define ERI_MAX_CART 33750
 #define KERNEL_NAME QC_Fock_Rys_L15_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
@@ -145,13 +146,13 @@
 #define ERI_MAX_G 81
 #define ERI_MAX_CART 50625
 #define KERNEL_NAME QC_Fock_Rys_L16_Kernel
-#include "gpu_eri/eri_rys_Lsum.hpp"
+#include "eri_rys_Lsum.hpp"
 #undef KERNEL_NAME
 #undef ERI_MAX_CART
 #undef ERI_MAX_G
 #undef ERI_NRYS
 
-#include "gpu_eri/eri_launch.hpp"
+#include "eri_launch.hpp"
 DEFINE_ERI_LAUNCH(QC_Launch_Rys_L2, QC_Fock_Rys_L2_Kernel)
 DEFINE_ERI_LAUNCH(QC_Launch_Rys_L3, QC_Fock_Rys_L3_Kernel)
 DEFINE_ERI_LAUNCH(QC_Launch_Rys_L4, QC_Fock_Rys_L4_Kernel)

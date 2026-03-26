@@ -1,13 +1,7 @@
 ﻿#pragma once
 
-// ERI kernel launch wrapper declarations.
-// Each wrapper is a host function that launches the corresponding __global__
-// kernel. Allows kernels to be defined in separate .cpp files without
-// -rdc=true.
+#include "../../../structure/integral_tasks.h"
 
-#include "../structure/integral_tasks.h"
-
-// Common ERI kernel parameter list (used by all ERI kernels)
 #define ERI_KERNEL_PARAMS                                                     \
     int n_tasks, const QC_ERI_TASK *tasks, const int *atm, const int *bas,    \
         const float *env, const int *ao_offsets_cart,                         \
@@ -20,7 +14,6 @@
         float *F_b, float *global_hr_pool, int hr_base, int hr_size,          \
         int shell_buf_size, float prim_screen_tol
 
-// SP kernel launchers
 void QC_Launch_ssss(ERI_KERNEL_PARAMS);
 void QC_Launch_psss(ERI_KERNEL_PARAMS);
 void QC_Launch_spss(ERI_KERNEL_PARAMS);
@@ -38,7 +31,6 @@ void QC_Launch_ppsp(ERI_KERNEL_PARAMS);
 void QC_Launch_ppps(ERI_KERNEL_PARAMS);
 void QC_Launch_pppp(ERI_KERNEL_PARAMS);
 
-// MD d-shell kernel launchers
 void QC_Launch_D_L2(ERI_KERNEL_PARAMS);
 void QC_Launch_D_L3(ERI_KERNEL_PARAMS);
 void QC_Launch_D_L4(ERI_KERNEL_PARAMS);
@@ -47,7 +39,6 @@ void QC_Launch_D_L6(ERI_KERNEL_PARAMS);
 void QC_Launch_D_L7(ERI_KERNEL_PARAMS);
 void QC_Launch_D_L8(ERI_KERNEL_PARAMS);
 
-// Rys f/g kernel launchers
 void QC_Launch_Rys_L2(ERI_KERNEL_PARAMS);
 void QC_Launch_Rys_L3(ERI_KERNEL_PARAMS);
 void QC_Launch_Rys_L4(ERI_KERNEL_PARAMS);
@@ -64,7 +55,6 @@ void QC_Launch_Rys_L14(ERI_KERNEL_PARAMS);
 void QC_Launch_Rys_L15(ERI_KERNEL_PARAMS);
 void QC_Launch_Rys_L16(ERI_KERNEL_PARAMS);
 
-// Screening kernel launcher
 void QC_Launch_Screen(
     int n_total, const QC_INTEGRAL_TASKS::ScreenCombo* combos,
     const int* combo_prefix, int n_combos, const int* sorted_pair_ids,
@@ -73,7 +63,6 @@ void QC_Launch_Screen(
     const float* pair_density_exx_b, float shell_screen_tol, float exx_scale_a,
     float exx_scale_b, QC_ERI_TASK* output_tasks, int* output_counts);
 
-// Macro to define a wrapper function that launches a kernel
 #define DEFINE_ERI_LAUNCH(launch_name, kernel_name)                          \
     void launch_name(ERI_KERNEL_PARAMS)                                      \
     {                                                                        \

@@ -4,7 +4,7 @@
 // nrys = ceil((L_sum+1)/2), max 5 for dddd (L_sum=8).
 // Much smaller working set than McMurchie-Davidson for high L_sum.
 
-#include "eri_rys.hpp"
+#include "../common/eri_rys.hpp"
 
 __global__ void QC_Fock_D_Rys_Kernel(
     const int n_tasks, const QC_ERI_TASK* __restrict__ tasks,

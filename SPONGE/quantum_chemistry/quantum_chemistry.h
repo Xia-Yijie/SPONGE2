@@ -52,13 +52,10 @@ struct QUANTUM_CHEMISTRY
     BLAS_HANDLE blas_handle;
     SOLVER_HANDLE solver_handle;
 
-    // direct SCF shell-quartet scratch pool
-    float* d_hr_pool = NULL;
-
-    // Cartesian->spherical transform buffers/workspaces
+    // 笛卡尔基组转球形基组
     QC_CARTESIAN_TO_SPHERICAL cart2sph;
 
-    // 外部入口（main.cpp）
+    // 外部入口
     void Initial(CONTROLLER* controller, const int atom_numbers,
                  const VECTOR* crd, const char* module_name = NULL);
     void Solve_SCF(const VECTOR* crd, const VECTOR box_length,
@@ -82,8 +79,6 @@ struct QUANTUM_CHEMISTRY
     void Build_Cart2Sph_Matrix();
     void Cart2Sph_OneE_Integrals();
 
-    void Update_DFT_Grid();
-
     // 坐标更新
     void Update_Coordinates_From_MD(const VECTOR* crd, const VECTOR box_length);
 
@@ -92,7 +87,8 @@ struct QUANTUM_CHEMISTRY
     void Compute_Nuclear_Repulsion(const VECTOR box_length);
     void Prepare_Integrals();
 
-    // DFT VXC 构建（在 dft.cpp 中实现）
+    // DFT VXC 构建
+    void Update_DFT_Grid();
     void Build_DFT_VXC();
 
     // SCF 循环内部流程

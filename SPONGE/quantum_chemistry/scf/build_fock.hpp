@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "../integrals/eri/common/eri_md_tensor.hpp"
+
 static __global__ void QC_Init_Fock_Kernel(const int n, const float* H_core,
                                            const float* Vxc, const int use_vxc,
                                            float* F)
@@ -814,7 +816,7 @@ static __device__ __forceinline__ void QC_Accumulate_Fock_General_Quartet(
 #include "build_fock_gpu.hpp"
 
 // ERI kernel launch wrappers (kernels defined in separate .cpp files)
-#include "../gpu_eri/eri_launch.hpp"
+#include "../integrals/eri/gpu/eri_launch.hpp"
 
 // (Old forward declarations removed — now using launch wrappers)
 
@@ -925,8 +927,8 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
              shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
              scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr,
              exx_scale_a, exx_scale_b, mol.nao, mol.nao_sph, mol.is_spherical,
-             cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build, d_hr_pool,
-             task_ctx.eri_hr_base, task_ctx.eri_hr_size,
+             cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build,
+             scf_ws.d_hr_pool, task_ctx.eri_hr_base, task_ctx.eri_hr_size,
              task_ctx.eri_shell_buf_size, prim_screen_tol);
     };
 
@@ -1087,7 +1089,7 @@ void QUANTUM_CHEMISTRY::Build_Fock(int iter)
         shell_screen_tol, scf_ws.d_P_coul, scf_ws.d_P,
         scf_ws.unrestricted ? scf_ws.d_P_b : (const float*)nullptr, exx_scale_a,
         exx_scale_b, mol.nao, mol.nao_sph, mol.is_spherical,
-        cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build, d_hr_pool,
+        cart2sph.d_cart2sph_mat, d_F_build, d_F_b_build, scf_ws.d_hr_pool,
         task_ctx.eri_hr_base, task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
         prim_screen_tol, scf_ws.fock_thread_count);
 #endif

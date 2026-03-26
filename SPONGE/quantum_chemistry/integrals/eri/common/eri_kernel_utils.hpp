@@ -1,9 +1,6 @@
 ﻿#pragma once
 
-// Utility functions shared by all ERI kernels.
-// Extracted from build_fock.hpp to enable separate compilation.
-
-#include "../integrals/one_e.hpp"
+#include "../../one_e.hpp"
 
 static __device__ __forceinline__ int QC_Shell_Pair_Index(const int a,
                                                           const int b)

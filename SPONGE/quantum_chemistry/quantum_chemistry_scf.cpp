@@ -1,5 +1,4 @@
-﻿#include "integrals/eri.hpp"
-#include "integrals/one_e.hpp"
+﻿#include "integrals/one_e.hpp"
 #include "quantum_chemistry.h"
 #include "scf/accumulate_energy.hpp"
 #include "scf/apply_diis.hpp"

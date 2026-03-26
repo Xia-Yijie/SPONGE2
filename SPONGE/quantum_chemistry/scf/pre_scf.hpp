@@ -210,8 +210,9 @@ void QUANTUM_CHEMISTRY::Prepare_Integrals()
             current_chunk, task_ctx.d_shell_pairs + i, mol.d_atm, mol.d_bas,
             mol.d_env, mol.d_ao_offsets, mol.d_ao_offsets_sph, scf_ws.d_norms,
             mol.is_spherical, cart2sph.d_cart2sph_mat, mol.nao_sph,
-            task_ctx.d_shell_pair_bounds + i, d_hr_pool, task_ctx.eri_hr_base,
-            task_ctx.eri_hr_size, task_ctx.eri_shell_buf_size,
+            task_ctx.d_shell_pair_bounds + i, scf_ws.d_hr_pool,
+            task_ctx.eri_hr_base, task_ctx.eri_hr_size,
+            task_ctx.eri_shell_buf_size,
             task_ctx.eri_prim_screen_tol);
     }
     task_ctx.h_shell_pair_bounds.resize((size_t)task_ctx.n_shell_pairs);

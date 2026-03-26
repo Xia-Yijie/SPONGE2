@@ -89,6 +89,7 @@ struct QC_SCF_WORKSPACE
     float* d_pair_density_coul = NULL;
     float* d_pair_density_exx = NULL;
     float* d_pair_density_exx_b = NULL;
+    float* d_hr_pool = NULL;
 
     // CPU direct SCF thread-private Fock accumulation buffers (double for
     // precision)
