@@ -1,9 +1,9 @@
-#ifndef __SINKMETA_CUH__
+﻿#ifndef __SINKMETA_CUH__
 #define __SINKMETA_CUH__
 
+#include "../collective_variable/collective_variable.h"
 #include "../common.h"
 #include "../control.h"
-#include "../collective_variable/collective_variable.h"
 
 struct MetaGrid
 {
@@ -42,8 +42,6 @@ struct MetaGrid
     void Sync_To_Host();
     int Get_Flat_Index(const std::vector<float>& values) const;
     std::vector<float> Get_Coordinates(int flat_index) const;
-    int size() const;
-    int Get_Dimension() const;
 };
 
 struct MetaScatter
@@ -73,14 +71,7 @@ struct MetaScatter
     std::vector<int> Get_Neighbor(const std::vector<float>& values,
                                   const float* cutoff) const;
     const std::vector<float>& Get_Coordinate(int index) const;
-    int size() const;
-    int Get_Dimension() const;
 };
-
-std::vector<float> normalize(const std::vector<float>& v);
-std::vector<float> cross_product(const std::vector<float>& a,
-                                 const std::vector<float>& b);
-float determinant(const std::vector<std::vector<float>>& matrix);
 
 struct META
 {
@@ -91,7 +82,7 @@ struct META
     char module_name[CHAR_LENGTH_MAX];
     int is_initialized = 0;
     int last_modify_date = 20260326;
-    CONTROLLER* controller = nullptr;
+    CONTROLLER* controller = NULL;
 
     void Initial(CONTROLLER* controller,
                  COLLECTIVE_VARIABLE_CONTROLLER* cv_controller,
@@ -133,8 +124,8 @@ struct META
     float* cutoff;
 
     // ---- grid / scatter storage ----
-    MetaGrid* mgrid = nullptr;
-    MetaScatter* mscatter = nullptr;
+    MetaGrid* mgrid = NULL;
+    MetaScatter* mscatter = NULL;
 
     // ---- hill storage ----
     std::vector<Hill> hills;
@@ -153,6 +144,7 @@ struct META
     int convmeta = 0;
     int grw = 0;
     int catheter = 0;
+    bool has_edge_file_input = false;
 
     // ---- height / well-tempered parameters ----
     float height;
@@ -178,7 +170,7 @@ struct META
     float potential_local = 0.;
     float potential_backup = 0.;
     float potential_max = 0.;
-    float* Dpotential_local = nullptr;
+    float* Dpotential_local = NULL;
     float sum_max = 0.0;
     float new_max = 0.;
     int max_index;
@@ -195,14 +187,11 @@ struct META
     float minus_beta_f_plus_v = 0;
 
     // ---- device buffers ----
-    float* d_hill_centers = nullptr;
-    float* d_hill_inv_w = nullptr;
-    float* d_hill_periods = nullptr;
-    float* d_cutoff = nullptr;
-    float* d_delta_sigma = nullptr;
-    float* d_reduce_buf = nullptr;
-    float* h_reduce_buf = nullptr;
-    int reduce_num_blocks = 0;
+    float* d_hill_centers = NULL;
+    float* d_hill_inv_w = NULL;
+    float* d_hill_periods = NULL;
+    float* d_cutoff = NULL;
+    float* d_delta_sigma = NULL;
 
     // ---- IO ----
     char read_potential_file_name[256];
@@ -243,6 +232,5 @@ struct META
     float Project_To_Path(const Gdata& tang_vector, const Axis& values,
                           const Axis& Cartesian);
 };
-
 
 #endif
