@@ -1,5 +1,6 @@
 ﻿#include "basis/basis.h"
 #include "guess/minao.h"
+#include "guess/sap.h"
 #include "quantum_chemistry.h"
 
 static void Init_ERI_Workspace_Params(QUANTUM_CHEMISTRY* qc,
@@ -316,7 +317,7 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         scf_ws.runtime.use_diis = (qc_diis != 0);
     }
 
-    scf_ws.runtime.diis_start_iter = 1;
+    scf_ws.runtime.diis_start_iter = 2;
     if (controller->Command_Exist("qc_diis_start"))
     {
         controller->Check_Int("qc_diis_start", "QUANTUM_CHEMISTRY::Initial");
@@ -342,22 +343,6 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
                 spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
                 "Reason:\n    qc_diis_space must be >= 2, got \"%s\"\n",
                 controller->Command("qc_diis_space"));
-        }
-    }
-
-    scf_ws.runtime.density_mixing = 0.20f;
-    if (controller->Command_Exist("qc_diis_damp"))
-    {
-        controller->Check_Float("qc_diis_damp", "QUANTUM_CHEMISTRY::Initial");
-        scf_ws.runtime.density_mixing =
-            atof(controller->Command("qc_diis_damp"));
-        if (scf_ws.runtime.density_mixing < 0.0f ||
-            scf_ws.runtime.density_mixing > 1.0f)
-        {
-            controller->Throw_Formatted_SPONGE_Error(
-                spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
-                "Reason:\n    qc_diis_damp must be in [0, 1], got \"%s\"\n",
-                controller->Command("qc_diis_damp"));
         }
     }
 
@@ -438,6 +423,28 @@ bool QUANTUM_CHEMISTRY::Parsing_Arguments(CONTROLLER* controller,
         dft.dft_angular_points = std::max(
             26,
             std::min(590, atoi(controller->Command("qc_dft_angular_points"))));
+    }
+
+    initial_guess = QC_INITIAL_GUESS::SAP;
+    if (controller->Command_Exist("qc_initial_guess"))
+    {
+        std::string guess_str = controller->Command("qc_initial_guess");
+        std::transform(guess_str.begin(), guess_str.end(), guess_str.begin(),
+                       ::tolower);
+        if (guess_str == "none")
+            initial_guess = QC_INITIAL_GUESS::NONE;
+        else if (guess_str == "minao")
+            initial_guess = QC_INITIAL_GUESS::MINAO;
+        else if (guess_str == "sap")
+            initial_guess = QC_INITIAL_GUESS::SAP;
+        else
+        {
+            controller->Throw_Formatted_SPONGE_Error(
+                spongeErrorValueErrorCommand, "QUANTUM_CHEMISTRY::Initial",
+                "Reason:\n    qc_initial_guess must be \"none\", \"minao\","
+                " or \"sap\", got \"%s\"\n",
+                controller->Command("qc_initial_guess"));
+        }
     }
 
     this->atom_numbers = atom_numbers;
@@ -755,14 +762,81 @@ void QUANTUM_CHEMISTRY::Initial(CONTROLLER* controller, const int atom_numbers,
     deviceBlasCreate(&blas_handle);
     deviceSolverCreate(&solver_handle);
     Memory_Allocate(controller);
-    Build_Initial_Guess();
     controller->Step_Print_Initial("QC", "%e");
+    if (scf_ws.runtime.unrestricted)
+        controller->Step_Print_Initial("QC_S_sq", "%.4f");
+}
+
+// 将 d_F 中的 F_guess 对角化，按 aufbau 填充 alpha/beta 轨道构建初始 P
+void QUANTUM_CHEMISTRY::Diag_Guess_And_Build_P()
+{
+    const int nao2 = mol.nao2;
+
+    // 同步到 d_F_double（Diagonalize 优先读 d_F_double）
+    if (scf_ws.alpha.d_F_double)
+        QC_Float_To_Double(nao2, scf_ws.alpha.d_F, scf_ws.alpha.d_F_double);
+    if (scf_ws.runtime.unrestricted)
+    {
+        deviceMemcpy(scf_ws.beta.d_F, scf_ws.alpha.d_F, sizeof(float) * nao2,
+                     deviceMemcpyDeviceToDevice);
+        if (scf_ws.beta.d_F_double)
+            QC_Float_To_Double(nao2, scf_ws.beta.d_F, scf_ws.beta.d_F_double);
+    }
+
+    // 对角化（跳过 level shift）
+    double saved_ls = scf_ws.runtime.level_shift;
+    scf_ws.runtime.level_shift = 0.0;
+    Diagonalize_And_Build_Density();
+    scf_ws.runtime.level_shift = saved_ls;
+
+    // P = P_new
+    deviceMemcpy(scf_ws.alpha.d_P, scf_ws.alpha.d_P_new, sizeof(float) * nao2,
+                 deviceMemcpyDeviceToDevice);
+    if (scf_ws.runtime.unrestricted)
+    {
+        deviceMemcpy(scf_ws.beta.d_P, scf_ws.beta.d_P_new, sizeof(float) * nao2,
+                     deviceMemcpyDeviceToDevice);
+    }
 }
 
 void QUANTUM_CHEMISTRY::Build_Initial_Guess()
 {
-    QC_Build_Minao_Guess(mol, scf_ws.runtime, scf_ws.alpha.d_P,
-                         scf_ws.beta.d_P);
+    if (initial_guess == QC_INITIAL_GUESS::NONE) return;
+
+    const int nao2 = mol.nao2;
+
+    if (initial_guess == QC_INITIAL_GUESS::MINAO)
+    {
+        QC_Build_Minao_Guess(mol, scf_ws.runtime, scf_ws.alpha.d_P,
+                             scf_ws.beta.d_P);
+    }
+    else if (initial_guess == QC_INITIAL_GUESS::SAP)
+    {
+        const int nao_c = mol.nao_cart;
+        const int nao = mol.nao;
+
+        // 1. 计算 V_SAP（笛卡尔基下）
+        float* d_V_SAP = nullptr;
+        Device_Malloc_Safely((void**)&d_V_SAP, sizeof(float) * nao_c * nao_c);
+        QC_Compute_V_SAP(mol, task_ctx, d_V_SAP);
+
+        // 2. 球谐变换（如需要），结果写入 d_F
+        if (mol.is_spherical)
+            Cart2Sph_Single_Matrix(d_V_SAP, scf_ws.alpha.d_F);
+        else
+            deviceMemcpy(scf_ws.alpha.d_F, d_V_SAP, sizeof(float) * nao2,
+                         deviceMemcpyDeviceToDevice);
+        deviceFree(d_V_SAP);
+
+        // 3. 归一化 + F_guess = T + V_SAP
+        QC_Scale_Matrix_By_Norms(nao, scf_ws.ortho.d_norms, scf_ws.alpha.d_F);
+        QC_Add_Matrix(nao2, scf_ws.core.d_T, scf_ws.alpha.d_F,
+                      scf_ws.alpha.d_F);
+
+        // 4. 对角化 + aufbau 构建 P
+        Diag_Guess_And_Build_P();
+    }
+
     if (scf_ws.runtime.unrestricted)
     {
         QC_Add_Matrix((int)mol.nao2, scf_ws.alpha.d_P, scf_ws.beta.d_P,
@@ -886,4 +960,10 @@ void QUANTUM_CHEMISTRY::Step_Print(CONTROLLER* controller)
         scf_energy = (float)h_energy;
     }
     controller->Step_Print("QC", scf_energy * CONSTANT_HARTREE_TO_KCAL_MOL);
+
+    if (scf_ws.runtime.unrestricted)
+    {
+        Compute_Spin_Square();
+        controller->Step_Print("QC_S_sq", scf_ws.runtime.spin_square);
+    }
 }

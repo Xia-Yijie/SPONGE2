@@ -40,6 +40,9 @@ struct QUANTUM_CHEMISTRY
 
     // 计算方法
     QC_METHOD method = QC_METHOD::HF;
+    // 初始猜测
+    QC_INITIAL_GUESS initial_guess = QC_INITIAL_GUESS::SAP;
+    bool need_initial_guess = true;
     // DFT信息
     QC_DFT dft;
     // 分子信息
@@ -78,6 +81,7 @@ struct QUANTUM_CHEMISTRY
     // 积分与基组变换内部流程
     void Build_Cart2Sph_Matrix();
     void Cart2Sph_OneE_Integrals();
+    void Cart2Sph_Single_Matrix(float* d_cart, float* d_sph);
 
     // 坐标更新
     void Update_Coordinates_From_MD(const VECTOR* crd, const VECTOR box_length);
@@ -96,10 +100,12 @@ struct QUANTUM_CHEMISTRY
     void Accumulate_SCF_Energy(int iter);
     void Apply_DIIS(int iter);
     void Diagonalize_And_Build_Density();
-    bool Mix_And_Check_Convergence(int iter, int md_step);
+    bool Check_Convergence(int iter, int md_step);
     void Build_Overlap_X();
     void Reset_SCF_State();
     void Build_Initial_Guess();
+    void Diag_Guess_And_Build_P();
+    void Compute_Spin_Square();
 };
 
 #endif
