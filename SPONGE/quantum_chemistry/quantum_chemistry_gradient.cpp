@@ -74,6 +74,19 @@ void QUANTUM_CHEMISTRY::Compute_Gradient(VECTOR* frc, const VECTOR box_length)
     // 5. DFT XC 网格梯度
     // TODO: Phase 4 实现 grad_xc.hpp
 
+    // DEBUG: 打印梯度
+    if (CONTROLLER::MPI_rank == 0)
+    {
+        std::vector<double> h_grad(natm * 3);
+        deviceMemcpy(h_grad.data(), grad_ws.d_grad,
+                     sizeof(double) * natm * 3, deviceMemcpyDeviceToHost);
+        fprintf(stdout, "QC Gradient (Ha/Bohr):\n");
+        for (int i = 0; i < natm; i++)
+            fprintf(stdout, "  Atom %d: %12.8f %12.8f %12.8f\n", i,
+                    h_grad[i * 3], h_grad[i * 3 + 1], h_grad[i * 3 + 2]);
+        fflush(stdout);
+    }
+
     // 6. 将梯度写入 MD 力数组
     {
         const int threads = 256;
