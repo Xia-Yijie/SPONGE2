@@ -55,11 +55,6 @@ static __global__ void OneE_Grad_Kernel(
                 float norm_mu_nu = norms[mu] * norms[nu];
                 float p_val = P[mu * nao_total + nu] * norm_mu_nu;
                 float w_val = W[mu * nao_total + nu] * norm_mu_nu;
-                // 对称因子: 如果 i_sh != j_sh 则 off-diagonal 贡献 ×2
-                float sym = (i_sh != j_sh) ? 2.0f : 1.0f;
-                p_val *= sym;
-                w_val *= sym;
-
                 for (int pi = 0; pi < shell_sizes[i_sh]; pi++)
                 {
                     float ei = exps[shell_offsets[i_sh] + pi];
@@ -107,20 +102,14 @@ static __global__ void OneE_Grad_Kernel(
                         float ds_dAy = cc * sx * dsy_dAy * sz;
                         float ds_dAz = cc * sx * sy * dsz_dAz;
 
-                        // Pulay: grad -= W · dS/dR_A
+                        // Pulay: grad -= W · dS/dR_A (仅对 i_sh 的原子)
+                        // 全矩阵遍历: (j,i) task 会自然处理 atom_j
                         atomicAdd(&grad[atom_i * 3 + 0],
                                   -(double)w_val * (double)ds_dAx);
                         atomicAdd(&grad[atom_i * 3 + 1],
                                   -(double)w_val * (double)ds_dAy);
                         atomicAdd(&grad[atom_i * 3 + 2],
                                   -(double)w_val * (double)ds_dAz);
-                        // dS/dB = -dS/dA (平移不变性)
-                        atomicAdd(&grad[atom_j * 3 + 0],
-                                  (double)w_val * (double)ds_dAx);
-                        atomicAdd(&grad[atom_j * 3 + 1],
-                                  (double)w_val * (double)ds_dAy);
-                        atomicAdd(&grad[atom_j * 3 + 2],
-                                  (double)w_val * (double)ds_dAz);
 
                         // === dT/dA_x ===
                         // T 用 overlap 在 l+1 阶的递推
@@ -194,20 +183,13 @@ static __global__ void OneE_Grad_Kernel(
                         dt_dAz = cc * (tx * sy * dsz_dAz + sx * ty * dsz_dAz +
                                        sx * sy * dtz_dAz);
 
-                        // grad += P · dT/dR_A
+                        // grad += P · dT/dR_A (仅对 i_sh 的原子)
                         atomicAdd(&grad[atom_i * 3 + 0],
                                   (double)p_val * (double)dt_dAx);
                         atomicAdd(&grad[atom_i * 3 + 1],
                                   (double)p_val * (double)dt_dAy);
                         atomicAdd(&grad[atom_i * 3 + 2],
                                   (double)p_val * (double)dt_dAz);
-                        // dT/dB = -dT/dA (平移不变性)
-                        atomicAdd(&grad[atom_j * 3 + 0],
-                                  -(double)p_val * (double)dt_dAx);
-                        atomicAdd(&grad[atom_j * 3 + 1],
-                                  -(double)p_val * (double)dt_dAy);
-                        atomicAdd(&grad[atom_j * 3 + 2],
-                                  -(double)p_val * (double)dt_dAz);
 
                         // === dV/dR_A ===
                         // E 系数导数用于 AO 中心导数
@@ -400,16 +382,6 @@ static __global__ void OneE_Grad_Kernel(
                                       (double)p_val * dv_dAy);
                             atomicAdd(&grad[atom_i * 3 + 2],
                                       (double)p_val * dv_dAz);
-                            // AO 中心 B 导数: dV/dB = -(dV/dA + dV/dC) 对两中心
-                            // 实际: dV/dBx 需要独立计算（用 ej 替代 ei）
-                            // 简化: 利用 dV/dA + dV/dB + dV/dC = 0 (平移不变性)
-                            // dV/dB = -(dV/dA + dV/dC)
-                            atomicAdd(&grad[atom_j * 3 + 0],
-                                      (double)p_val * (-dv_dAx - dv_dCx));
-                            atomicAdd(&grad[atom_j * 3 + 1],
-                                      (double)p_val * (-dv_dAy - dv_dCy));
-                            atomicAdd(&grad[atom_j * 3 + 2],
-                                      (double)p_val * (-dv_dAz - dv_dCz));
                             // 核中心 C 导数
                             atomicAdd(&grad[iat * 3 + 0],
                                       (double)p_val * dv_dCx);
