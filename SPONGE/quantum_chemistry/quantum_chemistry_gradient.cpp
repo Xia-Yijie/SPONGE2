@@ -13,6 +13,23 @@ void QUANTUM_CHEMISTRY::Compute_Gradient(VECTOR* frc, const VECTOR box_length)
     // 清零梯度累加器
     deviceMemset(grad_ws.d_grad, 0, sizeof(double) * natm * 3);
 
+    // DEBUG helper
+    auto print_grad = [&](const char* label)
+    {
+        if (CONTROLLER::MPI_rank == 0)
+        {
+            std::vector<double> h_grad(natm * 3);
+            deviceMemcpy(h_grad.data(), grad_ws.d_grad,
+                         sizeof(double) * natm * 3, deviceMemcpyDeviceToHost);
+            fprintf(stdout, "%s:\n", label);
+            for (int i = 0; i < natm; i++)
+                fprintf(stdout, "  Atom %d: %12.8f %12.8f %12.8f\n", i,
+                        h_grad[i * 3], h_grad[i * 3 + 1],
+                        h_grad[i * 3 + 2]);
+            fflush(stdout);
+        }
+    };
+
     // 1. 构建能量加权密度矩阵 W
     {
         // 复用 alpha 的 Fock 矩阵缓冲作为临时 D 矩阵
@@ -44,6 +61,8 @@ void QUANTUM_CHEMISTRY::Compute_Gradient(VECTOR* frc, const VECTOR box_length)
                              grad_ws.d_grad);
     }
 
+    print_grad("After nuclear only");
+
     // 3. 单电子积分导数: Tr[P·dH/dR] - Tr[W·dS/dR]
     {
         // P 和 W 需要在笛卡尔基下；当前为球谐基
@@ -74,18 +93,7 @@ void QUANTUM_CHEMISTRY::Compute_Gradient(VECTOR* frc, const VECTOR box_length)
     // 5. DFT XC 网格梯度
     // TODO: Phase 4 实现 grad_xc.hpp
 
-    // DEBUG: 打印梯度
-    if (CONTROLLER::MPI_rank == 0)
-    {
-        std::vector<double> h_grad(natm * 3);
-        deviceMemcpy(h_grad.data(), grad_ws.d_grad,
-                     sizeof(double) * natm * 3, deviceMemcpyDeviceToHost);
-        fprintf(stdout, "QC Gradient (Ha/Bohr):\n");
-        for (int i = 0; i < natm; i++)
-            fprintf(stdout, "  Atom %d: %12.8f %12.8f %12.8f\n", i,
-                    h_grad[i * 3], h_grad[i * 3 + 1], h_grad[i * 3 + 2]);
-        fflush(stdout);
-    }
+    print_grad("After nuclear + 1e gradient");
 
     // 6. 将梯度写入 MD 力数组
     {
