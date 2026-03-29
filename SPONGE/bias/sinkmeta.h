@@ -58,9 +58,6 @@ struct MetaScatter
     float* d_potential = NULL;
     std::vector<float> force;
     float* d_force = NULL;
-    std::vector<float> rotate_v;
-    float* d_rotate_v = NULL;
-    std::vector<float> rotate_matrix;
 
     void Initial(const std::vector<int>& npts, const std::vector<float>& period,
                  const std::vector<std::vector<float>>& coor);
@@ -143,7 +140,6 @@ struct META
     int mask = 0;
     int convmeta = 0;
     int grw = 0;
-    int catheter = 0;
     bool has_edge_file_input = false;
 
     // ---- height / well-tempered parameters ----
@@ -154,12 +150,9 @@ struct META
     int is_welltemp = 0;
     float temperature = 300;
 
-    // ---- scatter / catheter parameters ----
+    // ---- scatter parameters ----
     int scatter_size = 0;
     std::vector<float*> tcoor;
-    std::vector<float> delta_sigma;
-    float sigma_s;
-    float sigma_r;
 
     // ---- border wall ----
     float border_potential_height = 1000.;
@@ -191,7 +184,6 @@ struct META
     float* d_hill_inv_w = NULL;
     float* d_hill_periods = NULL;
     float* d_cutoff = NULL;
-    float* d_delta_sigma = NULL;
 
     // ---- IO ----
     char read_potential_file_name[256];
@@ -225,7 +217,7 @@ struct META
     float Calc_Hill(const Axis& values, const int i);
     float Sum_Hills(int history_freq);
     void Edge_Effect(const int dim, const int size);
-    Axis Rotate_Vector(const Axis& tang_vector, bool do_debug);
+    Axis Rotate_Vector(const Axis& tang_vector);
     void Cartesian_To_Path(const Axis& Cartesian_values, Axis& Path_values);
     double Tang_Vector(Gdata& tang_vector, const Axis& values,
                        const Axis& neighbor);
