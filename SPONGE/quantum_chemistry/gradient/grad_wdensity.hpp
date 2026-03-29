@@ -42,12 +42,12 @@ static void QC_Build_Energy_Weighted_Density(BLAS_HANDLE blas_handle, int nao,
                          (total + threads - 1) / threads, threads, 0, 0, nao,
                          n_occ, d_C, d_epsilon, d_D_tmp);
 
-    // W = occ_factor × D @ C^T
-    // D: nao × n_occ (行主序), C: nao × n_occ (行主序)
-    // W: nao × nao (行主序) = D @ C^T
-    // 列主序: W^T = C_col @ D_col^T
+    // W = occ_factor × D @ C^T (行主序)
+    // 与 QC_Build_Density_Blas 相同的 sgemm 模式:
+    // P = occ × C_row @ C_row^T 用 sgemm(T, N, nao, nao, n_occ, C, nao, C, nao)
+    // W = occ × D_row @ C_row^T 用 sgemm(T, N, nao, nao, n_occ, C, nao, D, nao)
     const float alpha = occ_factor;
     const float beta = 0.0f;
-    deviceBlasSgemm(blas_handle, DEVICE_BLAS_OP_N, DEVICE_BLAS_OP_T, nao, nao,
+    deviceBlasSgemm(blas_handle, DEVICE_BLAS_OP_T, DEVICE_BLAS_OP_N, nao, nao,
                     n_occ, &alpha, d_C, nao, d_D_tmp, nao, &beta, d_W, nao);
 }
