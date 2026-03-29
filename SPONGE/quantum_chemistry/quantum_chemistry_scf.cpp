@@ -29,11 +29,67 @@ void QUANTUM_CHEMISTRY::Solve_SCF(const VECTOR* crd, const VECTOR box_length,
         need_initial_guess = false;
     }
 
+    // SCF 收敛策略: HF 和 DFT 使用不同的启动策略
+    //
+    // HF: DIIS 从 iter 2 开始，level shift 0.25（默认）
+    //
+    // DFT: 分三个阶段
+    //   Phase 1 (iter 0 ~ warmup-1): 纯对角化 + 大 level shift，禁用 DIIS
+    //     解决 SAP→DFT Fock 的不连续性
+    //   Phase 2 (warmup ~ stable): MESA (EDIIS/ADIIS)，shift 衰减
+    //     等待历史点稳定
+    //   Phase 3 (stable ~): CDIIS，shift 关闭
+    //     超线性收敛
+    // SCF 收敛策略: HF 和 DFT 使用不同的启动策略
+    // HF: DIIS 从 iter 2 开始，固定 level shift 0.25
+    // DFT: 前 N 轮禁用 DIIS + 大 shift，然后 MESA + shift 衰减，最后 CDIIS + 无
+    // shift
+    const int dft_warmup = dft.enable_dft ? 3 : 0;
+    const double dft_warmup_ls = 1.5;
+    double dft_ls = dft_warmup_ls;
+    int stable_count = 0;
+
     for (int iter = 0; iter < scf_ws.runtime.max_scf_iter; ++iter)
     {
         Build_Fock(iter);
         Accumulate_SCF_Energy(iter);
-        Apply_DIIS(iter);
+
+        if (dft.enable_dft && iter < dft_warmup)
+        {
+            // DFT Phase 1: 禁用 DIIS，大 level shift 稳定
+            scf_ws.runtime.level_shift = dft_warmup_ls;
+        }
+        else
+        {
+            Apply_DIIS(iter);
+
+            if (dft.enable_dft)
+            {
+                // 追踪连续能量下降
+                double h_delta_e = 0.0;
+                if (iter > 0)
+                    deviceMemcpy(&h_delta_e, scf_ws.runtime.d_delta_e,
+                                 sizeof(double), deviceMemcpyDeviceToHost);
+                if (h_delta_e < 0.0)
+                    stable_count++;
+                else
+                    stable_count = 0;
+
+                // DFT Phase 2/3: shift 缓慢衰减，稳定后加速
+                if (stable_count >= 2)
+                    dft_ls *= 0.8;  // 连续稳定 → 衰减
+                else
+                    dft_ls =
+                        fmin(dft_ls * 1.2, dft_warmup_ls);  // 不稳定 → 适度回升
+
+                scf_ws.runtime.level_shift = fmax(dft_ls, 0.0);
+            }
+            else
+            {
+                scf_ws.runtime.level_shift = 0.25;
+            }
+        }
+
         Diagonalize_And_Build_Density();
         if (Check_Convergence(iter, md_step)) break;
     }
