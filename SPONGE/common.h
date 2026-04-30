@@ -14,7 +14,6 @@
 
 #include <algorithm>
 #include <deque>
-#include <filesystem>
 #include <fstream>
 #include <initializer_list>
 #include <iostream>
@@ -30,17 +29,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-namespace fs = std::filesystem;
-
-static auto quote_path(const fs::path& path)
-{
-    std::string value = path.string();
-    if (value.find_first_of(" \t\"'") != std::string::npos)
-    {
-        value = "\"" + value + "\"";
-    }
-    return value;
-};
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -63,7 +51,6 @@ static auto quote_path(const fs::path& path)
 #define RTLD_NOW 0
 #endif
 #define PLUGIN_API extern "C" __declspec(dllexport)
-#define getcwd _getcwd
 #define readlink(x, y, z) GetModuleFileName(NULL, y, z);
 #elif defined(__linux__)
 #include <dlfcn.h>

@@ -284,13 +284,12 @@ static int read_one_line(FILE* In_File, char* line, char* ender)
     return 1;
 }
 
-static fs::path Resolve_Path_With_Base(const std::string& raw_path,
-                                       const fs::path& base_dir)
+static std::string Resolve_Path_With_Base(const std::string& raw_path,
+                                          const std::string& base_dir)
 {
-    fs::path path(raw_path);
-    if (path.empty()) return base_dir;
-    if (path.is_absolute()) return path.lexically_normal();
-    return fs::absolute(base_dir / path).lexically_normal();
+    if (raw_path.empty()) return base_dir;
+    if (Is_Absolute_Path(raw_path)) return raw_path;
+    return Join_Path(base_dir, raw_path);
 }
 
 void CONTROLLER::Commands_From_In_File(int argc, char** argv,
@@ -299,23 +298,18 @@ void CONTROLLER::Commands_From_In_File(int argc, char** argv,
     mdin_is_toml = false;
     mdin_toml_source_path.clear();
     mdin_toml_content.clear();
-    const fs::path startup_cwd = fs::current_path();
-    fs::path mdin_dir = startup_cwd;
-    fs::path resolved_mdin_path;
+    const std::string startup_cwd = Get_Current_Working_Directory();
+    std::string mdin_dir = startup_cwd;
+    std::string resolved_mdin_path;
     bool mdin_found = false;
     const bool command_only = Command_Exist("command_only");
     MdinInputFormat mdin_format = MdinInputFormat::None;
     std::string mdin_path;
     std::string toml_content;
     FILE* In_File = NULL;
-    if (command_only)
+    if (!command_only && !Command_Exist(MDIN_COMMAND))
     {
-        // Skip mdin discovery when only command-line inputs are requested.
-        // All required parameters must be provided via CLI flags.
-    }
-    else if (!Command_Exist(MDIN_COMMAND))
-    {
-        if (fs::exists(MDIN_TOML_DEFAULT_FILENAME))
+        if (Path_Exists(MDIN_TOML_DEFAULT_FILENAME))
         {
             mdin_format = MdinInputFormat::Toml;
             mdin_path = MDIN_TOML_DEFAULT_FILENAME;
@@ -334,11 +328,10 @@ void CONTROLLER::Commands_From_In_File(int argc, char** argv,
             }
         }
     }
-    else
+    else if (!command_only)
     {
         mdin_path = Command(MDIN_COMMAND);
-        std::string ext =
-            to_lower_copy(fs::path(mdin_path).extension().string());
+        std::string ext = to_lower_copy(Path_Extension(mdin_path));
         if (ext == ".toml")
         {
             mdin_format = MdinInputFormat::Toml;
@@ -352,10 +345,10 @@ void CONTROLLER::Commands_From_In_File(int argc, char** argv,
     if (mdin_format == MdinInputFormat::Toml)
     {
         resolved_mdin_path = Resolve_Path_With_Base(mdin_path, startup_cwd);
-        toml_content = Read_File_To_String(resolved_mdin_path.string(), this);
-        mdin_dir = resolved_mdin_path.parent_path();
+        toml_content = Read_File_To_String(resolved_mdin_path, this);
+        mdin_dir = Parent_Path(resolved_mdin_path);
         mdin_found = true;
-        mdin_path = resolved_mdin_path.string();
+        mdin_path = resolved_mdin_path;
         mdin_is_toml = true;
         mdin_toml_source_path = mdin_path;
         mdin_toml_content = toml_content;
@@ -370,14 +363,13 @@ void CONTROLLER::Commands_From_In_File(int argc, char** argv,
         }
         if (In_File == NULL && !mdin_path.empty())
         {
-            Open_File_Safely(&In_File, resolved_mdin_path.string().c_str(), "r",
-                             true);
+            Open_File_Safely(&In_File, resolved_mdin_path.c_str(), "r", true);
         }
         if (In_File != NULL)
         {
-            mdin_dir = resolved_mdin_path.parent_path();
+            mdin_dir = Parent_Path(resolved_mdin_path);
             mdin_found = true;
-            mdin_path = resolved_mdin_path.string();
+            mdin_path = resolved_mdin_path;
             char line[CHAR_LENGTH_MAX];
             char prefix[CHAR_LENGTH_MAX] = {0};
             char ender[CHAR_LENGTH_MAX];
@@ -443,21 +435,18 @@ void CONTROLLER::Commands_From_In_File(int argc, char** argv,
         commands["md_name"] = "Default SPONGE MD Task Name";
     }
 
-    // Resolve workspace after mdin has been parsed so mdin-provided workspace
-    // is honored. Workspace is resolved relative to mdin directory if present,
-    // otherwise relative to startup cwd.
-    fs::path workspace_dir;
+    std::string workspace_dir;
     bool workspace_set = false;
     if (Command_Exist("workspace"))
     {
-        const fs::path workspace_base =
+        const std::string& workspace_base =
             (workspace_from_cli || !mdin_found) ? startup_cwd : mdin_dir;
         workspace_dir =
             Resolve_Path_With_Base(Command("workspace"), workspace_base);
         workspace_set = true;
     }
 
-    fs::path target_workdir = startup_cwd;
+    std::string target_workdir = startup_cwd;
     if (workspace_set)
     {
         target_workdir = workspace_dir;
@@ -467,19 +456,15 @@ void CONTROLLER::Commands_From_In_File(int argc, char** argv,
         target_workdir = mdin_dir;
     }
 
-    if (target_workdir != fs::current_path())
+    if (target_workdir != startup_cwd)
     {
-        try
-        {
-            fs::current_path(target_workdir);
-        }
-        catch (const fs::filesystem_error& e)
+        if (Set_Current_Working_Directory(target_workdir) != 0)
         {
             std::string error_reason = string_format(
                 "Reason:\n\tfail to change working directory to '%PATH%': "
                 "%DESC%",
-                {{"PATH", target_workdir.string()},
-                 {"DESC", std::string(e.what())}});
+                {{"PATH", target_workdir},
+                 {"DESC", std::string(strerror(errno))}});
             Throw_SPONGE_Error(spongeErrorOpenFileFailed,
                                "CONTROLLER::Commands_From_In_File",
                                error_reason.c_str());

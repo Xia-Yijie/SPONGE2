@@ -100,7 +100,7 @@ void COLLECTIVE_VARIABLE_CONTROLLER::Commands_From_In_File(
     if (controller->Command_Exist("cv_in_file"))
     {
         std::string cv_path = controller->Command("cv_in_file");
-        std::string ext = to_lower_copy(fs::path(cv_path).extension().string());
+        std::string ext = to_lower_copy(Path_Extension(cv_path));
         if (ext == ".toml")
         {
             std::string toml_content = Read_File_To_String(cv_path, controller);

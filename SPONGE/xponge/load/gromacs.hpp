@@ -6,8 +6,6 @@
 namespace Xponge
 {
 
-namespace fs = std::filesystem;
-
 static constexpr float Gromacs_Pi = 3.14159265358979323846f;
 
 struct Gromacs_Defaults
@@ -250,22 +248,42 @@ static bool Gromacs_Is_True(const std::string& value)
            value == "true" || value == "TRUE";
 }
 
-static fs::path Gromacs_Resolve_Include(
-    const fs::path& parent_dir, const std::string& include_name,
-    const std::vector<fs::path>& include_dirs, CONTROLLER* controller,
+struct Gromacs_Input_File
+{
+    std::string path;
+    std::ifstream stream;
+};
+
+static Gromacs_Input_File Gromacs_Try_Open_File(const std::string& path)
+{
+    Gromacs_Input_File file;
+    file.path = path;
+    file.stream.open(path);
+    return file;
+}
+
+static Gromacs_Input_File Gromacs_Resolve_Include(
+    const std::string& parent_dir, const std::string& include_name,
+    const std::vector<std::string>& include_dirs, CONTROLLER* controller,
     const char* error_by)
 {
-    fs::path candidate = parent_dir / include_name;
-    if (fs::exists(candidate))
+    std::string candidate = Join_Path(parent_dir, include_name);
+    Gromacs_Input_File file = Gromacs_Try_Open_File(candidate);
+    if (file.stream.is_open())
     {
-        return candidate;
+        return file;
     }
-    for (const fs::path& include_dir : include_dirs)
+    for (const std::string& include_dir : include_dirs)
     {
-        candidate = include_dir / include_name;
-        if (fs::exists(candidate))
+        if (include_dir == parent_dir)
         {
-            return candidate;
+            continue;
+        }
+        candidate = Join_Path(include_dir, include_name);
+        file = Gromacs_Try_Open_File(candidate);
+        if (file.stream.is_open())
+        {
+            return file;
         }
     }
     std::string reason = "Reason:\n\tfailed to resolve GROMACS include file '" +
@@ -275,23 +293,12 @@ static fs::path Gromacs_Resolve_Include(
     return {};
 }
 
-static void Gromacs_Preprocess_File(const fs::path& file_path,
-                                    std::set<std::string>* macros,
-                                    const std::vector<fs::path>& include_dirs,
-                                    std::vector<std::string>* lines,
-                                    CONTROLLER* controller,
-                                    const char* error_by)
+static void Gromacs_Preprocess_Stream(
+    const std::string& file_path, std::istream& fin,
+    std::set<std::string>* macros, const std::vector<std::string>& include_dirs,
+    std::vector<std::string>* lines, CONTROLLER* controller,
+    const char* error_by)
 {
-    std::ifstream fin(file_path);
-    if (!fin.is_open())
-    {
-        std::string reason =
-            "Reason:\n\tfailed to open GROMACS topology file '" +
-            file_path.string() + "'\n";
-        controller->Throw_SPONGE_Error(spongeErrorBadFileFormat, error_by,
-                                       reason.c_str());
-    }
-
     struct Conditional_State
     {
         bool parent_active = true;
@@ -337,11 +344,12 @@ static void Gromacs_Preprocess_File(const fs::path& file_path,
                 }
                 std::string include_name =
                     line.substr(begin + 1, end - begin - 1);
-                fs::path include_path = Gromacs_Resolve_Include(
-                    file_path.parent_path(), include_name, include_dirs,
+                Gromacs_Input_File include_file = Gromacs_Resolve_Include(
+                    Parent_Path(file_path), include_name, include_dirs,
                     controller, error_by);
-                Gromacs_Preprocess_File(include_path, macros, include_dirs,
-                                        lines, controller, error_by);
+                Gromacs_Preprocess_Stream(include_file.path, include_file.stream,
+                                          macros, include_dirs, lines,
+                                          controller, error_by);
                 continue;
             }
             if (tokens[0] == "#define")
@@ -445,6 +453,26 @@ static void Gromacs_Preprocess_File(const fs::path& file_path,
             spongeErrorBadFileFormat, error_by,
             "Reason:\n\tunterminated GROMACS preprocessor conditional\n");
     }
+}
+
+static void Gromacs_Preprocess_File(const std::string& file_path,
+                                    std::set<std::string>* macros,
+                                    const std::vector<std::string>& include_dirs,
+                                    std::vector<std::string>* lines,
+                                    CONTROLLER* controller,
+                                    const char* error_by)
+{
+    Gromacs_Input_File file = Gromacs_Try_Open_File(file_path);
+    if (!file.stream.is_open())
+    {
+        std::string reason =
+            "Reason:\n\tfailed to open GROMACS topology file '" + file_path +
+            "'\n";
+        controller->Throw_SPONGE_Error(spongeErrorBadFileFormat, error_by,
+                                       reason.c_str());
+    }
+    Gromacs_Preprocess_Stream(file.path, file.stream, macros, include_dirs,
+                              lines, controller, error_by);
 }
 
 static float Gromacs_To_Kcal(float value_in_kj) { return value_in_kj / 4.184f; }
@@ -659,9 +687,9 @@ static Gromacs_Topology Gromacs_Parse_Topology(CONTROLLER* controller)
             "Reason:\n\tgromacs_gro is required for GROMACS input\n");
     }
 
-    fs::path top_path = controller->Command("gromacs_top");
-    std::vector<fs::path> include_dirs;
-    include_dirs.push_back(top_path.parent_path());
+    std::string top_path = controller->Command("gromacs_top");
+    std::vector<std::string> include_dirs;
+    include_dirs.push_back(Parent_Path(top_path));
     if (controller->Command_Exist("gromacs_include_dir"))
     {
         for (const std::string& token :
