@@ -1,0 +1,6 @@
+.py-build-cmake_cache/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+*.so

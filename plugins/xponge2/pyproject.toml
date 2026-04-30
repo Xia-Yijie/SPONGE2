@@ -1,0 +1,33 @@
+[project]
+name = "xponge2"
+readme = "README.md"
+license = {"text" = "Apache-2.0"}
+authors = [{name = "SPONGE Developers"}]
+keywords = ["SPONGE", "Xponge", "molecular dynamics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Programming Language :: Python :: 3",
+]
+dynamic = ["version", "description"]
+
+[build-system]
+requires = ["py-build-cmake~=0.1.8"]
+build-backend = "py_build_cmake.build"
+
+[tool.py-build-cmake.module]
+directory = "."
+
+[tool.py-build-cmake.sdist]
+include = ["CMakeLists.txt", "cmake/*", "src/*", "xponge2/*"]
+
+[tool.py-build-cmake.cmake]
+build_type = "Release"
+source_path = "."
+install_components = ["python_modules"]
+
+[tool.py-build-cmake.cross]
+implementation = "cp"
+version = "310"
+abi = "abi3"
+toolchain_file = "cmake/native-toolchain.cmake"
