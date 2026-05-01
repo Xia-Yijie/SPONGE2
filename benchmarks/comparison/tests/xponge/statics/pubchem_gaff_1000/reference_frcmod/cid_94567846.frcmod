@@ -1,0 +1,48 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+hn-na-na   48.294     120.200   Calculated with empirical approach for hn-na-na
+cf-c3-na   66.000     112.870   same as ca-c3-na, penalty score=  2.2
+c3-na-na   63.451     124.595   Calculated with empirical approach for c3-na-na
+nd-cd-ne   69.900     129.010   same as nc-cd-nf, penalty score=  1.8
+cf-ce-ne   68.600     120.790   same as ce-ce-nf, penalty score=  1.2
+cd-ne-ce   65.600     123.670   same as ca-ne-cd, penalty score=  2.2
+
+DIHE
+na-c3-cf-ce   6    0.000         0.000           3.000      same as X -c3-cd-X , penalty score=136.0
+na-c3-cf-c    6    0.000         0.000           3.000      same as X -c3-cd-X , penalty score=136.0
+hc-c3-ce-ne   6    0.000         0.000           3.000      same as X -c3-cc-X , penalty score=136.0
+hc-c3-ce-cf   1    0.380       180.000          -3.000      same as hc-c3-c2-c2
+hc-c3-ce-cf   1    0.000         0.000          -2.000      same as hc-c3-c2-c2
+hc-c3-ce-cf   1    1.150         0.000           1.000      same as hc-c3-c2-c2, penalty score=324.0
+ca-c3-cf-ce   6    0.000         0.000           3.000      same as X -c3-cd-X , penalty score=136.0
+ca-c3-cf-c    6    0.000         0.000           3.000      same as X -c3-cd-X , penalty score=136.0
+na-cd-ne-ce   2    1.600       180.000           2.000      same as X -ce-ne-X , penalty score=162.0
+nd-cd-ne-ce   2    1.600       180.000           2.000      same as X -ce-ne-X , penalty score=162.0
+na-cc-ss-c3   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+nd-cc-ss-c3   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+h1-c3-cf-ce   1    0.380       180.000          -3.000      same as hc-c3-c2-c2
+h1-c3-cf-ce   1    0.000         0.000          -2.000      same as hc-c3-c2-c2
+h1-c3-cf-ce   1    1.150         0.000           1.000      same as hc-c3-c2-c2, penalty score=411.0
+h1-c3-cf-c    1    0.380       180.000          -3.000      same as hc-c3-c2-c2
+h1-c3-cf-c    1    0.000         0.000          -2.000      same as hc-c3-c2-c2
+h1-c3-cf-c    1    1.150         0.000           1.000      same as hc-c3-c2-c2, penalty score=411.0
+
+IMPROPER
+c3-cd-na-na         1.1          180.0         2.0          Using the default value
+cc-hn-na-na         1.1          180.0         2.0          Same as X -X -na-hn, penalty score= 31.9 (use general term))
+c -c3-cf-ce         1.1          180.0         2.0          Using the default value
+na-nd-cd-ne        10.5          180.0         2.0          Same as X -n2-ca-n2, penalty score= 78.6 (use general term))
+c3-cf-ce-ne         1.1          180.0         2.0          Using the default value
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+c3-cf-c -o         10.5          180.0         2.0          Using general improper torsional angle  X- X- c- o, penalty score=  6.0)
+na-nd-cc-ss         1.1          180.0         2.0          Using the default value
+ca-ca-ca-os         1.1          180.0         2.0          Using the default value
+
+NONBON
+
+
+

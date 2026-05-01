@@ -1,0 +1,3 @@
+from importlib.resources.abc import Traversable
+
+def bundled_data_dir() -> Traversable: ...

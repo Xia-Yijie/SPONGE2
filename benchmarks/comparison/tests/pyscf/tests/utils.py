@@ -164,7 +164,6 @@ def run_sponge_scf_energy_ha(
         sponge_dir,
         mpi_np=mpi_np,
         mdin_name="mdin.txt",
-        sponge_cmd=os.environ.get("SPONGE_BIN", "SPONGE"),
         extra_args=["-qc_model_chemistry", model_chemistry]
         + ([] if restricted else ["-qc_restricted", "0"])
         + (extra_sponge_args or []),

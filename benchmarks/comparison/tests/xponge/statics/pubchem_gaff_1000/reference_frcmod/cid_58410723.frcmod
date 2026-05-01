@@ -1,0 +1,50 @@
+Remark line goes here
+MASS
+Si 28.085        0.878               same as c3 
+
+BOND
+Si-c3  300.90   1.538       same as c3-c3, penalty score=  0.0
+Si-cc  334.80   1.502       same as c3-cc, penalty score=  0.0
+
+ANGLE
+Si-cc-ss   60.800     121.530   same as c3-cc-ss, penalty score=  0.0
+Si-c3-c3   62.900     111.510   same as c3-c3-c3, penalty score=  0.0
+Si-c3-hc   46.300     109.800   same as c3-c3-hc, penalty score=  0.0
+Si-cc-cd   64.700     119.450   same as c3-cc-cd, penalty score=  0.0
+c3-Si-c3   62.900     111.510   same as c3-c3-c3, penalty score=  0.0
+c3-Si-cc   63.500     111.930   same as c3-c3-cc, penalty score=  0.0
+
+DIHE
+c3-Si-c3-c3   1    0.180         0.000          -3.000      same as c3-c3-c3-c3
+c3-Si-c3-c3   1    0.250       180.000          -2.000      same as c3-c3-c3-c3
+c3-Si-c3-c3   1    0.200       180.000           1.000      same as c3-c3-c3-c3, penalty score=  0.0
+c3-Si-c3-hc   1    0.160         0.000           3.000      same as hc-c3-c3-c3, penalty score=  0.0
+c3-Si-cc-ss   6    0.000         0.000           3.000      same as X -c3-cc-X , penalty score=  0.0
+c3-Si-cc-cd   6    0.000         0.000           3.000      same as X -c3-cc-X , penalty score=  0.0
+cc-Si-c3-c3   9    1.400         0.000           3.000      same as X -c3-c3-X , penalty score=  0.0
+cc-Si-c3-hc   9    1.400         0.000           3.000      same as X -c3-c3-X , penalty score=  0.0
+ca-ca-cd-cc   4    2.800       180.000           2.000      same as X -c2-ca-X , penalty score=232.0
+Si-cc-ss-ca   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+cd-cc-ss-ca   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+ca-ca-cc-cd   4    2.800       180.000           2.000      same as X -c2-ca-X , penalty score=232.0
+ca-ca-cc-ha   4    2.800       180.000           2.000      same as X -c2-ca-X , penalty score=232.0
+cc-cd-ss-ca   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+h4-cd-ss-ca   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+ca-ca-cd-ha   4    2.800       180.000           2.000      same as X -c2-ca-X , penalty score=232.0
+
+IMPROPER
+Si-cd-cc-ss         1.1          180.0         2.0          Using the default value
+ca-cc-cd-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 38.9 (use general term))
+ca-ca-ca-cd         1.1          180.0         2.0          Using the default value
+ca-ca-ca-ss         1.1          180.0         2.0          Using the default value
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+ca-ca-ca-ca         1.1          180.0         2.0          Using the default value
+ca-ca-ca-cc         1.1          180.0         2.0          Using the default value
+ca-cd-cc-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 38.9 (use general term))
+cc-h4-cd-ss         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 67.2 (use general term))
+
+NONBON
+  Si          1.9080  0.1094             same as c3 
+
+
+

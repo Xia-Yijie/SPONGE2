@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "../../third_party/toml/toml.h"
+#include "file.hpp"
 
 inline bool Malloc_Safely(void** address, size_t size)
 {
@@ -252,20 +253,26 @@ std::string to_lower_copy(std::string value)
     return value;
 }
 
-std::string Read_File_To_String(const std::string& path, CONTROLLER* controller)
+std::string Read_File_To_String(const std::string& path,
+                                CONTROLLER* controller,
+                                const char* error_by = "Read_File_To_String")
 {
-    std::ifstream stream(path, std::ios::in | std::ios::binary);
-    if (!stream.is_open())
+    if (controller == nullptr)
     {
-        std::string error_reason = string_format(
-            "Reason:\n\tfail to open mdin file '%PATH%'", {{"PATH", path}});
-        controller->Throw_SPONGE_Error(spongeErrorOpenFileFailed,
-                                       "CONTROLLER::Commands_From_In_File",
-                                       error_reason.c_str());
+        return Read_File_To_String(path);
     }
-    std::ostringstream buffer;
-    buffer << stream.rdbuf();
-    return buffer.str();
+    std::ifstream stream(path, std::ios::in | std::ios::binary);
+    if (stream.is_open())
+    {
+        std::ostringstream buffer;
+        buffer << stream.rdbuf();
+        return buffer.str();
+    }
+    std::string error_reason = string_format(
+        "Reason:\n\tfail to open file '%PATH%'", {{"PATH", path}});
+    controller->Throw_SPONGE_Error(spongeErrorOpenFileFailed, error_by,
+                                   error_reason.c_str());
+    return "";
 }
 
 template <typename ControllerType>

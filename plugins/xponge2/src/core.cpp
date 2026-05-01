@@ -4,18 +4,30 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "gaff_typing.h"
+#include "model.h"
 #include "mol2_reader.h"
+#include "parmchk2.h"
+#include "parameters.h"
+#include "sponge_writer.h"
 
 namespace XA = Xponge::Assign;
+namespace Amber = Xponge::Amber;
 
 typedef struct
 {
     PyObject_HEAD XA::Assignment* assignment;
 } PyAssignObject;
 
+typedef struct
+{
+    PyObject_HEAD Amber::GaffParameters* parameters;
+} PyGaffParametersObject;
+
 static PyObject* PyAssignType = nullptr;
+static PyObject* PyGaffParametersType = nullptr;
 
 static PyObject* Set_Python_Error_From_Exception()
 {
@@ -732,6 +744,490 @@ static PyType_Spec PyAssignTypeSpec = {
     Py_TPFLAGS_DEFAULT,
     PyAssignTypeSlots};
 
+static PyObject* New_PyGaffParameters(Amber::GaffParameters&& parameters)
+{
+    PyObject* object = PyType_GenericAlloc(
+        reinterpret_cast<PyTypeObject*>(PyGaffParametersType), 0);
+    if (object == nullptr)
+    {
+        return nullptr;
+    }
+    PyGaffParametersObject* self =
+        reinterpret_cast<PyGaffParametersObject*>(object);
+    try
+    {
+        self->parameters =
+            new Amber::GaffParameters(std::move(parameters));
+    }
+    catch (...)
+    {
+        Py_DECREF(object);
+        throw;
+    }
+    return object;
+}
+
+static void PyGaffParameters_dealloc(PyObject* object)
+{
+    PyGaffParametersObject* self =
+        reinterpret_cast<PyGaffParametersObject*>(object);
+    delete self->parameters;
+    PyTypeObject* tp = Py_TYPE(object);
+    freefunc tp_free = reinterpret_cast<freefunc>(
+        PyType_GetSlot(tp, Py_tp_free));
+    tp_free(object);
+    Py_DECREF(tp);
+}
+
+static Amber::GaffParameters& Require_Gaff_Parameters(
+    PyGaffParametersObject* self)
+{
+    if (self->parameters == nullptr)
+    {
+        throw std::runtime_error("uninitialized GaffParameters object");
+    }
+    return *self->parameters;
+}
+
+static PyType_Slot PyGaffParametersTypeSlots[] = {
+    {Py_tp_dealloc, reinterpret_cast<void*>(PyGaffParameters_dealloc)},
+    {Py_tp_doc, const_cast<char*>("Native GAFF parameter table.")},
+    {0, nullptr}};
+
+static PyType_Spec PyGaffParametersTypeSpec = {
+    "xponge2.GaffParameters",
+    sizeof(PyGaffParametersObject),
+    0,
+    Py_TPFLAGS_DEFAULT,
+    PyGaffParametersTypeSlots};
+
+static PyObject* Get_Attr(PyObject* object, const char* name)
+{
+    PyObject* value = PyObject_GetAttrString(object, name);
+    if (value == nullptr)
+    {
+        throw std::runtime_error(std::string("missing attribute ") + name);
+    }
+    return value;
+}
+
+static bool Has_Attr(PyObject* object, const char* name)
+{
+    const int result = PyObject_HasAttrString(object, name);
+    return result == 1;
+}
+
+static std::string Object_To_String(PyObject* object)
+{
+    PyObject* utf8 = PyUnicode_AsUTF8String(object);
+    if (utf8 == nullptr)
+    {
+        throw std::runtime_error("expected string");
+    }
+    const char* text = PyBytes_AsString(utf8);
+    if (text == nullptr)
+    {
+        Py_DECREF(utf8);
+        throw std::runtime_error("expected string");
+    }
+    std::string result = text;
+    Py_DECREF(utf8);
+    return result;
+}
+
+static std::string String_Attr(PyObject* object,
+                               const char* name,
+                               const std::string& fallback = "")
+{
+    PyObject* value = PyObject_GetAttrString(object, name);
+    if (value == nullptr)
+    {
+        PyErr_Clear();
+        return fallback;
+    }
+    if (value == Py_None)
+    {
+        Py_DECREF(value);
+        return fallback;
+    }
+    std::string result = Object_To_String(value);
+    Py_DECREF(value);
+    return result;
+}
+
+static double Double_Attr(PyObject* object, const char* name)
+{
+    PyObject* value = Get_Attr(object, name);
+    const double result = PyFloat_AsDouble(value);
+    Py_DECREF(value);
+    if (PyErr_Occurred())
+    {
+        throw std::runtime_error(std::string("expected float attribute ") +
+                                 name);
+    }
+    return result;
+}
+
+static std::vector<PyObject*> Iter_Items(PyObject* iterable)
+{
+    std::vector<PyObject*> items;
+    PyObject* iterator = PyObject_GetIter(iterable);
+    if (iterator == nullptr)
+    {
+        throw std::runtime_error("object is not iterable");
+    }
+    while (PyObject* item = PyIter_Next(iterator))
+    {
+        items.push_back(item);
+    }
+    Py_DECREF(iterator);
+    if (PyErr_Occurred())
+    {
+        for (PyObject* item : items)
+        {
+            Py_DECREF(item);
+        }
+        throw std::runtime_error("failed to iterate Python object");
+    }
+    return items;
+}
+
+static Xponge::Molecule Molecule_From_Python(PyObject* object)
+{
+    Xponge::Molecule molecule;
+    PyObject* residues_object = Get_Attr(object, "residues");
+    auto residues = Iter_Items(residues_object);
+    Py_DECREF(residues_object);
+    try
+    {
+        for (PyObject* py_residue : residues)
+        {
+            Xponge::ResidueType residue;
+            residue.name = String_Attr(py_residue, "name", "MOL");
+            residue.forcefield = String_Attr(py_residue, "forcefield", "");
+            residue.head = String_Attr(py_residue, "head", "");
+            residue.tail = String_Attr(py_residue, "tail", "");
+
+            PyObject* atoms_object = Get_Attr(py_residue, "atoms");
+            auto atoms = Iter_Items(atoms_object);
+            Py_DECREF(atoms_object);
+            for (PyObject* py_atom : atoms)
+            {
+                Xponge::ModelAtom atom;
+                atom.name = String_Attr(py_atom, "name", "");
+                atom.type = String_Attr(py_atom, "type", "");
+                atom.x = Double_Attr(py_atom, "x");
+                atom.y = Double_Attr(py_atom, "y");
+                atom.z = Double_Attr(py_atom, "z");
+                atom.charge = Double_Attr(py_atom, "charge");
+                atom.mass = Double_Attr(py_atom, "mass");
+                atom.lj_type = String_Attr(py_atom, "lj_type", atom.type);
+                residue.atoms.push_back(atom);
+                Py_DECREF(py_atom);
+            }
+
+            PyObject* bonds_object = Get_Attr(py_residue, "bonds");
+            auto bonds = Iter_Items(bonds_object);
+            Py_DECREF(bonds_object);
+            for (PyObject* py_bond : bonds)
+            {
+                PyObject* first = PySequence_GetItem(py_bond, 0);
+                PyObject* second = PySequence_GetItem(py_bond, 1);
+                if (first == nullptr || second == nullptr)
+                {
+                    Py_XDECREF(first);
+                    Py_XDECREF(second);
+                    Py_DECREF(py_bond);
+                    throw std::runtime_error("invalid bond tuple");
+                }
+                int i = static_cast<int>(PyLong_AsLong(first));
+                int j = static_cast<int>(PyLong_AsLong(second));
+                Py_DECREF(first);
+                Py_DECREF(second);
+                Py_DECREF(py_bond);
+                if (PyErr_Occurred())
+                {
+                    throw std::runtime_error("invalid bond index");
+                }
+                if (i > j)
+                {
+                    std::swap(i, j);
+                }
+                residue.bonds.push_back({i, j});
+            }
+            molecule.residues.push_back(std::move(residue));
+        }
+        for (PyObject* py_residue : residues)
+        {
+            Py_DECREF(py_residue);
+        }
+    }
+    catch (...)
+    {
+        for (PyObject* py_residue : residues)
+        {
+            Py_XDECREF(py_residue);
+        }
+        throw;
+    }
+    return molecule;
+}
+
+static PyObject* Mapping_Get_String(PyObject* mapping, const char* key)
+{
+    PyObject* key_object = PyUnicode_FromString(key);
+    if (key_object == nullptr)
+    {
+        return nullptr;
+    }
+    PyObject* value = PyObject_GetItem(mapping, key_object);
+    Py_DECREF(key_object);
+    return value;
+}
+
+static double Dict_Double(PyObject* mapping, const char* key)
+{
+    PyObject* value = Mapping_Get_String(mapping, key);
+    if (value == nullptr)
+    {
+        throw std::runtime_error(std::string("missing key ") + key);
+    }
+    const double result = PyFloat_AsDouble(value);
+    Py_DECREF(value);
+    if (PyErr_Occurred())
+    {
+        throw std::runtime_error(std::string("expected numeric key ") + key);
+    }
+    return result;
+}
+
+static bool Try_Dict_Double(PyObject* mapping, const char* key, double* result)
+{
+    PyObject* value = Mapping_Get_String(mapping, key);
+    if (value == nullptr)
+    {
+        PyErr_Clear();
+        return false;
+    }
+    *result = PyFloat_AsDouble(value);
+    Py_DECREF(value);
+    if (PyErr_Occurred())
+    {
+        PyErr_Clear();
+        return false;
+    }
+    return true;
+}
+
+static int Dict_Int(PyObject* mapping, const char* key)
+{
+    PyObject* value = Mapping_Get_String(mapping, key);
+    if (value == nullptr)
+    {
+        throw std::runtime_error(std::string("missing key ") + key);
+    }
+    const long result = PyLong_AsLong(value);
+    Py_DECREF(value);
+    if (PyErr_Occurred())
+    {
+        throw std::runtime_error(std::string("expected integer key ") + key);
+    }
+    return static_cast<int>(result);
+}
+
+static std::string Tuple_String(PyObject* tuple, Py_ssize_t index)
+{
+    PyObject* item = PySequence_GetItem(tuple, index);
+    if (item == nullptr)
+    {
+        throw std::runtime_error("invalid tuple key");
+    }
+    std::string result = Object_To_String(item);
+    Py_DECREF(item);
+    return result;
+}
+
+static std::vector<PyObject*> Mapping_Items(PyObject* mapping)
+{
+    PyObject* items_object = PyMapping_Items(mapping);
+    if (items_object == nullptr)
+    {
+        throw std::runtime_error("expected mapping");
+    }
+    auto items = Iter_Items(items_object);
+    Py_DECREF(items_object);
+    return items;
+}
+
+static Amber::GaffParameters Amber_Parameters_From_Python(
+    PyObject* data_object,
+    const Xponge::Molecule& molecule)
+{
+    Amber::GaffParameters parameters;
+    for (const auto& atom : molecule.Atoms())
+    {
+        if (parameters.atom.find(atom.type) == parameters.atom.end())
+        {
+            parameters.atom[atom.type] = {atom.mass, atom.lj_type};
+        }
+    }
+
+    PyObject* bond_table = Mapping_Get_String(data_object, "bond");
+    PyObject* angle_table = Mapping_Get_String(data_object, "angle");
+    PyObject* proper_table = Mapping_Get_String(data_object, "proper");
+    PyObject* improper_table = Mapping_Get_String(data_object, "improper");
+    PyObject* lj_table = Mapping_Get_String(data_object, "lj");
+    if (!bond_table || !angle_table || !proper_table || !improper_table ||
+        !lj_table)
+    {
+        Py_XDECREF(bond_table);
+        Py_XDECREF(angle_table);
+        Py_XDECREF(proper_table);
+        Py_XDECREF(improper_table);
+        Py_XDECREF(lj_table);
+        throw std::runtime_error("invalid AMBER forcefield data");
+    }
+    try
+    {
+        for (PyObject* item : Mapping_Items(bond_table))
+        {
+            PyObject* key = PySequence_GetItem(item, 0);
+            PyObject* value = PySequence_GetItem(item, 1);
+            double k_value = 0.0;
+            double b_value = 0.0;
+            if (!Try_Dict_Double(value, "k", &k_value) ||
+                !Try_Dict_Double(value, "b", &b_value) ||
+                PySequence_Size(key) != 2)
+            {
+                Py_DECREF(key);
+                Py_DECREF(value);
+                Py_DECREF(item);
+                continue;
+            }
+            parameters.bond[Amber::Canonical2(Tuple_String(key, 0),
+                                              Tuple_String(key, 1))] = {
+                k_value, b_value};
+            Py_DECREF(key);
+            Py_DECREF(value);
+            Py_DECREF(item);
+        }
+        for (PyObject* item : Mapping_Items(angle_table))
+        {
+            PyObject* key = PySequence_GetItem(item, 0);
+            PyObject* value = PySequence_GetItem(item, 1);
+            double k_value = 0.0;
+            double b_value = 0.0;
+            if (!Try_Dict_Double(value, "k", &k_value) ||
+                !Try_Dict_Double(value, "b", &b_value) ||
+                PySequence_Size(key) != 3)
+            {
+                Py_DECREF(key);
+                Py_DECREF(value);
+                Py_DECREF(item);
+                continue;
+            }
+            parameters.angle[Amber::Canonical3(
+                Tuple_String(key, 0), Tuple_String(key, 1),
+                Tuple_String(key, 2))] = {k_value, b_value};
+            Py_DECREF(key);
+            Py_DECREF(value);
+            Py_DECREF(item);
+        }
+        for (PyObject* item : Mapping_Items(proper_table))
+        {
+            PyObject* key = PySequence_GetItem(item, 0);
+            PyObject* value = PySequence_GetItem(item, 1);
+            if (PySequence_Size(key) != 4)
+            {
+                Py_DECREF(key);
+                Py_DECREF(value);
+                Py_DECREF(item);
+                continue;
+            }
+            PyObject* ks = Mapping_Get_String(value, "ks");
+            PyObject* phi0s = Mapping_Get_String(value, "phi0s");
+            PyObject* periodicitys = Mapping_Get_String(value, "periodicitys");
+            auto ks_items = Iter_Items(ks);
+            auto phi_items = Iter_Items(phi0s);
+            auto per_items = Iter_Items(periodicitys);
+            std::vector<Amber::ProperTerm> terms;
+            for (std::size_t i = 0; i < ks_items.size(); ++i)
+            {
+                terms.push_back({PyFloat_AsDouble(ks_items[i]),
+                                 PyFloat_AsDouble(phi_items[i]),
+                                 static_cast<int>(
+                                     PyLong_AsLong(per_items[i]))});
+            }
+            for (auto* x : ks_items) Py_DECREF(x);
+            for (auto* x : phi_items) Py_DECREF(x);
+            for (auto* x : per_items) Py_DECREF(x);
+            Py_DECREF(ks);
+            Py_DECREF(phi0s);
+            Py_DECREF(periodicitys);
+            parameters.proper[std::make_tuple(
+                Tuple_String(key, 0), Tuple_String(key, 1),
+                Tuple_String(key, 2), Tuple_String(key, 3))] = terms;
+            Py_DECREF(key);
+            Py_DECREF(value);
+            Py_DECREF(item);
+        }
+        for (PyObject* item : Mapping_Items(improper_table))
+        {
+            PyObject* key = PySequence_GetItem(item, 0);
+            PyObject* value = PySequence_GetItem(item, 1);
+            double k_value = 0.0;
+            double phi_value = 0.0;
+            if (!Try_Dict_Double(value, "k", &k_value) ||
+                !Try_Dict_Double(value, "phi0", &phi_value) ||
+                PySequence_Size(key) != 4)
+            {
+                Py_DECREF(key);
+                Py_DECREF(value);
+                Py_DECREF(item);
+                continue;
+            }
+            parameters.improper[std::make_tuple(
+                Tuple_String(key, 0), Tuple_String(key, 1),
+                Tuple_String(key, 2), Tuple_String(key, 3))] = {
+                k_value, phi_value, Dict_Int(value, "periodicity")};
+            Py_DECREF(key);
+            Py_DECREF(value);
+            Py_DECREF(item);
+        }
+        for (PyObject* item : Mapping_Items(lj_table))
+        {
+            PyObject* key = PySequence_GetItem(item, 0);
+            PyObject* value = PySequence_GetItem(item, 1);
+            std::string name = Object_To_String(key);
+            const auto dash = name.find('-');
+            if (dash != std::string::npos)
+            {
+                name = name.substr(0, dash);
+            }
+            parameters.lj[name] = {Dict_Double(value, "epsilon"),
+                                   Dict_Double(value, "rmin")};
+            Py_DECREF(key);
+            Py_DECREF(value);
+            Py_DECREF(item);
+        }
+    }
+    catch (...)
+    {
+        Py_DECREF(bond_table);
+        Py_DECREF(angle_table);
+        Py_DECREF(proper_table);
+        Py_DECREF(improper_table);
+        Py_DECREF(lj_table);
+        throw;
+    }
+    Py_DECREF(bond_table);
+    Py_DECREF(angle_table);
+    Py_DECREF(proper_table);
+    Py_DECREF(improper_table);
+    Py_DECREF(lj_table);
+    return parameters;
+}
+
 static PyObject* Module_get_assignment_from_mol2(PyObject*,
                                                  PyObject* args,
                                                  PyObject* kwargs)
@@ -756,9 +1252,430 @@ static PyObject* Module_get_assignment_from_mol2(PyObject*,
     });
 }
 
+static PyObject* Module_generate_gaff_frcmod(PyObject*,
+                                             PyObject* args,
+                                             PyObject* kwargs)
+{
+    const char* ifname = nullptr;
+    const char* ofname = nullptr;
+    int ffset = 1;
+    int print_all = 0;
+    int print_dihedral_contain_X = 1;
+    PyObject* datapath = Py_None;
+    static const char* keywords[] = {"ifname",
+                                     "ofname",
+                                     "ffset",
+                                     "print_all",
+                                     "print_dihedral_contain_X",
+                                     "datapath",
+                                     nullptr};
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs, "ss|ippO", const_cast<char**>(keywords), &ifname,
+            &ofname, &ffset, &print_all, &print_dihedral_contain_X, &datapath))
+    {
+        return nullptr;
+    }
+    return Guarded([&]() -> PyObject* {
+        Amber::Parmchk2Options options;
+        options.ffset = ffset;
+        options.print_all = print_all != 0;
+        options.print_dihedral_contain_X = print_dihedral_contain_X != 0;
+        if (datapath != Py_None)
+        {
+            PyObject* utf8 = PyUnicode_AsUTF8String(datapath);
+            if (utf8 == nullptr)
+            {
+                return nullptr;
+            }
+            const char* path = PyBytes_AsString(utf8);
+            if (path == nullptr)
+            {
+                Py_DECREF(utf8);
+                return nullptr;
+            }
+            options.datapath = path;
+            Py_DECREF(utf8);
+        }
+        Amber::Generate_Gaff_Frcmod(ifname, ofname, options);
+        Py_RETURN_NONE;
+    });
+}
+
+static PyObject* Module_load_gaff_parameters(PyObject*,
+                                             PyObject* args,
+                                             PyObject* kwargs)
+{
+    const char* dat_path = nullptr;
+    PyObject* frcmod_path = Py_None;
+    static const char* keywords[] = {"dat_path", "frcmod_path", nullptr};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|O",
+                                     const_cast<char**>(keywords), &dat_path,
+                                     &frcmod_path))
+    {
+        return nullptr;
+    }
+    return Guarded([&] {
+        std::string frcmod;
+        if (frcmod_path != Py_None)
+        {
+            frcmod = Object_To_String(frcmod_path);
+        }
+        return New_PyGaffParameters(
+            Amber::Load_Gaff_Parameters(dat_path, frcmod));
+    });
+}
+
+static PyObject* Module_load_frcmod(PyObject*, PyObject* args)
+{
+    const char* filename = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &filename))
+    {
+        return nullptr;
+    }
+    return Guarded([&] {
+        const auto data = Amber::Load_Frcmod_As_Xponge_Data(filename);
+        PyObject* result = PyList_New(7);
+        if (result == nullptr)
+        {
+            return static_cast<PyObject*>(nullptr);
+        }
+        for (std::size_t i = 0; i < data.sections.size(); ++i)
+        {
+            PyObject* value = PyUnicode_FromString(data.sections[i].c_str());
+            if (value == nullptr)
+            {
+                Py_DECREF(result);
+                return static_cast<PyObject*>(nullptr);
+            }
+            PyList_SetItem(result, static_cast<Py_ssize_t>(i), value);
+        }
+        PyObject* cmap = PyDict_New();
+        if (cmap == nullptr)
+        {
+            Py_DECREF(result);
+            return static_cast<PyObject*>(nullptr);
+        }
+        for (const auto& item : data.cmap)
+        {
+            PyObject* entry = PyDict_New();
+            PyObject* resolution = PyLong_FromLong(item.second.resolution);
+            PyObject* parameters =
+                PyList_New(static_cast<Py_ssize_t>(
+                    item.second.parameters.size()));
+            if (entry == nullptr || resolution == nullptr ||
+                parameters == nullptr)
+            {
+                Py_XDECREF(entry);
+                Py_XDECREF(resolution);
+                Py_XDECREF(parameters);
+                Py_DECREF(cmap);
+                Py_DECREF(result);
+                return static_cast<PyObject*>(nullptr);
+            }
+            for (std::size_t i = 0; i < item.second.parameters.size(); ++i)
+            {
+                PyObject* value = PyFloat_FromDouble(
+                    item.second.parameters[i]);
+                if (value == nullptr)
+                {
+                    Py_DECREF(entry);
+                    Py_DECREF(resolution);
+                    Py_DECREF(parameters);
+                    Py_DECREF(cmap);
+                    Py_DECREF(result);
+                    return static_cast<PyObject*>(nullptr);
+                }
+                PyList_SetItem(parameters, static_cast<Py_ssize_t>(i), value);
+            }
+            if (PyDict_SetItemString(entry, "resolution", resolution) < 0 ||
+                PyDict_SetItemString(entry, "parameters", parameters) < 0)
+            {
+                Py_DECREF(entry);
+                Py_DECREF(resolution);
+                Py_DECREF(parameters);
+                Py_DECREF(cmap);
+                Py_DECREF(result);
+                return static_cast<PyObject*>(nullptr);
+            }
+            Py_DECREF(resolution);
+            Py_DECREF(parameters);
+            if (PyDict_SetItemString(cmap, item.first.c_str(), entry) < 0)
+            {
+                Py_DECREF(entry);
+                Py_DECREF(cmap);
+                Py_DECREF(result);
+                return static_cast<PyObject*>(nullptr);
+            }
+            Py_DECREF(entry);
+        }
+        PyList_SetItem(result, 6, cmap);
+        return result;
+    });
+}
+
+static PyObject* Module_save_sponge_input(PyObject*,
+                                          PyObject* args,
+                                          PyObject* kwargs)
+{
+    PyObject* molecule_object = nullptr;
+    const char* output_dir = ".";
+    PyObject* parameters_object = Py_None;
+    const char* prefix = "xponge";
+    PyObject* box_object = Py_None;
+    static const char* keywords[] = {
+        "molecule", "output_dir", "parameters", "prefix", "box", nullptr};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|sOsO",
+                                     const_cast<char**>(keywords),
+                                     &molecule_object, &output_dir,
+                                     &parameters_object, &prefix, &box_object))
+    {
+        return nullptr;
+    }
+    if (parameters_object == Py_None)
+    {
+        PyErr_SetString(PyExc_NotImplementedError,
+                        "native save_sponge_input currently requires "
+                        "explicit parameters");
+        return nullptr;
+    }
+    if (Py_TYPE(parameters_object) !=
+        reinterpret_cast<PyTypeObject*>(PyGaffParametersType))
+    {
+        PyErr_SetString(PyExc_TypeError,
+                        "parameters must be xponge2.GaffParameters");
+        return nullptr;
+    }
+    return Guarded([&]() -> PyObject* {
+        Xponge::Molecule molecule = Molecule_From_Python(molecule_object);
+        Amber::SpongeInputOptions options;
+        options.output_dir = output_dir;
+        options.prefix = prefix;
+        if (box_object != Py_None)
+        {
+            auto items = Iter_Items(box_object);
+            if (items.size() != 6)
+            {
+                for (auto* item : items) Py_DECREF(item);
+                throw std::runtime_error("box must contain six values");
+            }
+            options.box.clear();
+            for (auto* item : items)
+            {
+                options.box.push_back(PyFloat_AsDouble(item));
+                Py_DECREF(item);
+                if (PyErr_Occurred())
+                {
+                    throw std::runtime_error("box must contain floats");
+                }
+            }
+        }
+        Amber::Save_Gaff_Sponge_Input(
+            molecule,
+            Require_Gaff_Parameters(
+                reinterpret_cast<PyGaffParametersObject*>(parameters_object)),
+            options);
+        Py_RETURN_NONE;
+    });
+}
+
+static PyObject* Module_save_amber_sponge_input(PyObject*,
+                                                PyObject* args,
+                                                PyObject* kwargs)
+{
+    PyObject* molecule_object = nullptr;
+    PyObject* data_object = nullptr;
+    const char* output_dir = ".";
+    const char* prefix = "xponge";
+    PyObject* box_object = Py_None;
+    const char* cmap_source = "";
+    static const char* keywords[] = {"molecule", "data", "output_dir", "prefix",
+                                     "box", "cmap_source", nullptr};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|ssOs",
+                                     const_cast<char**>(keywords),
+                                     &molecule_object, &data_object,
+                                     &output_dir, &prefix, &box_object,
+                                     &cmap_source))
+    {
+        return nullptr;
+    }
+    return Guarded([&]() -> PyObject* {
+        Xponge::Molecule molecule = Molecule_From_Python(molecule_object);
+        Amber::GaffParameters parameters =
+            Amber_Parameters_From_Python(data_object, molecule);
+        Amber::SpongeInputOptions options;
+        options.output_dir = output_dir;
+        options.prefix = prefix;
+        options.connect_residue_tails = true;
+        options.prefix_files = true;
+        options.write_mdin = false;
+        options.write_atom_metadata = true;
+        options.charge_scale = 18.2223;
+        options.cmap_source = cmap_source;
+        if (box_object != Py_None)
+        {
+            auto items = Iter_Items(box_object);
+            if (items.size() != 6)
+            {
+                for (auto* item : items) Py_DECREF(item);
+                throw std::runtime_error("box must contain six values");
+            }
+            options.box.clear();
+            for (auto* item : items)
+            {
+                options.box.push_back(PyFloat_AsDouble(item));
+                Py_DECREF(item);
+                if (PyErr_Occurred())
+                {
+                    throw std::runtime_error("box must contain floats");
+                }
+            }
+        }
+        Amber::Save_Gaff_Sponge_Input(molecule, parameters, options);
+        Py_RETURN_NONE;
+    });
+}
+
+static PyObject* Module_assignment_to_residue_type(PyObject*,
+                                                   PyObject* args,
+                                                   PyObject* kwargs)
+{
+    PyObject* assign_object = nullptr;
+    PyObject* name_object = Py_None;
+    PyObject* charge_object = Py_None;
+    static const char* keywords[] = {"assign", "name", "charge", nullptr};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO",
+                                     const_cast<char**>(keywords),
+                                     &assign_object, &name_object,
+                                     &charge_object))
+    {
+        return nullptr;
+    }
+    if (Py_TYPE(assign_object) != reinterpret_cast<PyTypeObject*>(PyAssignType))
+    {
+        PyErr_SetString(PyExc_TypeError, "assign must be xponge2.Assign");
+        return nullptr;
+    }
+    return Guarded([&]() -> PyObject* {
+        const XA::Assignment& assignment = Require_Assignment(
+            reinterpret_cast<PyAssignObject*>(assign_object));
+        std::string residue_name = assignment.name();
+        if (name_object != Py_None)
+        {
+            residue_name = Object_To_String(name_object);
+        }
+        PyObject* core_module = PyImport_ImportModule("xponge2.core");
+        if (core_module == nullptr)
+        {
+            return nullptr;
+        }
+        PyObject* residue_type_class =
+            PyObject_GetAttrString(core_module, "ResidueType");
+        Py_DECREF(core_module);
+        if (residue_type_class == nullptr)
+        {
+            return nullptr;
+        }
+        PyObject* residue_name_object =
+            PyUnicode_FromString(residue_name.c_str());
+        if (residue_name_object == nullptr)
+        {
+            Py_DECREF(residue_type_class);
+            return nullptr;
+        }
+        PyObject* residue =
+            PyObject_CallFunctionObjArgs(residue_type_class,
+                                         residue_name_object, nullptr);
+        Py_DECREF(residue_name_object);
+        Py_DECREF(residue_type_class);
+        if (residue == nullptr)
+        {
+            return nullptr;
+        }
+
+        const auto& atoms = assignment.atoms();
+        const auto& atom_types = assignment.atom_types();
+        for (std::size_t i = 0; i < assignment.atom_numbers(); ++i)
+        {
+            double charge = atoms[i].charge;
+            if (charge_object != Py_None)
+            {
+                PyObject* item =
+                    PySequence_GetItem(charge_object, static_cast<Py_ssize_t>(i));
+                if (item == nullptr)
+                {
+                    Py_DECREF(residue);
+                    return nullptr;
+                }
+                charge = PyFloat_AsDouble(item);
+                Py_DECREF(item);
+                if (PyErr_Occurred())
+                {
+                    Py_DECREF(residue);
+                    return nullptr;
+                }
+            }
+            const std::string atom_name = std::to_string(i + 1);
+            const auto& coord = atoms[i].coordinate;
+            PyObject* added = PyObject_CallMethod(
+                residue, "add_atom", "ssdddd", atom_name.c_str(),
+                atom_types[i].c_str(), coord.x, coord.y, coord.z, charge);
+            if (added == nullptr)
+            {
+                Py_DECREF(residue);
+                return nullptr;
+            }
+            Py_DECREF(added);
+        }
+
+        const auto& bonds = assignment.bonds();
+        for (std::size_t i = 0; i < bonds.size(); ++i)
+        {
+            for (const auto& item : bonds[i])
+            {
+                if (static_cast<int>(i) >= item.first)
+                {
+                    continue;
+                }
+                PyObject* added = PyObject_CallMethod(
+                    residue, "add_connectivity", "ii", static_cast<int>(i),
+                    item.first);
+                if (added == nullptr)
+                {
+                    Py_DECREF(residue);
+                    return nullptr;
+                }
+                Py_DECREF(added);
+            }
+        }
+        return residue;
+    });
+}
+
 PyDoc_STRVAR(Module_get_assignment_from_mol2_doc,
              "get_assignment_from_mol2(file, total_charge=None)\n"
              "--\n\nRead a mol2 file as an Assign object.");
+PyDoc_STRVAR(Module_generate_gaff_frcmod_doc,
+             "generate_gaff_frcmod(ifname, ofname, ffset=1, "
+             "print_all=False, print_dihedral_contain_X=True, "
+             "datapath=None)\n"
+             "--\n\nGenerate a GAFF frcmod file from a GAFF-typed mol2 file.");
+PyDoc_STRVAR(Module_load_gaff_parameters_doc,
+             "load_gaff_parameters(dat_path, frcmod_path=None)\n"
+             "--\n\nLoad GAFF parameters into a native parameter table.");
+PyDoc_STRVAR(Module_load_frcmod_doc,
+             "load_frcmod(filename)\n"
+             "--\n\nLoad an frcmod file in Xponge-compatible string form.");
+PyDoc_STRVAR(Module_save_sponge_input_doc,
+             "save_sponge_input(molecule, output_dir='.', parameters=None, "
+             "prefix='xponge', box=None)\n"
+             "--\n\nWrite SPONGE input files from a molecule.");
+PyDoc_STRVAR(Module_assignment_to_residue_type_doc,
+             "assignment_to_residue_type(assign, name=None, charge=None)\n"
+             "--\n\nConvert an Assign object to a ResidueType.");
+PyDoc_STRVAR(Module_save_amber_sponge_input_doc,
+             "save_amber_sponge_input(molecule, data, output_dir='.', "
+             "prefix='xponge', box=None, cmap_source='')\n"
+             "--\n\nWrite AMBER biopolymer SPONGE input files.");
 
 static PyMethodDef Xponge2Methods[] = {
     {"get_assignment_from_mol2",
@@ -767,6 +1684,22 @@ static PyMethodDef Xponge2Methods[] = {
     {"Get_Assignment_From_Mol2",
      reinterpret_cast<PyCFunction>(Module_get_assignment_from_mol2),
      METH_VARARGS | METH_KEYWORDS, Module_get_assignment_from_mol2_doc},
+    {"generate_gaff_frcmod",
+     reinterpret_cast<PyCFunction>(Module_generate_gaff_frcmod),
+     METH_VARARGS | METH_KEYWORDS, Module_generate_gaff_frcmod_doc},
+    {"load_gaff_parameters",
+     reinterpret_cast<PyCFunction>(Module_load_gaff_parameters),
+     METH_VARARGS | METH_KEYWORDS, Module_load_gaff_parameters_doc},
+    {"load_frcmod", reinterpret_cast<PyCFunction>(Module_load_frcmod),
+     METH_VARARGS, Module_load_frcmod_doc},
+    {"save_sponge_input", reinterpret_cast<PyCFunction>(Module_save_sponge_input),
+     METH_VARARGS | METH_KEYWORDS, Module_save_sponge_input_doc},
+    {"assignment_to_residue_type",
+     reinterpret_cast<PyCFunction>(Module_assignment_to_residue_type),
+     METH_VARARGS | METH_KEYWORDS, Module_assignment_to_residue_type_doc},
+    {"save_amber_sponge_input",
+     reinterpret_cast<PyCFunction>(Module_save_amber_sponge_input),
+     METH_VARARGS | METH_KEYWORDS, Module_save_amber_sponge_input_doc},
     {nullptr, nullptr, 0, nullptr}};
 
 static PyModuleDef Xponge2Module = {
@@ -798,6 +1731,21 @@ PyMODINIT_FUNC PyInit__core(void)
 
     if (PyModule_AddObject(module, "Assign", Py_NewRef(PyAssignType)) < 0)
     {
+        Py_DECREF(PyAssignType);
+        Py_DECREF(module);
+        return nullptr;
+    }
+    PyGaffParametersType = PyType_FromSpec(&PyGaffParametersTypeSpec);
+    if (PyGaffParametersType == nullptr)
+    {
+        Py_DECREF(PyAssignType);
+        Py_DECREF(module);
+        return nullptr;
+    }
+    if (PyModule_AddObject(module, "GaffParameters",
+                           Py_NewRef(PyGaffParametersType)) < 0)
+    {
+        Py_DECREF(PyGaffParametersType);
         Py_DECREF(PyAssignType);
         Py_DECREF(module);
         return nullptr;

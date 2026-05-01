@@ -1,0 +1,34 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+i -cd-os   59.905     116.505   Calculated using  i-ca-os, penalty score= 23.5
+
+DIHE
+os-cd-cf-ce   4    4.000       180.000           2.000      same as X -cf-cf-X , penalty score=136.0
+os-cd-cf-ha   4    4.000       180.000           2.000      same as X -cf-cf-X , penalty score=136.0
+i -cd-os-cd   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+cc-cd-os-cd   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+cc-cd-cf-ce   4    4.000       180.000           2.000      same as X -cf-cf-X , penalty score=136.0
+cc-cd-cf-ha   4    4.000       180.000           2.000      same as X -cf-cf-X , penalty score=136.0
+cf-cd-os-cd   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+
+IMPROPER
+c -ca-n -hn         1.1          180.0         2.0          Using general improper torsional angle  X- X- n-hn, penalty score=  6.0)
+ca-ca-ca-n          1.1          180.0         2.0          Using the default value
+c3-n -c -o         10.5          180.0         2.0          Using general improper torsional angle  X- X- c- o, penalty score=  6.0)
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+ca-ca-ca-os         1.1          180.0         2.0          Using the default value
+ce-o -c -os         1.1          180.0         2.0          Using the default value
+c -cf-ce-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 46.8 (use general term))
+cc-cf-cd-os         1.1          180.0         2.0          Using the default value
+cd-ce-cf-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 46.8 (use general term))
+cc-cd-cc-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 38.9 (use general term))
+cc-i -cd-os         1.1          180.0         2.0          Using the default value
+
+NONBON
+
+
+

@@ -1,0 +1,35 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+ce-nh-os   68.900     111.850   same as ca-nh-os, penalty score=  2.2
+c -os-nh   68.200     103.850   same as c2-os-na, penalty score=  5.7
+
+DIHE
+nh-ce-nh-os   4    4.200       180.000           2.000      same as X -cc-nh-X , penalty score=136.0
+ca-ce-nh-os   4    4.200       180.000           2.000      same as X -cc-nh-X , penalty score=136.0
+ca-ca-ce-nh   4    2.800       180.000           2.000      same as X -c2-ca-X , penalty score=237.0
+nh-ce-nh-hn   4    4.200       180.000           2.000      same as X -cc-nh-X , penalty score=136.0
+ca-ce-nh-hn   4    4.200       180.000           2.000      same as X -cc-nh-X , penalty score=136.0
+
+IMPROPER
+ca-cc-na-nc         1.1          180.0         2.0          Using the default value
+ce-hn-nh-os         1.1          180.0         2.0          Same as X -X -na-hn, penalty score= 41.2 (use general term))
+ca-o -no-o          1.1          180.0         2.0          Using the default value
+ce-hn-nh-hn         1.1          180.0         2.0          Same as X -X -na-hn, penalty score= 41.2 (use general term))
+c3-cd-cc-na         1.1          180.0         2.0          Using the default value
+ca-ca-ca-na         1.1          180.0         2.0          Using the default value
+c -cc-cd-cd         1.1          180.0         2.0          Using the default value
+cd-h4-cd-nc         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 67.2 (use general term))
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+cd-o -c -os         1.1          180.0         2.0          Using the default value
+ca-ca-ca-no         1.1          180.0         2.0          Using the default value
+ca-ca-ca-ce         1.1          180.0         2.0          Using the default value
+ca-nh-ce-nh         1.1          180.0         2.0          Using the default value
+
+NONBON
+
+
+

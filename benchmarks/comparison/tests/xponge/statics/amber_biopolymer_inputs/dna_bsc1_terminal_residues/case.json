@@ -1,0 +1,39 @@
+{
+  "case_name": "dna_bsc1_terminal_residues",
+  "description": "bsc1 DNA chain covering terminal and internal nucleotide templates",
+  "forcefield_modules": [
+    "forcefield.amber.bsc1"
+  ],
+  "residues": [
+    "DA5",
+    "DA",
+    "DT",
+    "DC",
+    "DG",
+    "DC",
+    "DT",
+    "DA",
+    "DA3"
+  ],
+  "prefix": "bsc1",
+  "reference_module": "Xponge",
+  "reference_kind": "sponge_run0_energy_terms",
+  "energy_terms": {
+    "bond": 54.33,
+    "angle": 308.76,
+    "dihedral": 218.34,
+    "LJ": 7313.3,
+    "Coulomb": 227.94,
+    "nb14_LJ": 109.9,
+    "nb14_EE": -719.89,
+    "potential": 7512.68
+  },
+  "files": [
+    {
+      "name": "bsc1_coordinate.txt",
+      "reference_name": "reference_bsc1_coordinate.txt",
+      "sha256": "2886bb3f9b80bae3b0c5b0e0bac90f7e6ed11c9834bf57356923742b83907864",
+      "bytes": 8347
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+Remark line goes here
+MASS
+Si 28.085        0.878               same as c3 
+
+BOND
+p3-sp  161.00   2.121       same as p3-ss, penalty score=  0.0
+Si-c3  300.90   1.538       same as c3-c3, penalty score=  0.0
+
+ANGLE
+c3-p3-sp   37.400      99.370   same as c3-p3-ss, penalty score=  0.0
+cx-p3-sp   37.400      99.370   same as c3-p3-ss, penalty score=  8.0
+sp-cx-ss   61.538     111.440   Calculated using ss-c3-ss, penalty score= 75.5
+p3-cx-sp   77.703     110.800   Calculated using ss-c3-p3, penalty score= 75.5
+n3-cx-sp   63.258     111.335   Calculated using ss-c3-n3, penalty score= 75.5
+p3-cx-ss   77.703     110.800   Calculated using ss-c3-p3, penalty score= 75.5
+n3-cx-ss   63.258     111.335   Calculated using ss-c3-n3, penalty score= 75.5
+cx-sp-p3   76.000      98.700   same as c3-ss-p3, penalty score=  8.0
+Si-c3-p3   75.900     113.360   same as c3-c3-p3, penalty score=  0.0
+n3-cx-p3   79.645     110.695   Calculated using p3-c3-n3, penalty score= 75.5
+Si-c3-Si   62.900     111.510   same as c3-c3-c3, penalty score=  0.0
+Si-c3-hc   46.300     109.800   same as c3-c3-hc, penalty score=  0.0
+c3-p3-cx   37.300      99.350   same as c3-p3-c3, penalty score=  8.0
+c3-Si-c3   62.900     111.510   same as c3-c3-c3, penalty score=  0.0
+
+DIHE
+sp-cx-p3-sp   6    0.800         0.000           3.000      same as X -c3-p3-X , penalty score= 92.0
+ss-cx-p3-sp   6    0.800         0.000           3.000      same as X -c3-p3-X , penalty score= 92.0
+n3-cx-p3-sp   6    0.800         0.000           3.000      same as X -c3-p3-X , penalty score= 92.0
+ss-cx-sp-p3   3    1.000         0.000           3.000      same as X -c3-ss-X , penalty score= 92.0
+p3-cx-sp-p3   3    1.000         0.000           3.000      same as X -c3-ss-X , penalty score= 92.0
+n3-cx-sp-p3   3    1.000         0.000           3.000      same as X -c3-ss-X , penalty score= 92.0
+sp-cx-p3-c3   6    0.800         0.000           3.000      same as X -c3-p3-X , penalty score= 92.0
+ss-cx-p3-c3   6    0.800         0.000           3.000      same as X -c3-p3-X , penalty score= 92.0
+n3-cx-p3-c3   6    0.800         0.000           3.000      same as X -c3-p3-X , penalty score= 92.0
+c3-Si-c3-hc   1    0.160         0.000           3.000      same as hc-c3-c3-c3, penalty score=  0.0
+c3-p3-sp-cx   2    2.300         0.000           3.000      same as X -p3-ss-X , penalty score=  0.0
+cx-p3-sp-cx   2    2.300         0.000           3.000      same as X -p3-ss-X , penalty score=  0.0
+c3-Si-c3-p3   9    1.400         0.000           3.000      same as X -c3-c3-X , penalty score=  0.0
+c3-Si-c3-Si   1    0.180         0.000          -3.000      same as c3-c3-c3-c3
+c3-Si-c3-Si   1    0.250       180.000          -2.000      same as c3-c3-c3-c3
+c3-Si-c3-Si   1    0.200       180.000           1.000      same as c3-c3-c3-c3, penalty score=  0.0
+sp-cx-n3-c3   6    1.800         0.000           3.000      same as X -c3-n3-X , penalty score= 92.0
+ss-cx-n3-c3   6    1.800         0.000           3.000      same as X -c3-n3-X , penalty score= 92.0
+p3-cx-n3-c3   6    1.800         0.000           3.000      same as X -c3-n3-X , penalty score= 92.0
+sp-cx-ss-c3   3    1.000         0.000           3.000      same as X -c3-ss-X , penalty score= 92.0
+p3-cx-ss-c3   3    1.000         0.000           3.000      same as X -c3-ss-X , penalty score= 92.0
+n3-cx-ss-c3   3    1.000         0.000           3.000      same as X -c3-ss-X , penalty score= 92.0
+
+IMPROPER
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+
+NONBON
+  Si          1.9080  0.1094             same as c3 
+
+
+

@@ -1,0 +1,28 @@
+Remark line goes here
+MASS
+Si 28.085        0.878               same as c3 
+
+BOND
+Si-os  308.60   1.432       same as c3-os, penalty score=  0.0
+Si-c3  300.90   1.538       same as c3-c3, penalty score=  0.0
+
+ANGLE
+Si-os-c3   62.700     112.480   same as c3-os-c3, penalty score=  0.0
+Si-c3-hc   46.300     109.800   same as c3-c3-hc, penalty score=  0.0
+c3-Si-os   68.000     107.970   same as c3-c3-os, penalty score=  0.0
+c3-Si-c3   62.900     111.510   same as c3-c3-c3, penalty score=  0.0
+
+DIHE
+os-Si-c3-hc   1    0.000         0.000          -3.000      same as hc-c3-c3-os
+os-Si-c3-hc   1    0.250         0.000           1.000      same as hc-c3-c3-os, penalty score=  0.0
+c3-Si-os-c3   1    0.383         0.000          -3.000      same as c3-c3-os-c3
+c3-Si-os-c3   1    0.100       180.000           2.000      same as c3-c3-os-c3, penalty score=  0.0
+c3-Si-c3-hc   1    0.160         0.000           3.000      same as hc-c3-c3-c3, penalty score=  0.0
+
+IMPROPER
+
+NONBON
+  Si          1.9080  0.1094             same as c3 
+
+
+

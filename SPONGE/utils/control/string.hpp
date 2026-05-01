@@ -1,5 +1,10 @@
 ﻿#pragma once
 
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
+
 // 判断两个字符串是否相等（无视大小写）
 inline bool is_str_equal(const char* a_str, const char* b_str,
                          int case_sensitive = 0)
@@ -152,10 +157,14 @@ inline bool is_str_float(const char* str)
 // 字符串去掉前后空格
 inline std::string string_strip(std::string string)
 {
-    string.erase(string.find_last_not_of("\n") + 1);
-    string.erase(0, string.find_first_not_of(" "));
-    string.erase(string.find_last_not_of(" ") + 1);
-    return string;
+    const std::string separators = " \t\r\n";
+    size_t begin = string.find_first_not_of(separators);
+    if (begin == std::string::npos)
+    {
+        return "";
+    }
+    size_t end = string.find_last_not_of(separators);
+    return string.substr(begin, end - begin + 1);
 }
 
 // 字符串分割
@@ -165,15 +174,44 @@ inline std::vector<std::string> string_split(std::string string,
     std::vector<std::string> result;
     if (string.size() == 0) return result;
     size_t last_pos = string.find_first_not_of(separators, 0);
+    if (last_pos == string.npos) return result;
     size_t pos = string.find_first_of(separators, last_pos);
     while (pos != string.npos)
     {
         result.push_back(string.substr(last_pos, pos - last_pos));
         last_pos = string.find_first_not_of(separators, pos);
+        if (last_pos == string.npos) return result;
         pos = string.find_first_of(separators, last_pos);
     }
     result.push_back(string.substr(last_pos, pos - last_pos));
     return result;
+}
+
+inline std::vector<std::string> string_words(std::string string)
+{
+    return string_split(string, " \t\r\n");
+}
+
+inline std::vector<std::string> string_split_lines(std::string string)
+{
+    std::vector<std::string> result;
+    std::istringstream input(string);
+    std::string line;
+    while (std::getline(input, line))
+    {
+        if (!line.empty() && line.back() == '\r')
+        {
+            line.pop_back();
+        }
+        result.push_back(line);
+    }
+    return result;
+}
+
+inline bool string_starts_with(std::string string, std::string prefix)
+{
+    return string.size() >= prefix.size() &&
+           string.compare(0, prefix.size(), prefix) == 0;
 }
 
 // 字符串替换

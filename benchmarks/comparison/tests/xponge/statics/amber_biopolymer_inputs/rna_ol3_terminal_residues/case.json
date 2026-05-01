@@ -1,0 +1,39 @@
+{
+  "case_name": "rna_ol3_terminal_residues",
+  "description": "OL3 RNA chain covering terminal and internal nucleotide templates",
+  "forcefield_modules": [
+    "forcefield.amber.ol3"
+  ],
+  "residues": [
+    "A5",
+    "A",
+    "U",
+    "C",
+    "G",
+    "C",
+    "U",
+    "A",
+    "U3"
+  ],
+  "prefix": "ol3",
+  "reference_module": "Xponge",
+  "reference_kind": "sponge_run0_energy_terms",
+  "energy_terms": {
+    "bond": 50.09,
+    "angle": 328.18,
+    "dihedral": 206.09,
+    "LJ": 12684.14,
+    "Coulomb": 304.07,
+    "nb14_LJ": 225.04,
+    "nb14_EE": -672.66,
+    "potential": 13124.96
+  },
+  "files": [
+    {
+      "name": "ol3_coordinate.txt",
+      "reference_name": "reference_ol3_coordinate.txt",
+      "sha256": "52616203509f519f01630dcd55d1ce9df3c318f8996547ad7af23f00a61ed45b",
+      "bytes": 8373
+    }
+  ]
+}

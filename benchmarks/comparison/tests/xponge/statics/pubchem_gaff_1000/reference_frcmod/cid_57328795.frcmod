@@ -1,0 +1,36 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+n2-cd-os   74.400     116.740   same as nc-cd-os, penalty score=  2.8
+
+DIHE
+n2-cd-os-ca   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+cd-cd-os-ca   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+ca-ca-cc-cd   4    2.800       180.000           2.000      same as X -c2-ca-X , penalty score=232.0
+ca-ca-cc-ha   4    2.800       180.000           2.000      same as X -c2-ca-X , penalty score=232.0
+n -cd-os-cd   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+nc-cd-os-cd   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+cd-cd-os-cd   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+os-cd-n2-hn   2    9.500       180.000           2.000      same as X -cd-nd-X , penalty score=218.5
+cd-cd-n2-hn   2    9.500       180.000           2.000      same as X -cd-nd-X , penalty score=218.5
+
+IMPROPER
+c -cd-n -hn         1.1          180.0         2.0          Using general improper torsional angle  X- X- n-hn, penalty score=  6.0)
+ca-ca-ca-cc         1.1          180.0         2.0          Using the default value
+cc-cd-cd-cd         1.1          180.0         2.0          Using the default value
+ca-ca-ca-os         1.1          180.0         2.0          Using the default value
+ca-cd-cc-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 38.9 (use general term))
+cd-n2-cd-os         1.1          180.0         2.0          Using the default value
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+cd-nc-cd-os         1.1          180.0         2.0          Using the default value
+n -nc-cd-os         1.1          180.0         2.0          Using the default value
+c -ca-ca-ca         1.1          180.0         2.0          Using the default value
+ca-n -c -o         10.5          180.0         2.0          Using general improper torsional angle  X- X- c- o, penalty score=  6.0)
+
+NONBON
+
+
+

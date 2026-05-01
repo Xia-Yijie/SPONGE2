@@ -36,7 +36,7 @@ static __global__ void Angle_Force_With_Atom_Energy_And_Virial_Device(
         float rij_1_rkj_1 = sqrtf(rij_2 * rkj_2);
 
         float costheta = drij * drkj * rij_1_rkj_1;
-        costheta = fmaxf(-0.999999, fminf(costheta, 0.999999));
+        costheta = fmaxf(-0.999, fminf(costheta, 0.999));
         float theta = acosf(costheta);
 
         float dtheta = theta - theta0;

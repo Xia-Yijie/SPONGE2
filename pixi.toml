@@ -117,7 +117,7 @@ git = "*"
 clang-format = "==22.1.0"
 cmake-format = "==0.6.13"
 ruff = "==0.15.1"
-python = ">=3.9"
+python = ">=3.10"
 pip = "*"
 zstandard = "*"
 numpy = "*"
@@ -136,7 +136,7 @@ ase = "*"
 build = "*"
 
 [feature.ref-gen.target.linux-64.dependencies]
-python = ">=3.9"
+python = ">=3.10"
 numpy = "*"
 ambertools = "*"
 gromacs = "*"
@@ -224,6 +224,7 @@ ref-check-gromacs = "python benchmarks/comparison/reference/gromacs/generate.py 
 ref-gen-lammps = "python benchmarks/comparison/reference/lammps/generate.py"
 ref-check-lammps = "python benchmarks/comparison/reference/lammps/generate.py --check"
 ref-gen-xponge = "python benchmarks/comparison/tests/xponge/ref_gen/generate_pubchem_gaff.py"
+ref-gen-xponge-biopolymer = "python benchmarks/comparison/tests/xponge/ref_gen/generate_amber_biopolymer_inputs.py"
 
 [feature.ref-gen.dependencies]
 pytest = ">=9.0.2,<10"

@@ -1,0 +1,56 @@
+{
+  "case_name": "protein_ff14sb_residues",
+  "description": "ff14SB capped peptide covering standard protein residue templates",
+  "forcefield_modules": [
+    "forcefield.amber.ff14sb"
+  ],
+  "residues": [
+    "ACE",
+    "ALA",
+    "ARG",
+    "ASN",
+    "ASP",
+    "CYS",
+    "CYX",
+    "GLN",
+    "GLU",
+    "GLY",
+    "HID",
+    "HIE",
+    "HIP",
+    "ILE",
+    "LEU",
+    "LYS",
+    "MET",
+    "PHE",
+    "PRO",
+    "SER",
+    "THR",
+    "TRP",
+    "TYR",
+    "VAL",
+    "HIS",
+    "NME"
+  ],
+  "prefix": "ff14sb",
+  "reference_module": "Xponge",
+  "reference_kind": "sponge_run0_energy_terms",
+  "energy_terms": {
+    "bond": 31.27,
+    "angle": 136.98,
+    "dihedral": 264.55,
+    "LJ": 1027054.5,
+    "Coulomb": -1606.66,
+    "nb14_LJ": 165.96,
+    "nb14_EE": 1175.01,
+    "potential": 1027221.69
+  },
+  "files": [
+    {
+      "name": "ff14sb_coordinate.txt",
+      "reference_name": "reference_ff14sb_coordinate.txt",
+      "sha256": "df228c760a14cea01ddff34bd7203aec2ab677166ab5b7b3a9bd7b5a3381a0ae",
+      "bytes": 11806
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+
+DIHE
+ss-cd-cf-ce   4    4.000       180.000           2.000      same as X -cf-cf-X , penalty score=136.0
+ss-cd-cf-ha   4    4.000       180.000           2.000      same as X -cf-cf-X , penalty score=136.0
+br-cd-ss-cd   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+cc-cd-ss-cd   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+cc-cd-cf-ce   4    4.000       180.000           2.000      same as X -cf-cf-X , penalty score=136.0
+cc-cd-cf-ha   4    4.000       180.000           2.000      same as X -cf-cf-X , penalty score=136.0
+cf-cd-ss-cd   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+
+IMPROPER
+ca-cd-na-cd         1.1          180.0         2.0          Using the default value
+ca-ca-ca-na         1.1          180.0         2.0          Using the default value
+c -ca-ca-ca         1.1          180.0         2.0          Using the default value
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+ca-ce-c -o         10.5          180.0         2.0          Using general improper torsional angle  X- X- c- o, penalty score=  6.0)
+cc-h4-cd-na         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 67.2 (use general term))
+h5-na-cd-nc         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 67.5 (use general term))
+c -cf-ce-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 46.8 (use general term))
+cc-cf-cd-ss         1.1          180.0         2.0          Using the default value
+cd-ce-cf-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 46.8 (use general term))
+cd-h4-cc-nc         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 67.2 (use general term))
+cc-cd-cc-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 38.9 (use general term))
+br-cc-cc-cd         1.1          180.0         2.0          Using the default value
+br-cc-cd-ss         1.1          180.0         2.0          Using the default value
+
+NONBON
+
+
+

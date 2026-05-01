@@ -1,8 +1,9 @@
 import json
 import os
-import subprocess
 import textwrap
 from pathlib import Path
+
+from benchmarks.utils import Runner
 
 
 def _toml_string(value):
@@ -118,17 +119,7 @@ def test_direct_gromacs_topgro_accepts_settles_constraints_and_cmap(tmp_path):
         + "\n"
     )
 
-    result = subprocess.run(
-        [os.environ.get("SPONGE_BIN", "SPONGE"), "-mdin", str(mdin_path)],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=120,
-    )
-
-    assert result.returncode == 0, result.stdout + "\n" + result.stderr
-    output = result.stdout + "\n" + result.stderr
+    output = Runner.run_sponge(tmp_path, mdin_name=str(mdin_path), timeout=120)
     assert "constrain pair number is 4" in output
     assert "rigid triangle numbers is 1" in output
     assert "rigid pair numbers is 1" in output

@@ -1,0 +1,39 @@
+Remark line goes here
+MASS
+Si 28.085        0.878               same as c3 
+
+BOND
+Si-c3  300.90   1.538       same as c3-c3, penalty score=  0.0
+Si-ca  321.00   1.516       same as c3-ca, penalty score=  0.0
+
+ANGLE
+Si-c3-c3   62.900     111.510   same as c3-c3-c3, penalty score=  0.0
+Si-c3-hc   46.300     109.800   same as c3-c3-hc, penalty score=  0.0
+Si-ca-ca   63.500     120.770   same as c3-ca-ca, penalty score=  0.0
+c3-Si-c3   62.900     111.510   same as c3-c3-c3, penalty score=  0.0
+c3-Si-ca   63.100     112.070   same as c3-c3-ca, penalty score=  0.0
+
+DIHE
+c3-Si-c3-hc   1    0.160         0.000           3.000      same as hc-c3-c3-c3, penalty score=  0.0
+c3-Si-ca-ca   6    0.000         0.000           2.000      same as X -c3-ca-X , penalty score=  0.0
+c3-Si-c3-c3   1    0.180         0.000          -3.000      same as c3-c3-c3-c3
+c3-Si-c3-c3   1    0.250       180.000          -2.000      same as c3-c3-c3-c3
+c3-Si-c3-c3   1    0.200       180.000           1.000      same as c3-c3-c3-c3, penalty score=  0.0
+ca-Si-c3-c3   9    1.400         0.000           3.000      same as X -c3-c3-X , penalty score=  0.0
+ca-Si-c3-hc   9    1.400         0.000           3.000      same as X -c3-c3-X , penalty score=  0.0
+
+IMPROPER
+c -c3-n -ca         1.1          180.0         2.0          Same as c2-c2-na-c3, penalty score=300.2)
+ca-o -no-o          1.1          180.0         2.0          Using the default value
+c3-n -c -o         10.5          180.0         2.0          Using general improper torsional angle  X- X- c- o, penalty score=  6.0)
+Si-ca-ca-ca         1.1          180.0         2.0          Using the default value
+ca-ca-ca-n          1.1          180.0         2.0          Using the default value
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+ca-ca-ca-no         1.1          180.0         2.0          Using the default value
+ca-ca-ca-os         1.1          180.0         2.0          Using the default value
+
+NONBON
+  Si          1.9080  0.1094             same as c3 
+
+
+

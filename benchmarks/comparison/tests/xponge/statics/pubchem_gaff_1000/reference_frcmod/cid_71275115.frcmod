@@ -1,0 +1,26 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+
+DIHE
+cc-cd-ch-n1   2    0.000       180.000           2.000      same as X -c1-cd-X , penalty score= 97.0
+cd-cd-ch-n1   2    0.000       180.000           2.000      same as X -c1-cd-X , penalty score= 97.0
+
+IMPROPER
+c3-c3-nh-cd         1.1          180.0         2.0          Using the default value
+ca-cd-na-cd         1.1          180.0         2.0          Using the default value
+c3-cc-cc-cd         1.1          180.0         2.0          Using the default value
+cc-na-cd-nh         1.1          180.0         2.0          Using the default value
+cc-cd-cd-ch         1.1          180.0         2.0          Using the default value
+cd-na-cd-nc         1.1          180.0         2.0          Using the default value
+ca-ca-ca-na         1.1          180.0         2.0          Using the default value
+ca-ca-ca-nc         1.1          180.0         2.0          Using the default value
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+
+NONBON
+
+
+

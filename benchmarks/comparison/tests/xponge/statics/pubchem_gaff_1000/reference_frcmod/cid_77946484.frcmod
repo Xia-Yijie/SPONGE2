@@ -1,0 +1,31 @@
+Remark line goes here
+MASS
+
+BOND
+n3-sx  255.60   1.754       same as n3-s4, penalty score=  2.0
+
+ANGLE
+c3-n3-sx   61.200     114.490   same as c3-n3-s4, penalty score=  0.5
+hn-n3-sx   42.600     109.140   same as hn-n3-s4, penalty score=  0.5
+n3-sx-o    67.200     110.430   same as n3-s4-o , penalty score= 10.5
+ca-sx-n3   66.114      93.200   Calculated using n3-s4-ca, penalty score= 10.5
+
+DIHE
+cd-cc-ss-cc   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+h4-cc-ss-cc   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+c3-cc-ss-cc   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+
+IMPROPER
+c -c3-n -c3         1.1          180.0         2.0          Using general improper torsional angle  X-c3- n-c3, penalty score=  3.0)
+c3-cd-cc-ss         1.1          180.0         2.0          Using the default value
+c3-n -c -o         10.5          180.0         2.0          Using general improper torsional angle  X- X- c- o, penalty score=  6.0)
+cc-cd-cd-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 38.9 (use general term))
+cd-h4-cc-ss         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 67.2 (use general term))
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+ca-ca-ca-sx         1.1          180.0         2.0          Using the default value
+ca-ca-ca-ca         1.1          180.0         2.0          Using the default value
+
+NONBON
+
+
+

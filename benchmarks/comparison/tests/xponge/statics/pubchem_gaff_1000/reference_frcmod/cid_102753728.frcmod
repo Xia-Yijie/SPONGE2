@@ -1,0 +1,31 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+
+DIHE
+cd-cc-sy-o    6    7.600       180.000           2.000      same as X -ce-sy-X , penalty score=136.0
+cc-cc-sy-o    6    7.600       180.000           2.000      same as X -ce-sy-X , penalty score=136.0
+cd-cc-sy-n3   6    7.600       180.000           2.000      same as X -ce-sy-X , penalty score=136.0
+cc-cc-sy-n3   6    7.600       180.000           2.000      same as X -ce-sy-X , penalty score=136.0
+cx-cx-n3-c3   1    0.300         0.000          -3.000      same as c3-c3-n3-c3
+cx-cx-n3-c3   1    0.480       180.000           2.000      same as c3-c3-n3-c3, penalty score=179.0
+h1-cx-n3-c3   6    1.800         0.000           3.000      same as X -c3-n3-X , penalty score= 92.0
+cc-cd-ss-cd   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+h4-cd-ss-cd   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+c3-cd-ss-cd   2    2.200       180.000           2.000      same as X -c2-ss-X , penalty score=232.0
+cx-cx-n3-hn   6    1.800         0.000           3.000      same as X -c3-n3-X , penalty score= 92.0
+h1-cx-n3-hn   6    1.800         0.000           3.000      same as X -c3-n3-X , penalty score= 92.0
+
+IMPROPER
+cc-cd-cc-sy         1.1          180.0         2.0          Using the default value
+c3-cc-cd-ss         1.1          180.0         2.0          Using the default value
+c3-cc-cc-cd         1.1          180.0         2.0          Using the default value
+cc-h4-cd-ss         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 67.2 (use general term))
+
+NONBON
+
+
+

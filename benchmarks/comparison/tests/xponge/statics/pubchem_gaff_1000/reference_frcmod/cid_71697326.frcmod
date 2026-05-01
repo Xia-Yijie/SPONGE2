@@ -1,0 +1,25 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+cg-ce-cl   61.790     119.360   Calculated using cl-ca-c1, penalty score= 23.5
+ch-cf-cl   61.790     119.360   Calculated using cl-ca-c1, penalty score= 23.5
+
+DIHE
+cl-ce-cg-ch   2    0.000       180.000           2.000      same as X -c1-ce-X , penalty score= 97.0
+cl-cf-ch-cg   2    0.000       180.000           2.000      same as X -c1-cf-X , penalty score= 97.0
+c2-ce-cg-ch   2    0.000       180.000           2.000      same as X -c1-ce-X , penalty score= 97.0
+c2-cf-ch-cg   2    0.000       180.000           2.000      same as X -c1-cf-X , penalty score= 97.0
+
+IMPROPER
+c3-c3-c2-ce         1.1          180.0         2.0          Using the default value
+c3-c3-c2-cf         1.1          180.0         2.0          Using the default value
+c2-cg-ce-cl         1.1          180.0         2.0          Using the default value
+c2-ch-cf-cl         1.1          180.0         2.0          Using the default value
+
+NONBON
+
+
+

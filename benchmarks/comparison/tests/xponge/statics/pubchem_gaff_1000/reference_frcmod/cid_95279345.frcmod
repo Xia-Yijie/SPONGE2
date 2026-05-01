@@ -1,0 +1,23 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+
+DIHE
+nc-cd-os-nd   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+c3-cd-os-nd   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+
+IMPROPER
+c3-cc-na-nc         1.1          180.0         2.0          Using the default value
+c3-cd-cc-na         1.1          180.0         2.0          Using the default value
+c3-nc-cc-nd         1.1          180.0         2.0          Using the default value
+cc-cd-cd-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 38.9 (use general term))
+c3-cd-cd-nc         1.1          180.0         2.0          Using the default value
+c3-nc-cd-os         1.1          180.0         2.0          Using the default value
+
+NONBON
+
+
+

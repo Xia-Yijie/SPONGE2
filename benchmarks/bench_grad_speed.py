@@ -8,14 +8,14 @@ Usage:
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
+from benchmarks.utils import Runner
+
 STATICS = Path(__file__).resolve().parent / "comparison/tests/pyscf/statics"
-SPONGE_BIN = os.environ.get("SPONGE_BIN", "SPONGE")
 
 # (case_name, model_chemistry, n_steps, n_repeats, density_fit)
 BENCH_CASES = [
@@ -86,20 +86,12 @@ def setup_case(case_name, model_chem, n_steps, density_fit=False):
 
 def run_bench(tmpdir):
     """Run SPONGE and return (wall_time, force_time)."""
-    result = subprocess.run(
-        [SPONGE_BIN, "-mdin", "mdin.txt"],
-        cwd=tmpdir,
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    output = result.stdout + "\n" + result.stderr
+    output = Runner.run_sponge(tmpdir, mdin_name="mdin.txt", timeout=300)
 
-    # Extract timing even if process crashed during cleanup (e.g. RI double-free)
     wall_match = WALL_TIME_RE.search(output)
     force_match = FORCE_TIME_RE.search(output)
-    if result.returncode != 0 and not wall_match:
-        print(f"  FAILED (rc={result.returncode})")
+    if not wall_match:
+        print("  FAILED")
         print(output[-500:])
         return None, None
     wall = float(wall_match.group(1)) if wall_match else None
@@ -108,7 +100,7 @@ def run_bench(tmpdir):
 
 
 def main():
-    print(f"SPONGE binary: {shutil.which(SPONGE_BIN) or SPONGE_BIN}")
+    print(f"SPONGE binary: {shutil.which('SPONGE') or 'SPONGE'}")
     print(
         f"{'Case':<25} {'Steps':>5} {'Wall(ms)':>10} {'Force(ms)':>10} "
         f"{'Per-step(ms)':>12}"

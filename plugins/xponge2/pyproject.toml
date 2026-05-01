@@ -10,6 +10,10 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dynamic = ["version", "description"]
+requires-python = ">=3.10"
+dependencies = [
+    "tomlkit>=0.13",
+]
 
 [build-system]
 requires = ["py-build-cmake~=0.1.8"]
@@ -19,7 +23,7 @@ build-backend = "py_build_cmake.build"
 directory = "."
 
 [tool.py-build-cmake.sdist]
-include = ["CMakeLists.txt", "cmake/*", "src/*", "xponge2/*"]
+include = ["CMakeLists.txt", "cmake/*", "src/*", "xponge2/**/*"]
 
 [tool.py-build-cmake.cmake]
 build_type = "Release"

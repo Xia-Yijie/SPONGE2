@@ -1,0 +1,43 @@
+Remark line goes here
+MASS
+Si 28.085        0.878               same as c3 
+
+BOND
+Si-os  308.60   1.432       same as c3-os, penalty score=  0.0
+Si-c3  300.90   1.538       same as c3-c3, penalty score=  0.0
+
+ANGLE
+Si-os-cc   62.800     117.370   same as c3-os-cc, penalty score=  0.0
+Si-c3-c3   62.900     111.510   same as c3-c3-c3, penalty score=  0.0
+Si-c3-hc   46.300     109.800   same as c3-c3-hc, penalty score=  0.0
+c3-Si-os   68.000     107.970   same as c3-c3-os, penalty score=  0.0
+c3-Si-c3   62.900     111.510   same as c3-c3-c3, penalty score=  0.0
+
+DIHE
+cc-cc-os-Si   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+cd-cc-os-Si   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+os-Si-c3-c3   9    1.400         0.000           3.000      same as X -c3-c3-X , penalty score=  0.0
+os-Si-c3-hc   1    0.000         0.000          -3.000      same as hc-c3-c3-os
+os-Si-c3-hc   1    0.250         0.000           1.000      same as hc-c3-c3-os, penalty score=  0.0
+c3-Si-os-cc   3    1.150         0.000           3.000      same as X -c3-os-X , penalty score=  0.0
+c3-Si-c3-hc   1    0.160         0.000           3.000      same as hc-c3-c3-c3, penalty score=  0.0
+c3-Si-c3-c3   1    0.180         0.000          -3.000      same as c3-c3-c3-c3
+c3-Si-c3-c3   1    0.250       180.000          -2.000      same as c3-c3-c3-c3
+c3-Si-c3-c3   1    0.200       180.000           1.000      same as c3-c3-c3-c3, penalty score=  0.0
+
+IMPROPER
+c -cd-n -cd         1.1          180.0         2.0          Using the default value
+ca-o -no-o          1.1          180.0         2.0          Using the default value
+cc-cd-cc-os         1.1          180.0         2.0          Using the default value
+cc-cd-cc-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 38.9 (use general term))
+cc-h4-cd-n          1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 67.2 (use general term))
+c3-cc-cd-n          1.1          180.0         2.0          Using the default value
+n -o -c -os         1.1          180.0         2.0          Using the default value
+ca-ca-ca-ha         1.1          180.0         2.0          Using general improper torsional angle  X- X-ca-ha, penalty score=  6.0)
+ca-ca-ca-no         1.1          180.0         2.0          Using the default value
+
+NONBON
+  Si          1.9080  0.1094             same as c3 
+
+
+

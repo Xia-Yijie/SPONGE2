@@ -6,7 +6,6 @@ then compares with central finite difference of energy.
 Tests multiple molecules and basis sets to exercise different code paths.
 """
 
-import os
 import shutil
 import tempfile
 import time
@@ -44,7 +43,6 @@ def _run_sponge_energy(sponge_dir):
     output = Runner.run_sponge(
         sponge_dir,
         mdin_name="mdin.txt",
-        sponge_cmd=os.environ.get("SPONGE_BIN", "SPONGE"),
     )
     matches = QC_ENERGY_RE.findall(output)
     if not matches:

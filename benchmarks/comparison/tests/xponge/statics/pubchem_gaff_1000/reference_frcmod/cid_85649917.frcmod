@@ -1,0 +1,26 @@
+Remark line goes here
+MASS
+
+BOND
+
+ANGLE
+cc-c3-sy   61.400     112.000   same as cc-c3-s4, penalty score=  1.8
+c1-ce-sy   61.596     118.245   Calculated using sy-ce-cg, penalty score=  0.5
+c1-ce-h4   48.100     116.460   same as cg-ce-ha, penalty score=  1.8
+
+DIHE
+cd-cc-os-cc   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+h4-cc-os-cc   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+c3-cc-os-cc   2    2.100       180.000           2.000      same as X -c2-os-X , penalty score=232.0
+
+IMPROPER
+c3-cd-cc-os         1.1          180.0         2.0          Using the default value
+cc-cd-cd-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 38.9 (use general term))
+c1-h4-ce-sy         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 75.1 (use general term))
+cd-h4-cc-os         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 67.2 (use general term))
+c1-ha-c2-ha         1.1          180.0         2.0          Same as X -X -ca-ha, penalty score= 47.1 (use general term))
+
+NONBON
+
+
+
