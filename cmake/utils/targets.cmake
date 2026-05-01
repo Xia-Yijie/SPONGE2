@@ -2,7 +2,7 @@ message(STATUS "Load build targets from ${TARGETS_FILE}")
 
 set(TARGETS
     "SPONGE"
-    CACHE STRING "targets for SPONGE" FORCE)
+    CACHE STRING "targets for SPONGE")
 
 message(STATUS "-- Build targets: ${TARGETS}")
 

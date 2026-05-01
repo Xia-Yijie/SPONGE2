@@ -1,7 +1,9 @@
 [project]
 name = "xponge2"
+version = "0.0.1"
+description = "Python API and wheel packaging for SPONGE/xponge"
 readme = "README.md"
-license = {"text" = "Apache-2.0"}
+license = "Apache-2.0"
 authors = [{name = "SPONGE Developers"}]
 keywords = ["SPONGE", "Xponge", "molecular dynamics"]
 classifiers = [
@@ -9,29 +11,25 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Chemistry",
     "Programming Language :: Python :: 3",
 ]
-dynamic = ["version", "description"]
 requires-python = ">=3.10"
 dependencies = [
     "tomlkit>=0.13",
 ]
 
 [build-system]
-requires = ["py-build-cmake~=0.1.8"]
-build-backend = "py_build_cmake.build"
+requires = ["setuptools>=77.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
-[tool.py-build-cmake.module]
-directory = "."
+[tool.setuptools]
+include-package-data = false
 
-[tool.py-build-cmake.sdist]
-include = ["CMakeLists.txt", "cmake/*", "src/*", "xponge2/**/*"]
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["build*", "dist*", "*.egg-info*"]
 
-[tool.py-build-cmake.cmake]
-build_type = "Release"
-source_path = "."
-install_components = ["python_modules"]
-
-[tool.py-build-cmake.cross]
-implementation = "cp"
-version = "310"
-abi = "abi3"
-toolchain_file = "cmake/native-toolchain.cmake"
+[tool.setuptools.package-data]
+xponge2 = ["py.typed", "*.pyi", "_core*.so", "_core*.pyd", "_core*.dll"]
+"xponge2.io" = ["*.pyi"]
+"xponge2.forcefield" = ["*.pyi"]
+"xponge2.forcefield.amber" = ["*.pyi", "files/*.txt"]
+"xponge2.forcefield.amber.parmchk2" = ["*.pyi", "data/*.DAT", "data/*.TPL", "data/*.dat"]

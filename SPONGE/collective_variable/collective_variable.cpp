@@ -103,7 +103,9 @@ void COLLECTIVE_VARIABLE_CONTROLLER::Commands_From_In_File(
         std::string ext = to_lower_copy(Path_Extension(cv_path));
         if (ext == ".toml")
         {
-            std::string toml_content = Read_File_To_String(cv_path, controller);
+            std::string toml_content = Read_File_To_String(
+                cv_path, controller,
+                "COLLECTIVE_VARIABLE_CONTROLLER::Commands_From_In_File");
             Load_Toml_Commands(
                 toml_content, cv_path, this,
                 "COLLECTIVE_VARIABLE_CONTROLLER::Commands_From_In_File");

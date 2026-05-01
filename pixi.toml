@@ -168,6 +168,8 @@ format = "GITHOOK_MODIFY=1 GITHOOK_AUTO_ADD=0 GITHOOK_ALL=1 GITHOOK_FILES= pytho
 format-check = "GITHOOK_MODIFY=0 GITHOOK_AUTO_ADD=0 GITHOOK_ALL=1 GITHOOK_FILES= python -X utf8 scripts/pre-commit"
 package-conda = "python -X utf8 packaging/conda.py --env $PIXI_ENVIRONMENT_NAME --output-dir packaging/outputs"
 prips-build = "python -X utf8 -m build ./plugins/prips --sdist"
+build-xponge = "python -X utf8 scripts/build_xponge.py"
+pack-xponge = "python -X utf8 scripts/build_xponge.py && python -X utf8 -m build ./plugins/xponge2 --wheel"
 
 [target.linux-64.tasks]
 configure = "cmake -S . -B build -G Ninja"

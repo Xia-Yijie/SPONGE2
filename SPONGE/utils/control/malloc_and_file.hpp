@@ -257,22 +257,22 @@ std::string Read_File_To_String(const std::string& path,
                                 CONTROLLER* controller,
                                 const char* error_by = "Read_File_To_String")
 {
-    if (controller == nullptr)
+    try
     {
-        return Read_File_To_String(path);
+        return ::Read_File_To_String(path);
     }
-    std::ifstream stream(path, std::ios::in | std::ios::binary);
-    if (stream.is_open())
+    catch (const std::runtime_error&)
     {
-        std::ostringstream buffer;
-        buffer << stream.rdbuf();
-        return buffer.str();
+        if (controller == nullptr)
+        {
+            throw;
+        }
+        std::string error_reason = string_format(
+            "Reason:\n\tfail to open file '%PATH%'", {{"PATH", path}});
+        controller->Throw_SPONGE_Error(spongeErrorOpenFileFailed, error_by,
+                                       error_reason.c_str());
+        return "";
     }
-    std::string error_reason = string_format(
-        "Reason:\n\tfail to open file '%PATH%'", {{"PATH", path}});
-    controller->Throw_SPONGE_Error(spongeErrorOpenFileFailed, error_by,
-                                   error_reason.c_str());
-    return "";
 }
 
 template <typename ControllerType>

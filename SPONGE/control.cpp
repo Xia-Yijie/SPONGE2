@@ -345,7 +345,8 @@ void CONTROLLER::Commands_From_In_File(int argc, char** argv,
     if (mdin_format == MdinInputFormat::Toml)
     {
         resolved_mdin_path = Resolve_Path_With_Base(mdin_path, startup_cwd);
-        toml_content = Read_File_To_String(resolved_mdin_path, this);
+        toml_content = Read_File_To_String(resolved_mdin_path, this,
+                                           "CONTROLLER::Commands_From_In_File");
         mdin_dir = Parent_Path(resolved_mdin_path);
         mdin_found = true;
         mdin_path = resolved_mdin_path;
