@@ -1,11 +1,13 @@
 #include "parameters.h"
-#include "string_utils.h"
+#include "frcmod_field.h"
 
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+
+#include "../../../utils/control/file.hpp"
 
 namespace Xponge
 {
@@ -14,11 +16,7 @@ namespace Amber
 namespace
 {
 
-using detail::Read_File;
 using detail::Split_Atoms_Words;
-using detail::Split_Lines;
-using detail::Starts_With;
-using detail::Words;
 
 double Radians(double degree)
 {
@@ -39,13 +37,13 @@ std::vector<FrcmodRecord> Read_Frcmod_Records(const std::string& filename)
     std::vector<FrcmodRecord> records;
     std::string flag;
     std::vector<std::string> last_atoms;
-    for (const auto& line : Split_Lines(Read_File(filename)))
+    for (const auto& line : string_split_lines(Read_File_To_String(filename)))
     {
-        if (Words(line).empty() || Starts_With(line, "Remark"))
+        auto words = string_words(line);
+        if (words.empty() || string_starts_with(line, "Remark"))
         {
             continue;
         }
-        auto words = Words(line);
         if (flag != "CMAP" && words.size() == 1)
         {
             flag = words[0];
@@ -59,26 +57,26 @@ std::vector<FrcmodRecord> Read_Frcmod_Records(const std::string& filename)
         record.flag = flag;
         record.line = line;
         record.words = words;
-        if (Starts_With(flag, "BOND"))
+        if (string_starts_with(flag, "BOND"))
         {
             auto split = Split_Atoms_Words(line, 5);
             record.atoms = split.first;
             record.values = split.second;
         }
-        else if (Starts_With(flag, "ANGL"))
+        else if (string_starts_with(flag, "ANGL"))
         {
             auto split = Split_Atoms_Words(line, 8);
             record.atoms = split.first;
             record.values = split.second;
         }
-        else if (Starts_With(flag, "DIHE"))
+        else if (string_starts_with(flag, "DIHE"))
         {
             auto split = Split_Atoms_Words(line, 11, &last_atoms);
             last_atoms = split.first;
             record.atoms = split.first;
             record.values = split.second;
         }
-        else if (Starts_With(flag, "IMPROPER"))
+        else if (string_starts_with(flag, "IMPROPER"))
         {
             auto split = Split_Atoms_Words(line, 11);
             record.atoms = split.first;
@@ -115,7 +113,7 @@ void Flush_Cmap_Block(const CmapBlock& block,
     }
 }
 
-}  // namespace
+}
 
 std::pair<std::string, std::string> Canonical2(const std::string& a,
                                                const std::string& b)
@@ -133,20 +131,35 @@ std::tuple<std::string, std::string, std::string> Canonical3(
                : std::make_tuple(c, b, a);
 }
 
+std::tuple<std::string, std::string, std::string, std::string> Canonical4(
+    const std::string& a,
+    const std::string& b,
+    const std::string& c,
+    const std::string& d)
+{
+    auto direct = std::make_tuple(a, b, c, d);
+    auto reverse = std::make_tuple(d, c, b, a);
+    return direct <= reverse ? direct : reverse;
+}
+
 GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
                                     const std::string& frcmod_path)
 {
     GaffParameters params;
-    const auto lines = Split_Lines(Read_File(dat_path));
+    const auto lines = string_split_lines(Read_File_To_String(dat_path));
     std::size_t idx = 1;
-    while (idx < lines.size() && !Words(lines[idx]).empty())
+    while (idx < lines.size())
     {
-        auto words = Words(lines[idx]);
+        auto words = string_words(lines[idx]);
+        if (words.empty())
+        {
+            break;
+        }
         params.atom[words[0]] = {std::stod(words[1]), words[0]};
         ++idx;
     }
     idx += 2;
-    while (idx < lines.size() && !Words(lines[idx]).empty())
+    while (idx < lines.size() && !string_words(lines[idx]).empty())
     {
         auto split = Split_Atoms_Words(lines[idx], 5);
         params.bond[Canonical2(split.first[0], split.first[1])] =
@@ -154,7 +167,7 @@ GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
         ++idx;
     }
     ++idx;
-    while (idx < lines.size() && !Words(lines[idx]).empty())
+    while (idx < lines.size() && !string_words(lines[idx]).empty())
     {
         auto split = Split_Atoms_Words(lines[idx], 8);
         params.angle[Canonical3(split.first[0], split.first[1],
@@ -165,7 +178,7 @@ GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
     ++idx;
     std::vector<std::string> last_atoms;
     bool reset = true;
-    while (idx < lines.size() && !Words(lines[idx]).empty())
+    while (idx < lines.size() && !string_words(lines[idx]).empty())
     {
         auto split = Split_Atoms_Words(lines[idx], 11, &last_atoms);
         last_atoms = split.first;
@@ -183,7 +196,7 @@ GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
         ++idx;
     }
     ++idx;
-    while (idx < lines.size() && !Words(lines[idx]).empty())
+    while (idx < lines.size() && !string_words(lines[idx]).empty())
     {
         auto split = Split_Atoms_Words(lines[idx], 11);
         params.improper[std::make_tuple(split.first[0], split.first[1],
@@ -193,9 +206,13 @@ GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
         ++idx;
     }
     ++idx;
-    while (idx < lines.size() && !Words(lines[idx]).empty())
+    while (idx < lines.size())
     {
-        auto words = Words(lines[idx]);
+        auto words = string_words(lines[idx]);
+        if (words.empty())
+        {
+            break;
+        }
         if (params.atom.find(words[0]) != params.atom.end())
         {
             for (std::size_t i = 1; i < words.size(); ++i)
@@ -208,14 +225,18 @@ GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
         }
         ++idx;
     }
-    while (idx < lines.size() && !Starts_With(lines[idx], "MOD4"))
+    while (idx < lines.size() && !string_starts_with(lines[idx], "MOD4"))
     {
         ++idx;
     }
     ++idx;
-    while (idx < lines.size() && !Words(lines[idx]).empty())
+    while (idx < lines.size())
     {
-        auto words = Words(lines[idx]);
+        auto words = string_words(lines[idx]);
+        if (words.empty())
+        {
+            break;
+        }
         params.lj[words[0]] = {std::stod(words[2]), std::stod(words[1])};
         ++idx;
     }
@@ -224,7 +245,7 @@ GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
         bool frc_reset = true;
         for (const auto& record : Read_Frcmod_Records(frcmod_path))
         {
-            if (Starts_With(record.flag, "MASS"))
+            if (string_starts_with(record.flag, "MASS"))
             {
                 params.atom[record.words[0]].mass = std::stod(record.words[1]);
                 if (params.atom[record.words[0]].lj_type.empty())
@@ -232,19 +253,19 @@ GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
                     params.atom[record.words[0]].lj_type = record.words[0];
                 }
             }
-            else if (Starts_With(record.flag, "BOND"))
+            else if (string_starts_with(record.flag, "BOND"))
             {
                 params.bond[Canonical2(record.atoms[0], record.atoms[1])] = {
                     std::stod(record.values[0]), std::stod(record.values[1])};
             }
-            else if (Starts_With(record.flag, "ANGL"))
+            else if (string_starts_with(record.flag, "ANGL"))
             {
                 params.angle[Canonical3(record.atoms[0], record.atoms[1],
                                         record.atoms[2])] = {
                     std::stod(record.values[0]),
                     Radians(std::stod(record.values[1]))};
             }
-            else if (Starts_With(record.flag, "DIHE"))
+            else if (string_starts_with(record.flag, "DIHE"))
             {
                 auto key = std::make_tuple(record.atoms[0], record.atoms[1],
                                            record.atoms[2], record.atoms[3]);
@@ -260,7 +281,7 @@ GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
                 frc_reset =
                     !(static_cast<int>(std::stod(record.values[3])) < 0);
             }
-            else if (Starts_With(record.flag, "IMPROPER"))
+            else if (string_starts_with(record.flag, "IMPROPER"))
             {
                 params.improper[std::make_tuple(
                     record.atoms[0], record.atoms[1], record.atoms[2],
@@ -269,7 +290,7 @@ GaffParameters Load_Gaff_Parameters(const std::string& dat_path,
                                          static_cast<int>(
                                              std::stod(record.values[2]))};
             }
-            else if (Starts_With(record.flag, "NONBON"))
+            else if (string_starts_with(record.flag, "NONBON"))
             {
                 params.lj[record.words[0]] = {std::stod(record.words[2]),
                                               std::stod(record.words[1])};
@@ -299,22 +320,22 @@ FrcmodXpongeData Load_Frcmod_As_Xponge_Data(const std::string& filename)
     int reset = 1;
     for (const auto& record : Read_Frcmod_Records(filename))
     {
-        if (Starts_With(record.flag, "MASS"))
+        if (string_starts_with(record.flag, "MASS"))
         {
             atom_types[record.words[0]] = record.words[1];
         }
-        else if (Starts_With(record.flag, "BOND"))
+        else if (string_starts_with(record.flag, "BOND"))
         {
             bonds += record.atoms[0] + "-" + record.atoms[1] + "\t" +
                      record.values[0] + "\t" + record.values[1] + "\n";
         }
-        else if (Starts_With(record.flag, "ANGL"))
+        else if (string_starts_with(record.flag, "ANGL"))
         {
             angles += record.atoms[0] + "-" + record.atoms[1] + "-" +
                       record.atoms[2] + "\t" + record.values[0] + "\t" +
                       record.values[1] + "\n";
         }
-        else if (Starts_With(record.flag, "DIHE"))
+        else if (string_starts_with(record.flag, "DIHE"))
         {
             propers += record.atoms[0] + "-" + record.atoms[1] + "-" +
                        record.atoms[2] + "-" + record.atoms[3] + "\t" +
@@ -327,7 +348,7 @@ FrcmodXpongeData Load_Frcmod_As_Xponge_Data(const std::string& filename)
                        "\t" + std::to_string(reset) + "\n";
             reset = static_cast<int>(std::stod(record.values[3])) < 0 ? 0 : 1;
         }
-        else if (Starts_With(record.flag, "IMPROPER"))
+        else if (string_starts_with(record.flag, "IMPROPER"))
         {
             impropers += record.atoms[0] + "-" + record.atoms[1] + "-" +
                          record.atoms[2] + "-" + record.atoms[3] + "\t" +
@@ -336,14 +357,14 @@ FrcmodXpongeData Load_Frcmod_As_Xponge_Data(const std::string& filename)
                              static_cast<int>(std::stod(record.values[2]))) +
                          "\n";
         }
-        else if (Starts_With(record.flag, "NONBON"))
+        else if (string_starts_with(record.flag, "NONBON"))
         {
             ljs += record.words[0] + "-" + record.words[0] + "\t" +
                    record.words[1] + "\t" + record.words[2] + "\n";
         }
-        else if (Starts_With(record.flag, "CMAP"))
+        else if (string_starts_with(record.flag, "CMAP"))
         {
-            if (Starts_With(record.line, "%FLAG"))
+            if (string_starts_with(record.line, "%FLAG"))
             {
                 if (record.line.find("CMAP_COUNT") != std::string::npos)
                 {
@@ -401,5 +422,5 @@ FrcmodXpongeData Load_Frcmod_As_Xponge_Data(const std::string& filename)
     return {{atoms, bonds, angles, propers, impropers, ljs}, cmap};
 }
 
-}  // namespace Amber
-}  // namespace Xponge
+}
+}

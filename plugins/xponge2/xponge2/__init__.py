@@ -15,7 +15,7 @@ from .core import ResidueType
 from .forcefield.amber.registry import register_amber_forcefield_data
 from .io.sponge import save_sponge_input
 
-__version__ = "0.0.1"
+__version__ = "2.0.0-beta.1"
 
 try:
     from . import _core

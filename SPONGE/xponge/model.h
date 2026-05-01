@@ -38,4 +38,4 @@ struct Molecule
     std::string Forcefield() const;
 };
 
-}  // namespace Xponge
+}

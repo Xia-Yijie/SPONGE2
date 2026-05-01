@@ -4,6 +4,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gaff_typing.h"
@@ -1059,6 +1060,37 @@ static std::vector<PyObject*> Mapping_Items(PyObject* mapping)
     return items;
 }
 
+static void Apply_Box_Object(Amber::SpongeInputOptions& options,
+                             PyObject* box_object)
+{
+    if (box_object == Py_None)
+    {
+        return;
+    }
+    auto items = Iter_Items(box_object);
+    if (items.size() != 6)
+    {
+        for (auto* item : items) Py_DECREF(item);
+        throw std::runtime_error("box must contain six values");
+    }
+    std::vector<double> box;
+    for (std::size_t i = 0; i < items.size(); ++i)
+    {
+        const double value = PyFloat_AsDouble(items[i]);
+        Py_DECREF(items[i]);
+        if (PyErr_Occurred())
+        {
+            for (std::size_t j = i + 1; j < items.size(); ++j)
+            {
+                Py_DECREF(items[j]);
+            }
+            throw std::runtime_error("box must contain floats");
+        }
+        box.push_back(value);
+    }
+    options.box = std::move(box);
+}
+
 static Amber::GaffParameters Amber_Parameters_From_Python(
     PyObject* data_object,
     const Xponge::Molecule& molecule)
@@ -1147,9 +1179,33 @@ static Amber::GaffParameters Amber_Parameters_From_Python(
             PyObject* ks = Mapping_Get_String(value, "ks");
             PyObject* phi0s = Mapping_Get_String(value, "phi0s");
             PyObject* periodicitys = Mapping_Get_String(value, "periodicitys");
+            if (ks == nullptr || phi0s == nullptr || periodicitys == nullptr)
+            {
+                Py_XDECREF(ks);
+                Py_XDECREF(phi0s);
+                Py_XDECREF(periodicitys);
+                Py_DECREF(key);
+                Py_DECREF(value);
+                Py_DECREF(item);
+                throw std::runtime_error("invalid proper dihedral data");
+            }
             auto ks_items = Iter_Items(ks);
             auto phi_items = Iter_Items(phi0s);
             auto per_items = Iter_Items(periodicitys);
+            if (ks_items.size() != phi_items.size() ||
+                ks_items.size() != per_items.size())
+            {
+                for (auto* x : ks_items) Py_DECREF(x);
+                for (auto* x : phi_items) Py_DECREF(x);
+                for (auto* x : per_items) Py_DECREF(x);
+                Py_DECREF(ks);
+                Py_DECREF(phi0s);
+                Py_DECREF(periodicitys);
+                Py_DECREF(key);
+                Py_DECREF(value);
+                Py_DECREF(item);
+                throw std::runtime_error("invalid proper dihedral data");
+            }
             std::vector<Amber::ProperTerm> terms;
             for (std::size_t i = 0; i < ks_items.size(); ++i)
             {
@@ -1450,25 +1506,7 @@ static PyObject* Module_save_sponge_input(PyObject*,
         Amber::SpongeInputOptions options;
         options.output_dir = output_dir;
         options.prefix = prefix;
-        if (box_object != Py_None)
-        {
-            auto items = Iter_Items(box_object);
-            if (items.size() != 6)
-            {
-                for (auto* item : items) Py_DECREF(item);
-                throw std::runtime_error("box must contain six values");
-            }
-            options.box.clear();
-            for (auto* item : items)
-            {
-                options.box.push_back(PyFloat_AsDouble(item));
-                Py_DECREF(item);
-                if (PyErr_Occurred())
-                {
-                    throw std::runtime_error("box must contain floats");
-                }
-            }
-        }
+        Apply_Box_Object(options, box_object);
         Amber::Save_Gaff_Sponge_Input(
             molecule,
             Require_Gaff_Parameters(
@@ -1511,25 +1549,7 @@ static PyObject* Module_save_amber_sponge_input(PyObject*,
         options.write_atom_metadata = true;
         options.charge_scale = 18.2223;
         options.cmap_source = cmap_source;
-        if (box_object != Py_None)
-        {
-            auto items = Iter_Items(box_object);
-            if (items.size() != 6)
-            {
-                for (auto* item : items) Py_DECREF(item);
-                throw std::runtime_error("box must contain six values");
-            }
-            options.box.clear();
-            for (auto* item : items)
-            {
-                options.box.push_back(PyFloat_AsDouble(item));
-                Py_DECREF(item);
-                if (PyErr_Occurred())
-                {
-                    throw std::runtime_error("box must contain floats");
-                }
-            }
-        }
+        Apply_Box_Object(options, box_object);
         Amber::Save_Gaff_Sponge_Input(molecule, parameters, options);
         Py_RETURN_NONE;
     });

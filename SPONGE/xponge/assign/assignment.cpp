@@ -269,5 +269,5 @@ void Assignment::Check_Bond_Index(int atom1, int atom2) const
     }
 }
 
-}  // namespace Assign
-}  // namespace Xponge
+}
+}

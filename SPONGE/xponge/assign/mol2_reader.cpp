@@ -6,27 +6,14 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "../../utils/control/string.hpp"
+
 #include "mol2_writer_policy.h"
 
 namespace Xponge
 {
 namespace Assign
 {
-namespace
-{
-
-std::string Trim(const std::string& value)
-{
-    const auto begin = value.find_first_not_of(" \t\r\n");
-    if (begin == std::string::npos)
-    {
-        return "";
-    }
-    const auto end = value.find_last_not_of(" \t\r\n");
-    return value.substr(begin, end - begin + 1);
-}
-
-}  // namespace
 
 Assignment Get_Assignment_From_Mol2(const std::string& filename)
 {
@@ -48,7 +35,7 @@ Assignment Get_Assignment_From_Mol2(std::istream& input,
 
     while (std::getline(input, line))
     {
-        const std::string stripped = Trim(line);
+        const std::string stripped = string_strip(line);
         if (stripped.empty())
         {
             continue;
@@ -76,14 +63,17 @@ Assignment Get_Assignment_From_Mol2(std::istream& input,
             double y = 0.0;
             double z = 0.0;
             std::string atom_type;
-            int residue_id = 0;
-            std::string residue_name;
             double charge = 0.0;
-            if (!(iss >> atom_id >> atom_name >> x >> y >> z >> atom_type >>
-                  residue_id >> residue_name >> charge))
+            if (!(iss >> atom_id >> atom_name >> x >> y >> z >> atom_type))
             {
                 throw std::runtime_error("invalid mol2 atom line in " +
                                          source_name + ": " + stripped);
+            }
+            int residue_id = 0;
+            std::string residue_name;
+            if (iss >> residue_id >> residue_name)
+            {
+                iss >> charge;
             }
             assignment.Add_Atom(atom_type, x, y, z, atom_name, charge);
             continue;
@@ -105,7 +95,7 @@ Assignment Get_Assignment_From_Mol2(std::istream& input,
                     throw std::runtime_error(
                         "unexpected EOF in UNITY_ATOM_ATTR block");
                 }
-                std::istringstream attr_line(Trim(line));
+                std::istringstream attr_line(string_strip(line));
                 std::string attr;
                 int value = 0;
                 attr_line >> attr >> value;
@@ -125,12 +115,13 @@ Assignment Get_Assignment_From_Mol2(std::istream& input,
             int bond_id = 0;
             int atom1 = 0;
             int atom2 = 0;
-            std::string bond_type;
-            if (!(iss >> bond_id >> atom1 >> atom2 >> bond_type))
+            std::string bond_type = "un";
+            if (!(iss >> bond_id >> atom1 >> atom2))
             {
                 throw std::runtime_error("invalid mol2 bond line in " +
                                          source_name + ": " + stripped);
             }
+            iss >> bond_type;
 
             if (bond_type.size() == 1 && bond_type[0] >= '1' &&
                 bond_type[0] <= '9')
@@ -243,5 +234,5 @@ void Save_Assignment_As_Mol2(const Assignment& assignment,
     output << line_buffer;
 }
 
-}  // namespace Assign
-}  // namespace Xponge
+}
+}

@@ -12,6 +12,8 @@
 #include <stdexcept>
 #include <tuple>
 
+#include "../../../utils/control/os.hpp"
+
 namespace Xponge
 {
 namespace Amber
@@ -21,20 +23,6 @@ namespace
 
 constexpr double LJ_SCALE_14 = 0.5;
 constexpr double COULOMB_SCALE_14 = 1.0 / 1.2;
-
-std::string Join_Path(const std::string& directory, const std::string& file)
-{
-    if (directory.empty() || directory == ".")
-    {
-        return directory == "." ? "./" + file : file;
-    }
-    const char last = directory[directory.size() - 1];
-    if (last == '/' || last == '\\')
-    {
-        return directory + file;
-    }
-    return directory + "/" + file;
-}
 
 void Write_Lines(const std::string& path, const std::vector<std::string>& lines)
 {
@@ -63,29 +51,37 @@ std::string Sci(double value)
     return out.str();
 }
 
-std::vector<std::set<int>> Bonds_By_Atom(
+using NeighborTable = std::vector<std::vector<int>>;
+using DistanceTable = std::vector<std::array<std::vector<int>, 5>>;
+
+NeighborTable Bonds_By_Atom(
     int natom,
     const std::vector<std::pair<int, int>>& bonds)
 {
-    std::vector<std::set<int>> result(natom);
+    NeighborTable result(natom);
     for (const auto& bond : bonds)
     {
-        result[bond.first].insert(bond.second);
-        result[bond.second].insert(bond.first);
+        result[bond.first].push_back(bond.second);
+        result[bond.second].push_back(bond.first);
+    }
+    for (auto& neighbors : result)
+    {
+        std::sort(neighbors.begin(), neighbors.end());
+        neighbors.erase(std::unique(neighbors.begin(), neighbors.end()),
+                        neighbors.end());
     }
     return result;
 }
 
-std::vector<std::map<int, std::set<int>>> Distance_Sets(
-    const std::vector<std::set<int>>& bonds_by_atom)
+DistanceTable Distance_Sets(const NeighborTable& bonds_by_atom)
 {
-    std::vector<std::map<int, std::set<int>>> result;
+    DistanceTable result(bonds_by_atom.size());
     for (std::size_t start = 0; start < bonds_by_atom.size(); ++start)
     {
-        std::set<int> seen = {static_cast<int>(start)};
+        std::vector<char> seen(bonds_by_atom.size(), 0);
+        seen[start] = 1;
         std::deque<std::pair<int, int>> frontier = {
             {static_cast<int>(start), 0}};
-        std::map<int, std::set<int>> by_depth;
         while (!frontier.empty())
         {
             auto current = frontier.front();
@@ -96,17 +92,20 @@ std::vector<std::map<int, std::set<int>>> Distance_Sets(
             }
             for (int next : bonds_by_atom[current.first])
             {
-                if (seen.count(next))
+                if (seen[next])
                 {
                     continue;
                 }
-                seen.insert(next);
+                seen[next] = 1;
                 const int depth = current.second + 1;
-                by_depth[depth].insert(next);
+                result[start][depth].push_back(next);
                 frontier.push_back({next, depth});
             }
         }
-        result.push_back(by_depth);
+        for (auto& atoms : result[start])
+        {
+            std::sort(atoms.begin(), atoms.end());
+        }
     }
     return result;
 }
@@ -165,6 +164,23 @@ auto Match_Key(const Table& table,
     return best;
 }
 
+template <typename Table>
+auto Match_Key_Cached(
+    const Table& table,
+    const std::tuple<std::string, std::string, std::string, std::string>& atoms,
+    std::map<std::tuple<std::string, std::string, std::string, std::string>,
+             typename Table::const_iterator>* cache) -> typename Table::const_iterator
+{
+    const auto cached = cache->find(atoms);
+    if (cached != cache->end())
+    {
+        return cached->second;
+    }
+    auto match = Match_Key(table, atoms);
+    (*cache)[atoms] = match;
+    return match;
+}
+
 auto Match_Improper_Key(
     const std::map<std::tuple<std::string, std::string, std::string,
                               std::string>,
@@ -205,6 +221,24 @@ auto Match_Improper_Key(
     return best;
 }
 
+auto Match_Improper_Key_Cached(
+    const std::map<std::tuple<std::string, std::string, std::string,
+                              std::string>,
+                   ProperTerm>& table,
+    const std::tuple<std::string, std::string, std::string, std::string>& atoms,
+    std::map<std::tuple<std::string, std::string, std::string, std::string>,
+             decltype(table.begin())>* cache) -> decltype(table.begin())
+{
+    const auto cached = cache->find(atoms);
+    if (cached != cache->end())
+    {
+        return cached->second;
+    }
+    auto match = Match_Improper_Key(table, atoms);
+    (*cache)[atoms] = match;
+    return match;
+}
+
 std::pair<double, double> Pair_Lj_Coeff(const std::pair<double, double>& lj_a,
                                         const std::pair<double, double>& lj_b)
 {
@@ -224,7 +258,7 @@ void Copy_File(const std::string& source, const std::string& target)
     output << input.rdbuf();
 }
 
-}  // namespace
+}
 
 void Save_Gaff_Sponge_Input(const Molecule& molecule,
                             const GaffParameters& parameters,
@@ -310,8 +344,7 @@ void Save_Gaff_Sponge_Input(const Molecule& molecule,
     std::vector<std::tuple<int, int, int, double, double>> angle_rows;
     for (int j = 0; j < natom; ++j)
     {
-        std::vector<int> neighbors(bonds_by_atom[j].begin(),
-                                   bonds_by_atom[j].end());
+        const auto& neighbors = bonds_by_atom[j];
         for (std::size_t a = 0; a < neighbors.size(); ++a)
         {
             for (std::size_t b = a + 1; b < neighbors.size(); ++b)
@@ -343,6 +376,9 @@ void Save_Gaff_Sponge_Input(const Molecule& molecule,
     std::vector<std::tuple<int, int, int, int, int, double, double>>
         dihedral_rows;
     std::set<std::tuple<int, int, int, int>> seen_dihedrals;
+    std::map<std::tuple<std::string, std::string, std::string, std::string>,
+             decltype(parameters.proper.begin())>
+        proper_match_cache;
     for (int j = 0; j < natom; ++j)
     {
         for (int k : bonds_by_atom[j])
@@ -363,7 +399,8 @@ void Save_Gaff_Sponge_Input(const Molecule& molecule,
                         atoms[std::get<1>(canonical)].type,
                         atoms[std::get<2>(canonical)].type,
                         atoms[std::get<3>(canonical)].type);
-                    auto match = Match_Key(parameters.proper, types);
+                    auto match = Match_Key_Cached(parameters.proper, types,
+                                                  &proper_match_cache);
                     if (match == parameters.proper.end())
                     {
                         throw std::runtime_error("missing dihedral parameter");
@@ -384,16 +421,17 @@ void Save_Gaff_Sponge_Input(const Molecule& molecule,
             }
         }
     }
+    std::map<std::tuple<std::string, std::string, std::string, std::string>,
+             decltype(parameters.improper.begin())>
+        improper_match_cache;
     for (int center = 0; center < natom; ++center)
     {
         if (bonds_by_atom[center].size() != 3) continue;
-        std::vector<int> neighbors(bonds_by_atom[center].begin(),
-                                   bonds_by_atom[center].end());
+        auto neighbors = bonds_by_atom[center];
         bool found = false;
         int best_score = -1;
         std::tuple<int, int, int, int> best_ids;
         ProperTerm best_term;
-        std::sort(neighbors.begin(), neighbors.end());
         do
         {
             auto ids = std::make_tuple(neighbors[0], neighbors[1], center,
@@ -401,7 +439,8 @@ void Save_Gaff_Sponge_Input(const Molecule& molecule,
             auto types = std::make_tuple(
                 atoms[std::get<0>(ids)].type, atoms[std::get<1>(ids)].type,
                 atoms[std::get<2>(ids)].type, atoms[std::get<3>(ids)].type);
-            auto match = Match_Improper_Key(parameters.improper, types);
+            auto match = Match_Improper_Key_Cached(
+                parameters.improper, types, &improper_match_cache);
             if (match == parameters.improper.end()) continue;
             int score = 0;
             if (std::get<0>(match->first) != "X") ++score;
@@ -477,9 +516,7 @@ void Save_Gaff_Sponge_Input(const Molecule& molecule,
     std::vector<std::tuple<int, int, double, double>> nb14_rows;
     for (int i = 0; i < natom; ++i)
     {
-        const auto it = distances[i].find(3);
-        if (it == distances[i].end()) continue;
-        for (int j : it->second)
+        for (int j : distances[i][3])
         {
             if (i < j)
             {
@@ -502,18 +539,15 @@ void Save_Gaff_Sponge_Input(const Molecule& molecule,
     std::vector<std::string> excluded_rows;
     for (int i = 0; i < natom; ++i)
     {
-        std::set<int> excluded;
+        std::vector<int> excluded;
         for (int depth : {1, 2, 3})
         {
-            const auto it = distances[i].find(depth);
-            if (it != distances[i].end())
+            for (int atom : distances[i][depth])
             {
-                for (int atom : it->second)
-                {
-                    if (atom > i) excluded.insert(atom);
-                }
+                if (atom > i) excluded.push_back(atom);
             }
         }
+        std::sort(excluded.begin(), excluded.end());
         excluded_total += static_cast<int>(excluded.size());
         std::string row = std::to_string(excluded.size());
         for (int atom : excluded)
@@ -566,5 +600,5 @@ void Save_Gaff_Sponge_Input(const Molecule& molecule,
     }
 }
 
-}  // namespace Amber
-}  // namespace Xponge
+}
+}

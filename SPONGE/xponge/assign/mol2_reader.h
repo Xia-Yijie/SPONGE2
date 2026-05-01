@@ -21,5 +21,5 @@ void Save_Assignment_As_Mol2(const Assignment& assignment,
                              std::ostream& output,
                              const std::string& atomtype = "sybyl");
 
-}  // namespace Assign
-}  // namespace Xponge
+}
+}

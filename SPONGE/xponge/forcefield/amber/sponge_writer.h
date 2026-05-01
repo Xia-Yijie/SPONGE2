@@ -28,5 +28,5 @@ void Save_Gaff_Sponge_Input(const Molecule& molecule,
                             const GaffParameters& parameters,
                             const SpongeInputOptions& options);
 
-}  // namespace Amber
-}  // namespace Xponge
+}
+}

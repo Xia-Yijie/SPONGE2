@@ -36,5 +36,5 @@ std::string Mol2_Bond_Type_For_Output(const Assignment& assignment,
                                       const std::string& atomtype,
                                       Mol2BondOutputPolicy policy);
 
-}  // namespace Assign
-}  // namespace Xponge
+}
+}

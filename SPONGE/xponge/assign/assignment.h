@@ -97,5 +97,5 @@ private:
     bool kekulized_ = false;
 };
 
-}  // namespace Assign
-}  // namespace Xponge
+}
+}

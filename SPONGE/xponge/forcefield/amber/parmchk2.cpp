@@ -1,5 +1,8 @@
 #include "parmchk2.h"
-#include "string_utils.h"
+#include "frcmod_field.h"
+#include "parameters.h"
+
+#include "../../assign/mol2_reader.h"
 
 #include <algorithm>
 #include <cmath>
@@ -13,6 +16,9 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
+#include "../../../utils/control/file.hpp"
+#include "../../../utils/control/os.hpp"
 
 namespace Xponge
 {
@@ -178,12 +184,7 @@ struct Mol2Molecule
     }
 };
 
-using detail::Read_File;
 using detail::Split_Atoms_Words;
-using detail::Split_Lines;
-using detail::Starts_With;
-using detail::Trim;
-using detail::Words;
 
 double Parse_Double(const std::string& value)
 {
@@ -200,7 +201,7 @@ bool Try_Parse_Float_After_Prefix(const std::string& line,
                                   double* value)
 {
     std::string rest = line.substr(offset);
-    rest = Trim(rest);
+    rest = string_strip(rest);
     if (rest.empty())
     {
         return false;
@@ -223,20 +224,6 @@ int Count_X(const std::vector<std::string>& atoms)
 {
     return static_cast<int>(
         std::count(atoms.begin(), atoms.end(), std::string("X")));
-}
-
-std::string Join_Path(const std::string& directory, const std::string& file)
-{
-    if (directory.empty())
-    {
-        return file;
-    }
-    const char last = directory[directory.size() - 1];
-    if (last == '/' || last == '\\')
-    {
-        return directory + file;
-    }
-    return directory + "/" + file;
 }
 
 std::string Format_Fixed(double value, int width, int precision)
@@ -307,20 +294,12 @@ std::map<std::string, int> Atomic_Number()
             {"Pt", 78}, {"Au", 79}, {"Hg", 80}, {"Tl", 81}, {"Pb", 82}};
 }
 
-std::string Lower(std::string value)
-{
-    std::transform(value.begin(), value.end(), value.begin(), [](char c) {
-        return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    });
-    return value;
-}
-
 std::string Gaff_To_Element(const std::string& gaff_type,
                             const std::string& atom_name)
 {
     static const auto by_gaff = Element_By_Gaff();
     static const auto atomic = Atomic_Number();
-    const auto by_gaff_it = by_gaff.find(Lower(gaff_type));
+    const auto by_gaff_it = by_gaff.find(string_lower(gaff_type));
     if (by_gaff_it != by_gaff.end())
     {
         return by_gaff_it->second;
@@ -357,47 +336,33 @@ Mol2Molecule Read_Mol2(const std::string& path)
 {
     static const auto atomic = Atomic_Number();
     Mol2Molecule mol;
-    std::string section;
-    for (const auto& raw : Split_Lines(Read_File(path)))
+    const Assign::Assignment assignment = Assign::Get_Assignment_From_Mol2(path);
+
+    mol.atoms.reserve(assignment.atoms().size());
+    for (const auto& assignment_atom : assignment.atoms())
     {
-        if (Starts_With(raw, "@<TRIPOS>"))
+        Mol2Atom atom;
+        atom.name = assignment_atom.name;
+        atom.x = assignment_atom.coordinate.x;
+        atom.y = assignment_atom.coordinate.y;
+        atom.z = assignment_atom.coordinate.z;
+        atom.gaff_type = assignment_atom.element + assignment_atom.element_detail;
+        atom.element = Gaff_To_Element(atom.gaff_type, atom.name);
+        const auto atomic_it = atomic.find(atom.element);
+        atom.atomic_num = atomic_it == atomic.end() ? 0 : atomic_it->second;
+        mol.atoms.push_back(atom);
+    }
+
+    mol.bonds.reserve(assignment.bond_order().size());
+    for (const auto& bond : assignment.bond_order())
+    {
+        int i = bond.first;
+        int j = bond.second;
+        if (i > j)
         {
-            section = Trim(raw.substr(9));
-            continue;
+            std::swap(i, j);
         }
-        if (section == "ATOM")
-        {
-            const auto words = Words(raw);
-            if (words.size() < 6)
-            {
-                continue;
-            }
-            Mol2Atom atom;
-            atom.name = words[1];
-            atom.x = Parse_Double(words[2]);
-            atom.y = Parse_Double(words[3]);
-            atom.z = Parse_Double(words[4]);
-            atom.gaff_type = words[5];
-            atom.element = Gaff_To_Element(atom.gaff_type, atom.name);
-            const auto atomic_it = atomic.find(atom.element);
-            atom.atomic_num = atomic_it == atomic.end() ? 0 : atomic_it->second;
-            mol.atoms.push_back(atom);
-        }
-        else if (section == "BOND")
-        {
-            const auto words = Words(raw);
-            if (words.size() < 3)
-            {
-                continue;
-            }
-            int i = Parse_Int(words[1]) - 1;
-            int j = Parse_Int(words[2]) - 1;
-            if (i > j)
-            {
-                std::swap(i, j);
-            }
-            mol.bonds.push_back({i, j});
-        }
+        mol.bonds.push_back({i, j});
     }
     return mol;
 }
@@ -433,15 +398,15 @@ ParmTable Load_Parmchk_Dat(const std::string& path)
         {"DEFAULT_FRACT1", &ParmTable::default_FRACT1},
         {"DEFAULT_FRACT2", &ParmTable::default_FRACT2}};
 
-    for (const auto& raw : Split_Lines(Read_File(path)))
+    for (const auto& raw : string_split_lines(Read_File_To_String(path)))
     {
-        const std::string line = Trim(raw);
+        const std::string line = string_strip(raw);
         if (line.empty() || line[0] == '#' || line[0] == '-')
         {
             continue;
         }
-        const auto words = Words(line);
-        if (Starts_With(line, "PARM"))
+        const auto words = string_words(line);
+        if (string_starts_with(line, "PARM"))
         {
             ParmEntry entry;
             entry.atomtype = words[1];
@@ -459,14 +424,14 @@ ParmTable Load_Parmchk_Dat(const std::string& path)
             current_equa = &pending_equa.back();
             current_corr = &pending_corr.back();
         }
-        else if (Starts_With(line, "EQUA"))
+        else if (string_starts_with(line, "EQUA"))
         {
             current_equa->push_back(words[1]);
             CorrEntry ce;
             ce.type = 1;
             current_corr->push_back({words[1], ce});
         }
-        else if (Starts_With(line, "CORR"))
+        else if (string_starts_with(line, "CORR"))
         {
             CorrEntry ce;
             ce.bl = Parse_Double(words[2]);
@@ -485,7 +450,7 @@ ParmTable Load_Parmchk_Dat(const std::string& path)
         {
             for (const auto& item : key_map)
             {
-                if (Starts_With(line, item.first))
+                if (string_starts_with(line, item.first))
                 {
                     double value = 0.0;
                     if (Try_Parse_Float_After_Prefix(line, item.first.size(),
@@ -541,14 +506,14 @@ ParmTable Load_Parmchk_Dat(const std::string& path)
 BlbaTables Load_Blba(const std::string& path)
 {
     BlbaTables blba;
-    for (const auto& raw : Split_Lines(Read_File(path)))
+    for (const auto& raw : string_split_lines(Read_File_To_String(path)))
     {
-        const std::string line = Trim(raw);
+        const std::string line = string_strip(raw);
         if (line.empty())
         {
             continue;
         }
-        const auto words = Words(line);
+        const auto words = string_words(line);
         if (words.empty() || words[0] != "PARM")
         {
             continue;
@@ -578,11 +543,11 @@ BlbaTables Load_Blba(const std::string& path)
 GaffTables Load_Gaff_Dat(const std::string& path)
 {
     GaffTables g;
-    const auto lines = Split_Lines(Read_File(path));
+    const auto lines = string_split_lines(Read_File_To_String(path));
     std::size_t idx = 1;
-    while (idx < lines.size() && !Trim(lines[idx]).empty())
+    while (idx < lines.size() && !string_strip(lines[idx]).empty())
     {
-        const auto words = Words(lines[idx]);
+        const auto words = string_words(lines[idx]);
         g.atoms.push_back(
             {words[0], Parse_Double(words[1]),
              words.size() >= 3 ? Parse_Double(words[2]) : 0.0});
@@ -593,11 +558,11 @@ GaffTables Load_Gaff_Dat(const std::string& path)
     {
         ++idx;
     }
-    while (idx < lines.size() && Trim(lines[idx]).empty())
+    while (idx < lines.size() && string_strip(lines[idx]).empty())
     {
         ++idx;
     }
-    while (idx < lines.size() && !Trim(lines[idx]).empty())
+    while (idx < lines.size() && !string_strip(lines[idx]).empty())
     {
         auto split = Split_Atoms_Words(lines[idx], 5);
         g.bonds.push_back({split.first[0], split.first[1],
@@ -606,7 +571,7 @@ GaffTables Load_Gaff_Dat(const std::string& path)
         ++idx;
     }
     ++idx;
-    while (idx < lines.size() && !Trim(lines[idx]).empty())
+    while (idx < lines.size() && !string_strip(lines[idx]).empty())
     {
         auto split = Split_Atoms_Words(lines[idx], 8);
         g.angles.push_back({split.first[0], split.first[1], split.first[2],
@@ -616,7 +581,7 @@ GaffTables Load_Gaff_Dat(const std::string& path)
     }
     ++idx;
     std::vector<std::string> last_atoms;
-    while (idx < lines.size() && !Trim(lines[idx]).empty())
+    while (idx < lines.size() && !string_strip(lines[idx]).empty())
     {
         auto split = Split_Atoms_Words(lines[idx], 11, &last_atoms);
         last_atoms = split.first;
@@ -632,7 +597,7 @@ GaffTables Load_Gaff_Dat(const std::string& path)
                      [](const GaffTorsion& a, const GaffTorsion& b) {
                          return (a.num_X > 0) < (b.num_X > 0);
                      });
-    while (idx < lines.size() && !Trim(lines[idx]).empty())
+    while (idx < lines.size() && !string_strip(lines[idx]).empty())
     {
         auto split = Split_Atoms_Words(lines[idx], 11);
         int num_X = Count_X(split.first);
@@ -670,28 +635,28 @@ GaffTables Load_Gaff_Dat(const std::string& path)
         ++idx;
     }
     ++idx;
-    while (idx < lines.size() && !Trim(lines[idx]).empty())
+    while (idx < lines.size() && !string_strip(lines[idx]).empty())
     {
         ++idx;
     }
     ++idx;
-    while (idx < lines.size() && !Trim(lines[idx]).empty())
+    while (idx < lines.size() && !string_strip(lines[idx]).empty())
     {
-        const auto words = Words(lines[idx]);
+        const auto words = string_words(lines[idx]);
         for (std::size_t i = 1; i < words.size(); ++i)
         {
             g.vdw_equivalents[words[i]] = words[0];
         }
         ++idx;
     }
-    while (idx < lines.size() && !Starts_With(lines[idx], "MOD4"))
+    while (idx < lines.size() && !string_starts_with(lines[idx], "MOD4"))
     {
         ++idx;
     }
     ++idx;
-    while (idx < lines.size() && !Trim(lines[idx]).empty())
+    while (idx < lines.size() && !string_strip(lines[idx]).empty())
     {
-        const auto words = Words(lines[idx]);
+        const auto words = string_words(lines[idx]);
         g.vdws.push_back(
             {words[0], Parse_Double(words[1]), Parse_Double(words[2])});
         ++idx;
@@ -763,6 +728,7 @@ public:
         torsion_snapshot_ = torsionparm_.size();
         improper_snapshot_ = improperparm_.size();
         vdw_snapshot_ = vdwparm_.size();
+        Build_Lookup_Indexes();
         for (const auto& atom : gaff_.atoms)
         {
             gaff_atom_by_name_[atom.name] = atom;
@@ -784,6 +750,49 @@ public:
     }
 
 private:
+    void Build_Lookup_Indexes()
+    {
+        for (std::size_t i = 0; i < bond_snapshot_; ++i)
+        {
+            const auto& b = bondparm_[i];
+            bond_index_.emplace(Canonical2(b.name1, b.name2), i);
+        }
+        for (std::size_t i = 0; i < angle_snapshot_; ++i)
+        {
+            const auto& a = angleparm_[i];
+            angle_index_.emplace(Canonical3(a.name1, a.name2, a.name3), i);
+        }
+        for (std::size_t i = 0; i < torsion_snapshot_; ++i)
+        {
+            const auto& t = torsionparm_[i];
+            if (t.num_X == 0)
+            {
+                torsion_specific_index_.emplace(
+                    Canonical4(t.name1, t.name2, t.name3, t.name4),
+                    static_cast<int>(i));
+            }
+            else if (t.name1 == "X" && t.name4 == "X")
+            {
+                torsion_general_index_.emplace(Canonical2(t.name2, t.name3),
+                                               static_cast<int>(i));
+            }
+        }
+        for (std::size_t i = 0; i < improper_snapshot_; ++i)
+        {
+            const auto& ip = improperparm_[i];
+            if (ip.num_X == 0)
+            {
+                improper_specific_index_.emplace(
+                    std::make_tuple(ip.name1, ip.name2, ip.name3, ip.name4),
+                    static_cast<int>(i));
+            }
+            else
+            {
+                improper_general_indices_.push_back(static_cast<int>(i));
+            }
+        }
+    }
+
     static void Extend(std::vector<std::string>& target,
                        const std::vector<std::string>& source)
     {
@@ -933,6 +942,11 @@ private:
                           const std::string& n2,
                           std::size_t limit)
     {
+        if (limit == bond_snapshot_)
+        {
+            const auto hit = bond_index_.find(Canonical2(n1, n2));
+            return hit == bond_index_.end() ? nullptr : &bondparm_[hit->second];
+        }
         for (std::size_t k = 0; k < limit; ++k)
         {
             auto& b = bondparm_[k];
@@ -1065,6 +1079,11 @@ private:
                             const std::string& n3,
                             std::size_t limit)
     {
+        if (limit == angle_snapshot_)
+        {
+            const auto hit = angle_index_.find(Canonical3(n1, n2, n3));
+            return hit == angle_index_.end() ? nullptr : &angleparm_[hit->second];
+        }
         for (std::size_t k = 0; k < limit; ++k)
         {
             auto& a = angleparm_[k];
@@ -1367,6 +1386,12 @@ private:
                                 const std::string& n4,
                                 std::size_t limit)
     {
+        if (limit == torsion_snapshot_)
+        {
+            const auto hit =
+                torsion_specific_index_.find(Canonical4(n1, n2, n3, n4));
+            return hit == torsion_specific_index_.end() ? -1 : hit->second;
+        }
         for (std::size_t k = 0; k < limit; ++k)
         {
             const auto& t = torsionparm_[k];
@@ -1389,6 +1414,11 @@ private:
                                const std::string& n3,
                                std::size_t limit)
     {
+        if (limit == torsion_snapshot_)
+        {
+            const auto hit = torsion_general_index_.find(Canonical2(n2, n3));
+            return hit == torsion_general_index_.end() ? -1 : hit->second;
+        }
         for (std::size_t k = 0; k < limit; ++k)
         {
             const auto& t = torsionparm_[k];
@@ -1642,6 +1672,12 @@ private:
                                  const std::string& n4,
                                  std::size_t limit)
     {
+        if (limit == improper_snapshot_)
+        {
+            const auto hit =
+                improper_specific_index_.find(std::make_tuple(n1, n2, n3, n4));
+            return hit == improper_specific_index_.end() ? -1 : hit->second;
+        }
         for (std::size_t k = 0; k < limit; ++k)
         {
             const auto& ip = improperparm_[k];
@@ -1663,6 +1699,24 @@ private:
         std::size_t limit)
     {
         std::vector<std::pair<int, double>> hits;
+        if (limit == improper_snapshot_)
+        {
+            for (int idx : improper_general_indices_)
+            {
+                const auto& ip = improperparm_[idx];
+                if (!(ip.name1 == n1 || ip.name1 == "X")) continue;
+                if (!(ip.name2 == n2 || ip.name2 == "X")) continue;
+                if (!(ip.name3 == n3 || ip.name3 == "X")) continue;
+                if (!(ip.name4 == n4 || ip.name4 == "X")) continue;
+                double score = 0.0;
+                if (ip.name1 == "X") score += pt_.wt_X;
+                if (ip.name2 == "X") score += pt_.wt_X;
+                if (ip.name3 == "X") score += pt_.wt_X3;
+                if (ip.name4 == "X") score += pt_.wt_X;
+                hits.push_back({idx, score});
+            }
+            return hits;
+        }
         for (std::size_t k = 0; k < limit; ++k)
         {
             const auto& ip = improperparm_[k];
@@ -2026,9 +2080,18 @@ private:
     std::size_t improper_snapshot_ = 0;
     std::size_t vdw_snapshot_ = 0;
     std::map<std::string, GaffAtom> gaff_atom_by_name_;
+    std::map<std::pair<std::string, std::string>, std::size_t> bond_index_;
+    std::map<std::tuple<std::string, std::string, std::string>, std::size_t>
+        angle_index_;
+    std::map<std::tuple<std::string, std::string, std::string, std::string>, int>
+        torsion_specific_index_;
+    std::map<std::pair<std::string, std::string>, int> torsion_general_index_;
+    std::map<std::tuple<std::string, std::string, std::string, std::string>, int>
+        improper_specific_index_;
+    std::vector<int> improper_general_indices_;
 };
 
-}  // namespace
+}
 
 void Generate_Gaff_Frcmod(const std::string& input_mol2,
                           const std::string& output_frcmod,
@@ -2058,5 +2121,5 @@ void Generate_Gaff_Frcmod(const std::string& input_mol2,
     }
 }
 
-}  // namespace Amber
-}  // namespace Xponge
+}
+}

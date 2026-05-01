@@ -1,18 +1,32 @@
 ﻿#pragma once
 
+#include <cstdlib>
 #include <errno.h>
+#include <string>
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include <direct.h>
+#include <io.h>
 #ifndef F_OK
 #define F_OK 0
 #endif
 #define access _access
 #define chdir _chdir
 #define getcwd _getcwd
+#else
+#include <unistd.h>
+#endif
+
+#ifndef CHAR_LENGTH_MAX
+#define CHAR_LENGTH_MAX 512
 #endif
 
 inline std::string Get_Current_Working_Directory()
@@ -74,7 +88,14 @@ inline std::string Path_Extension(const std::string& path)
 inline std::string Get_SPONGE_Directory()
 {
     char path[CHAR_LENGTH_MAX] = {0};
-#if defined(__APPLE__)
+#if defined(_WIN32)
+    const DWORD length = GetModuleFileName(NULL, path, CHAR_LENGTH_MAX - 1);
+    if (length == 0 || length >= CHAR_LENGTH_MAX - 1)
+    {
+        return Get_Current_Working_Directory();
+    }
+    return path;
+#elif defined(__APPLE__)
     uint32_t size = sizeof(path);
     if (_NSGetExecutablePath(path, &size) != 0)
     {

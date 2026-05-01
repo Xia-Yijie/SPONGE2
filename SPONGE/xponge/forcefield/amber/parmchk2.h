@@ -19,5 +19,5 @@ void Generate_Gaff_Frcmod(const std::string& input_mol2,
                           const std::string& output_frcmod,
                           const Parmchk2Options& options);
 
-}  // namespace Amber
-}  // namespace Xponge
+}
+}

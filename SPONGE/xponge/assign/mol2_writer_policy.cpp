@@ -102,7 +102,7 @@ std::string Amber_Gaff_Antechamber_Bond_Type_For_Output(
     return std::to_string(order);
 }
 
-}  // namespace
+}
 
 std::string Preserve_Bond_Type_For_Output(const Assignment& assignment,
                                           std::size_t atom1,
@@ -149,5 +149,5 @@ std::string Mol2_Bond_Type_For_Output(const Assignment& assignment,
     throw std::runtime_error("unknown mol2 bond output policy");
 }
 
-}  // namespace Assign
-}  // namespace Xponge
+}
+}

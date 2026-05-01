@@ -1161,7 +1161,7 @@ void Apply_Antechamber_Paired_Adjustments(const Assignment& assignment,
     Propagate_Paired_Types(assignment, atom_types, {"cp"}, {{"cp", "cq"}});
 }
 
-}  // namespace
+}
 
 void Determine_Gaff_Atom_Type(Assignment& assignment)
 {
@@ -1177,5 +1177,5 @@ void Determine_Gaff_Atom_Type(Assignment& assignment)
     Normalize_Gaff_Bond_Types(assignment);
 }
 
-}  // namespace Assign
-}  // namespace Xponge
+}
+}

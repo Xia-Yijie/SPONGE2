@@ -32,7 +32,7 @@ int Residue_Atom_Index(const ResidueType& residue, const std::string& name)
                              residue.name);
 }
 
-}  // namespace
+}
 
 std::vector<std::pair<int, int>> Molecule::Bonds(
     bool connect_residue_tails) const
@@ -101,4 +101,4 @@ std::string Molecule::Forcefield() const
     return forcefield;
 }
 
-}  // namespace Xponge
+}

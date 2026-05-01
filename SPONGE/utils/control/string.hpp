@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <cctype>
 #include <map>
 #include <sstream>
 #include <string>
@@ -152,6 +153,15 @@ inline bool is_str_float(const char* str)
         return false;
     }
     return hasNum;
+}
+
+inline std::string string_lower(std::string value)
+{
+    for (char& c : value)
+    {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return value;
 }
 
 // 字符串去掉前后空格

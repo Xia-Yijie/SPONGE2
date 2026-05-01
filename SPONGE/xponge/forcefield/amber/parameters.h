@@ -63,6 +63,11 @@ std::tuple<std::string, std::string, std::string> Canonical3(
     const std::string& a,
     const std::string& b,
     const std::string& c);
+std::tuple<std::string, std::string, std::string, std::string> Canonical4(
+    const std::string& a,
+    const std::string& b,
+    const std::string& c,
+    const std::string& d);
 
-}  // namespace Amber
-}  // namespace Xponge
+}
+}

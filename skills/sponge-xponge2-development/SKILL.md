@@ -30,7 +30,7 @@ xponge2 是在 SPONGE monorepo 内构建的 Python wheel，不要求 `plugins/xp
 
 ## Layout Guidance
 
-- `SPONGE/xponge/assign/` 应保持接近独立 core：标准库 + 本目录内部依赖，不能依赖 Python、`CONTROLLER`、GPU/MPI 或 SPONGE 主程序运行状态。
+- `SPONGE/xponge/assign/` 应保持接近独立 core：标准库、本目录内部依赖，以及 `SPONGE/utils/control/{string,file}.hpp` 等纯 header-only stdlib 工具；不能依赖 Python、`CONTROLLER`、GPU/MPI 或 SPONGE 主程序运行状态。
 - `SPONGE/xponge/pyinterface.cpp` 是 Limited Python C API 包装和异常转换入口，可以包含 `Python.h`，但不要把 Python API 泄漏到 `assign/`、`model.*` 或 force-field core headers。
 - `plugins/xponge2/src/` 不应再存放 C++ 源文件；如果看到新的 C++ 被加到 plugin 目录，应移动到 `SPONGE/xponge` 并纳入 `xponge_core` target。
 - `SPONGE/xponge/load/` 可以作为 SPONGE adapter 使用 `CONTROLLER`。如果未来 xponge2 也要 load Gromacs/Amber/native，优先把可复用 parser/IR 放进不依赖 `CONTROLLER` 的 core 层，再由 SPONGE adapter 和 Python wrapper 分别调用。
