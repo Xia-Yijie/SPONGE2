@@ -6,7 +6,6 @@ void PRESSURE_BASED_BAROSTAT_INFORMATION::Initial(
 {
     controller->printf("START INITIALIZING PRESSURE BASED BAROSTAT:\n");
     this->box_updator = box_updator;
-    this->extreme_box_updator = extreme_box_updator;
     if (controller->Command_Choice("barostat", "andersen_barostat") ||
         controller->Command_Choice("barostat_mode", "andersen_barostat"))
     {

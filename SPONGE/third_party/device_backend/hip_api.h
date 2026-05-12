@@ -6,6 +6,13 @@
 #include <hip/hiprtc.h>
 #include <hiprand/hiprand_kernel.h>
 
+struct deviceIgnoredError
+{
+    hipError_t error;
+
+    operator hipError_t() const { return error; }
+};
+
 #define Philox4_32_10_t hiprandStatePhilox4_32_10_t
 #define device_rand_init hiprand_init
 #define device_get_4_normal_distributed_random_numbers(rand_float4,   \
@@ -15,23 +22,66 @@
 #define DEVICE_INIT_SUCCESS hipSuccess
 #define DEVICE_MALLOC_SUCCESS hipSuccess
 
-#define deviceInit hipInit
-#define deviceGetDeviceCount hipGetDeviceCount
-#define deviceProp hipDeviceProp_t
-#define getDeviceProperties hipGetDeviceProperties
-#define setWorkingDevice hipSetDevice
+static inline deviceIgnoredError deviceInit(unsigned int flags)
+{
+    return {hipInit(flags)};
+}
 
-#define deviceMalloc hipMalloc
-#define deviceMemcpy hipMemcpy
-#define deviceMemcpyAsync hipMemcpyAsync
+static inline deviceIgnoredError deviceGetDeviceCount(int* count)
+{
+    return {hipGetDeviceCount(count)};
+}
+
+#define deviceProp hipDeviceProp_t
+
+static inline deviceIgnoredError getDeviceProperties(hipDeviceProp_t* prop,
+                                                     int device)
+{
+    return {hipGetDeviceProperties(prop, device)};
+}
+
+static inline deviceIgnoredError setWorkingDevice(int device)
+{
+    return {hipSetDevice(device)};
+}
+
+static inline deviceIgnoredError deviceMalloc(void** ptr, size_t size)
+{
+    return {hipMalloc(ptr, size)};
+}
+
+static inline deviceIgnoredError deviceMemcpy(void* dst, const void* src,
+                                              size_t size_bytes,
+                                              hipMemcpyKind kind)
+{
+    return {hipMemcpy(dst, src, size_bytes, kind)};
+}
+
+static inline deviceIgnoredError deviceMemcpyAsync(void* dst, const void* src,
+                                                   size_t size_bytes,
+                                                   hipMemcpyKind kind,
+                                                   hipStream_t stream = nullptr)
+{
+    return {hipMemcpyAsync(dst, src, size_bytes, kind, stream)};
+}
+
 #define deviceMemcpyKind hipMemcpyKind
 #define deviceMemcpyHostToHost hipMemcpyHostToHost
 #define deviceMemcpyHostToDevice hipMemcpyHostToDevice
 #define deviceMemcpyDeviceToHost hipMemcpyDeviceToHost
 #define deviceMemcpyDeviceToDevice hipMemcpyDeviceToDevice
 #define deviceMemcpyDefault hipMemcpyDefault
-#define deviceMemset(PTR, VAL, SIZE) hipMemsetAsync(PTR, VAL, SIZE, nullptr)
-#define deviceFree hipFree
+
+static inline deviceIgnoredError deviceMemset(void* ptr, int value,
+                                              size_t size_bytes)
+{
+    return {hipMemsetAsync(ptr, value, size_bytes, nullptr)};
+}
+
+static inline deviceIgnoredError deviceFree(void* ptr)
+{
+    return {hipFree(ptr)};
+}
 
 #define deviceError_t hipError_t
 #define deviceGetErrorName hipGetErrorName
@@ -42,9 +92,21 @@
 #define deviceGetLastError hipGetLastError
 
 #define deviceStream_t hipStream_t
-#define deviceStreamCreate hipStreamCreate
-#define deviceStreamDestroy hipStreamDestroy
-#define deviceStreamSynchronize hipStreamSynchronize
+
+static inline deviceIgnoredError deviceStreamCreate(hipStream_t* stream)
+{
+    return {hipStreamCreate(stream)};
+}
+
+static inline deviceIgnoredError deviceStreamDestroy(hipStream_t stream)
+{
+    return {hipStreamDestroy(stream)};
+}
+
+static inline deviceIgnoredError deviceStreamSynchronize(hipStream_t stream)
+{
+    return {hipStreamSynchronize(stream)};
+}
 
 #define Launch_Device_Kernel(kernel, grid, block, sm_memory, stream, ...) \
     kernel<<<grid, block, sm_memory, stream>>>(__VA_ARGS__)
@@ -113,7 +175,10 @@ static __device__ __forceinline__ void deviceSyncWarp(
     return;
 }
 
-#define hostDeviceSynchronize hipDeviceSynchronize
+static inline deviceIgnoredError hostDeviceSynchronize()
+{
+    return {hipDeviceSynchronize()};
+}
 
 #define DEVICE_JIT_COMPILER_NAME "HIPRTC"
 #define DEVICE_JIT_CODE_NAME "code object"

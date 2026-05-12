@@ -131,7 +131,8 @@ int MC_BAROSTAT_INFORMATION::Check_MC_Barostat_Accept()
     float tmp_rand;
     if (CONTROLLER::MPI_rank == 0)
     {
-        tmp_rand = (float)rand() / RAND_MAX;
+        tmp_rand = static_cast<float>(static_cast<double>(rand()) /
+                                      static_cast<double>(RAND_MAX));
     }
 #ifdef USE_MPI
     MPI_Bcast(&tmp_rand, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
