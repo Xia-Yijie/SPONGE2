@@ -22,6 +22,11 @@ include("${PARALLEL_FILE}")
 set(MPI_FILE "${PROJECT_ROOT_DIR}/cmake/utils/mpi.cmake")
 include("${MPI_FILE}")
 
+option(EXPERIMENTAL_FEATURE "Build experimental features" OFF)
+if(EXPERIMENTAL_FEATURE)
+  add_definitions(-DEXPERIMENTAL_FEATURE)
+endif()
+
 # Load Targets
 set(TARGETS_FILE "${PROJECT_ROOT_DIR}/cmake/utils/targets.cmake")
 include("${TARGETS_FILE}")

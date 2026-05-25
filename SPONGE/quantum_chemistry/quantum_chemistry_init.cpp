@@ -950,6 +950,10 @@ void QUANTUM_CHEMISTRY::Initial(CONTROLLER* controller, const int atom_numbers,
                                            qc_type_file, basis_set_name);
     if (!need_qc) return;
 
+    controller->Warn(
+        "quantum_chemistry is an experimental module and may have "
+        "compile-time or runtime issues.");
+
     Initial_Molecule(controller, qc_type_file, basis_set_name);
     orbital_basis_name = basis_set_name;
 

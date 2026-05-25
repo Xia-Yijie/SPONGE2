@@ -59,7 +59,9 @@ EDIP_INFORMATION edip;
 EAM_INFORMATION eam;
 TERSOFF_INFORMATION tersoff;
 REAXFF reaxff;
+#ifdef EXPERIMENTAL_FEATURE
 QUANTUM_CHEMISTRY qc;
+#endif
 SPONGE_PLUGIN plugin;
 
 deviceStream_t main_stream;
@@ -88,7 +90,9 @@ void Main_Initial(int argc, char* argv[])
     md_info.Initial(&controller);
     controller.Step_Print_Initial("potential", "%.2f");
     controller.Step_Print_Initial("eff_pot", "%.7e");
+#ifdef EXPERIMENTAL_FEATURE
     qc.Initial(&controller, md_info.atom_numbers, md_info.crd);
+#endif
     cv_controller.atom_numbers = md_info.atom_numbers;
     plugin.Initial(&md_info, &controller, &cv_controller, &neighbor_list);
 
@@ -277,7 +281,9 @@ void Main_Calculate_Force()
         md_info.atom_numbers +
         md_info.no_direct_interaction_virtual_atom_numbers;
     md_info.MD_Reset_Atom_Energy_And_Virial_And_Force();
+#ifdef EXPERIMENTAL_FEATURE
     qc.Solve_SCF(dd.crd, md_info.sys.box_length, true, md_info.sys.steps);
+#endif
     if (md_info.mode == md_info.MINIMIZATION && md_info.min.dynamic_dt)
     {
         md_info.need_potential = 1;
@@ -304,9 +310,11 @@ void Main_Calculate_Force()
     {
         dd.Reset_Force_and_Virial(&md_info);
         // QC 梯度必须在 dd.Reset_Force_and_Virial 之后调用
+#ifdef EXPERIMENTAL_FEATURE
         if (qc.is_initialized && qc.need_gradient)
             qc.Compute_Gradient(dd.frc, dd.crd, md_info.sys.box_length,
                                 md_info.need_pressure, dd.d_virial);
+#endif
         dd.Update_Ghost(&controller);
         neighbor_list.Update(
             dd.atom_local, dd.atom_numbers, dd.ghost_numbers, dd.crd,
@@ -812,10 +820,12 @@ void Main_Print()
         controller.Step_Print("potential", dd.h_sum_ene_total);
 
         restrain.Step_Print(&controller);
+#ifdef EXPERIMENTAL_FEATURE
         if (qc.is_initialized)
         {
             qc.Step_Print(&controller);
         }
+#endif
         cv_controller.Step_Print();
         plugin.Mdout_Print();
         steer_cv.Step_Print(&controller);

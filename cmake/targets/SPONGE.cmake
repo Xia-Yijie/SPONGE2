@@ -44,6 +44,24 @@ set(SPONGE_SOURCES
     ${PROJECT_ROOT_DIR}/SPONGE/custom_force/pairwise_force.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/wall/soft_wall.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/wall/hard_wall.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/NO_PBC/Coulomb_Force_No_PBC.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/NO_PBC/Lennard_Jones_force_No_PBC.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/NO_PBC/generalized_Born.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/sw.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/edip.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/eam.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/tersoff.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/eeq.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/bond_order.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/bond.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/vdw.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/over_under.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/valence_angle.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/torsion.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/hydrogen_bond.cpp
+    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/reaxff.cpp)
+
+set(SPONGE_EXPERIMENTAL_SOURCES
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/guess/minao.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/guess/sap.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/ecp/ecp_integrals.cpp
@@ -85,23 +103,11 @@ set(SPONGE_SOURCES
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/cc/cc-pvdz.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/cc/cc-pvtz.cpp
     ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/cc/aug-cc-pvdz.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/cc/aug-cc-pvtz.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/NO_PBC/Coulomb_Force_No_PBC.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/NO_PBC/Lennard_Jones_force_No_PBC.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/NO_PBC/generalized_Born.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/sw.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/edip.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/eam.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/tersoff.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/eeq.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/bond_order.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/bond.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/vdw.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/over_under.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/valence_angle.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/torsion.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/hydrogen_bond.cpp
-    ${PROJECT_ROOT_DIR}/SPONGE/manybody/reaxff/reaxff.cpp)
+    ${PROJECT_ROOT_DIR}/SPONGE/quantum_chemistry/basis/cc/aug-cc-pvtz.cpp)
+
+if(EXPERIMENTAL_FEATURE)
+  list(APPEND SPONGE_SOURCES ${SPONGE_EXPERIMENTAL_SOURCES})
+endif()
 
 set(SOURCES ${SPONGE_SOURCES})
 
