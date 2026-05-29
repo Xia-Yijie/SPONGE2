@@ -196,12 +196,12 @@ def get_subdir() -> str:
 
 
 def detect_variant(env_name: str) -> str:
-    """Detect variant by stripping the 'dev-' prefix from the environment name."""
-    if not env_name.startswith("dev-"):
+    """Detect variant by stripping the 'pkg-' prefix from the environment name."""
+    if not env_name.startswith("pkg-"):
         sys.exit(
-            f"Error: Environment name must start with 'dev-', got '{env_name}'"
+            f"Error: Environment name must start with 'pkg-', got '{env_name}'"
         )
-    return env_name[len("dev-") :]
+    return env_name[len("pkg-") :]
 
 
 def collect_files(env_name: str) -> list[tuple[Path, str]]:
