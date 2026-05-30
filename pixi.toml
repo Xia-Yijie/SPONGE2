@@ -26,6 +26,11 @@ ref-gen = ["ref-gen"]
 python = ">=3.9"
 zstandard = "*"
 
+# Linux 打包时 conda.py 需要 patchelf 修正二进制 RPATH（dev feature 已带，pkg
+# 之前漏了，导致 pkg-* 环境在 Linux 上 package-conda 报 "patchelf not found"）。
+[feature.pkg.target.linux-64.dependencies]
+patchelf = "*"
+
 [feature.pkg.tasks]
 package-conda = "python -X utf8 packaging/conda.py --env $PIXI_ENVIRONMENT_NAME --output-dir packaging/outputs"
 
