@@ -28,7 +28,11 @@ zstandard = "*"
 
 # Linux 打包时 conda.py 需要 patchelf 修正二进制 RPATH（dev feature 已带，pkg
 # 之前漏了，导致 pkg-* 环境在 Linux 上 package-conda 报 "patchelf not found"）。
+# linux-64 与 linux-aarch64 都需要（之前只配了 64，导致 ARM 上打包失败）。
 [feature.pkg.target.linux-64.dependencies]
+patchelf = "*"
+
+[feature.pkg.target.linux-aarch64.dependencies]
 patchelf = "*"
 
 [feature.pkg.tasks]
